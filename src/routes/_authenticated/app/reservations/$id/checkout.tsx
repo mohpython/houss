@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getReservationCheckout } from "@/lib/reservations.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { declareMobileMoneyPayment } from "@/lib/payment.functions";
 import { setFulfillmentMethod } from "@/lib/fulfillment.functions";
@@ -78,13 +78,7 @@ function Checkout() {
   };
 
   const load = async () => {
-    const { data } = await supabase
-      .from("reservations")
-      .select(
-        "id, items_total, delivery_fee, total_amount, payment_status, fulfillment_method, patient_address, patient_phone, is_partial, missing_items, prescription_id, neighborhood_id, patient_lat, patient_lng, pharmacies(name, address), reservation_items(id, unit_price, prescription_items(medicine_name_raw, strength))",
-      )
-      .eq("id", id)
-      .single();
+    const data = await getReservationCheckout({ data: { id } }).catch(() => null);
     const r = (data as unknown as Row) ?? null;
     setRow(r);
     if (r?.patient_phone) setPhone((prev) => prev || r.patient_phone!);

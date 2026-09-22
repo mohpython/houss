@@ -13,13 +13,14 @@ export const Route = createFileRoute("/api/storage/$")({
         const key = rest.map((s) => decodeURIComponent(s)).join("/");
         const url = new URL(request.url);
 
-        const { verifySignedUrl, readObject, mimeFromKey, BUCKETS } = await import(
-          "@/server/storage.server"
-        );
+        const { verifySignedUrl, readObject, mimeFromKey, BUCKETS } =
+          await import("@/server/storage.server");
         if (!BUCKETS.includes(bucket as (typeof BUCKETS)[number]) || !key) {
           return new Response("Not found", { status: 404 });
         }
-        if (!verifySignedUrl(bucket, key, url.searchParams.get("exp"), url.searchParams.get("sig"))) {
+        if (
+          !verifySignedUrl(bucket, key, url.searchParams.get("exp"), url.searchParams.get("sig"))
+        ) {
           return new Response("Lien expiré ou invalide", { status: 403 });
         }
         try {

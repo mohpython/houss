@@ -66,7 +66,7 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
           return new Response("Bad request", { status: 400 });
         }
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { prisma } = await import("@/server/db.server");
         const { handleInbound } = await import("@/lib/whatsapp-bot.server");
         const { markRead } = await import("@/lib/whatsapp.server");
 
@@ -77,10 +77,11 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
 
             for (const m of value?.messages ?? []) {
               // Idempotency: Meta retries deliveries.
-              const { error: dupErr } = await supabaseAdmin
-                .from("whatsapp_events")
-                .insert({ message_id: m.id });
-              if (dupErr) continue;
+              try {
+                await prisma.whatsapp_events.create({ data: { message_id: m.id } });
+              } catch {
+                continue;
+              }
 
               void markRead(m.id);
 

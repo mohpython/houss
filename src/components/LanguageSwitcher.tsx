@@ -8,7 +8,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { applyLanguage, SUPPORTED_LANGS, type SupportedLang } from "@/i18n";
-import { supabase } from "@/integrations/supabase/client";
+import { auth } from "@/integrations/auth/client";
+import { setMyLanguage } from "@/lib/account.functions";
 
 const FLAGS: Record<SupportedLang, string> = { fr: "🇫🇷", en: "🇬🇧", ar: "🇸🇦" };
 
@@ -18,9 +19,9 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
 
   const change = async (lang: SupportedLang) => {
     applyLanguage(lang);
-    const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      await supabase.from("profiles").update({ language: lang }).eq("id", data.user.id);
+    const { data } = await auth.getSession();
+    if (data.session) {
+      await setMyLanguage({ data: { language: lang } }).catch(() => undefined);
     }
   };
 

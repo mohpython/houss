@@ -5,15 +5,14 @@
  *   photo d'ordonnance -> extraction IA -> médicaments affichés -> confirmation
  *   -> position -> pharmacie ayant 100% du stock -> réservation -> livreur.
  */
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { randomUUID } from "node:crypto";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/server/db.server";
+import { createAccount } from "@/server/auth.server";
+import { saveObject } from "@/server/storage.server";
 import { extractPrescriptionCore } from "./rx-core.server";
 import { autoRouteCore, resolveDeliveryTarget } from "./routing-core.server";
-import {
-  sendText,
-  sendButtons,
-  sendLocationRequest,
-  downloadMedia,
-} from "./whatsapp.server";
+import { sendText, sendButtons, sendLocationRequest, downloadMedia } from "./whatsapp.server";
 import { mergeCopy, botLang, statusLabel, detectLangCommand, type BotLang } from "./whatsapp-copy";
 
 /* ------------------------------------------------------------------ admin templates */
@@ -24,8 +23,10 @@ async function loadTemplates() {
   if (templateCache && Date.now() - templateCache.at < 60_000) return;
   const rows: Record<string, Record<string, string>> = { fr: {}, en: {}, ar: {} };
   try {
-    const { data } = await supabaseAdmin.from("whatsapp_templates").select("key, lang, body");
-    for (const r of data ?? []) (rows[r.lang] ??= {})[r.key] = r.body;
+    const data = await prisma.whatsapp_templates.findMany({
+      select: { key: true, lang: true, body: true },
+    });
+    for (const r of data) (rows[r.lang] ??= {})[r.key] = r.body;
   } catch (err) {
     console.error("[whatsapp-bot] templates", err);
   }
@@ -74,33 +75,44 @@ export type InboundMessage = {
 
 /* ------------------------------------------------------------------ session */
 
+const SESSION_SELECT = {
+  id: true,
+  wa_phone: true,
+  user_id: true,
+  language: true,
+  state: true,
+  context: true,
+} as const;
+
 async function getSession(from: string, name?: string | null): Promise<SessionRow> {
-  const { data: existing } = await supabaseAdmin
-    .from("whatsapp_sessions")
-    .select("id, wa_phone, user_id, language, state, context")
-    .eq("wa_phone", from)
-    .maybeSingle();
+  const existing = await prisma.whatsapp_sessions.findUnique({
+    where: { wa_phone: from },
+    select: SESSION_SELECT,
+  });
 
   if (existing) {
-    await supabaseAdmin
-      .from("whatsapp_sessions")
-      .update({ last_message_at: new Date().toISOString(), ...(name ? { wa_name: name } : {}) })
-      .eq("id", existing.id);
-    return existing as SessionRow;
+    await prisma.whatsapp_sessions.update({
+      where: { id: existing.id },
+      data: { last_message_at: new Date(), ...(name ? { wa_name: name } : {}) },
+    });
+    return existing as unknown as SessionRow;
   }
 
-  const { data: created, error } = await supabaseAdmin
-    .from("whatsapp_sessions")
-    .insert({
-      wa_phone: from,
-      wa_name: name ?? null,
-      state: "idle",
-      last_message_at: new Date().toISOString(),
-    })
-    .select("id, wa_phone, user_id, language, state, context")
-    .single();
-  if (error || !created) throw new Error(error?.message ?? "Session WhatsApp impossible");
-  return created as SessionRow;
+  let created;
+  try {
+    created = await prisma.whatsapp_sessions.create({
+      data: {
+        wa_phone: from,
+        wa_name: name ?? null,
+        state: "idle",
+        last_message_at: new Date(),
+      },
+      select: SESSION_SELECT,
+    });
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : "Session WhatsApp impossible");
+  }
+  return created as unknown as SessionRow;
 }
 
 async function patchSession(
@@ -109,11 +121,14 @@ async function patchSession(
     context?: Record<string, unknown>;
   },
 ) {
-  await supabaseAdmin
-    .from("whatsapp_sessions")
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .update(patch as any)
-    .eq("id", session.id);
+  const { context, ...rest } = patch;
+  await prisma.whatsapp_sessions.update({
+    where: { id: session.id },
+    data: {
+      ...rest,
+      ...(context !== undefined ? { context: context as Prisma.InputJsonValue } : {}),
+    },
+  });
   Object.assign(session, patch);
 }
 
@@ -124,12 +139,10 @@ async function ensureUser(session: SessionRow, name?: string | null): Promise<st
   const e164 = `+${session.wa_phone.replace(/\D/g, "")}`;
   const digits = e164.slice(1);
 
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("id, language")
-    .or(`phone.eq.${e164},phone.eq.${digits}`)
-    .limit(1)
-    .maybeSingle();
+  const profile = await prisma.profiles.findFirst({
+    where: { OR: [{ phone: e164 }, { phone: digits }] },
+    select: { id: true, language: true },
+  });
 
   if (profile) {
     await patchSession(session, {
@@ -139,16 +152,14 @@ async function ensureUser(session: SessionRow, name?: string | null): Promise<st
     return profile.id;
   }
 
-  const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
-    phone: e164,
-    phone_confirm: true,
-    user_metadata: { full_name: name ?? "", phone: e164, source: "whatsapp" },
-  });
-  if (error || !created.user) {
-    throw new Error(error?.message ?? "Création du compte impossible");
+  let createdId: string;
+  try {
+    createdId = await createAccount({ phone: e164, fullName: name ?? "", phoneVerified: true });
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : "Création du compte impossible");
   }
-  await patchSession(session, { user_id: created.user.id });
-  return created.user.id;
+  await patchSession(session, { user_id: createdId });
+  return createdId;
 }
 
 /* ------------------------------------------------------------------ helpers */
@@ -172,11 +183,10 @@ async function sendMenu(to: string, lang: BotLang, intro?: string) {
 }
 
 async function listMedicines(prescriptionId: string) {
-  const { data } = await supabaseAdmin
-    .from("prescription_items")
-    .select("medicine_name_raw, strength, dosage, duration")
-    .eq("prescription_id", prescriptionId);
-  return data ?? [];
+  return prisma.prescription_items.findMany({
+    where: { prescription_id: prescriptionId },
+    select: { medicine_name_raw: true, strength: true, dosage: true, duration: true },
+  });
 }
 
 async function sendTracking(session: SessionRow, lang: BotLang) {
@@ -186,12 +196,17 @@ async function sendTracking(session: SessionRow, lang: BotLang) {
     await sendText(session.wa_phone, c.trackNone);
     return;
   }
-  const { data: rows } = await supabaseAdmin
-    .from("reservations")
-    .select("id, status, delivery_status, pharmacies(name)")
-    .eq("patient_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(5);
+  const rows = await prisma.reservations.findMany({
+    where: { patient_id: userId },
+    select: {
+      id: true,
+      status: true,
+      delivery_status: true,
+      pharmacies: { select: { name: true } },
+    },
+    orderBy: { created_at: "desc" },
+    take: 5,
+  });
 
   if (!rows || rows.length === 0) {
     await sendText(session.wa_phone, c.trackNone);
@@ -201,8 +216,7 @@ async function sendTracking(session: SessionRow, lang: BotLang) {
   const lines = rows.map((r) =>
     c.statusLine({
       ref: ref(r.id),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pharmacy: (r as any).pharmacies?.name ?? "—",
+      pharmacy: r.pharmacies?.name ?? "—",
       status: statusLabel(lang, r.status),
       delivery: statusLabel(lang, r.delivery_status),
     }),
@@ -224,28 +238,23 @@ async function handlePrescriptionMedia(session: SessionRow, lang: BotLang, msg: 
   const media = await downloadMedia(msg.mediaId!);
   const mime = msg.mediaMime ?? media.mimeType;
   const ext = mime === "application/pdf" ? "pdf" : (mime.split("/")[1] ?? "jpg");
-  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const path = `${userId}/${randomUUID()}.${ext}`;
 
-  const { error: upErr } = await supabaseAdmin.storage
-    .from("prescriptions")
-    .upload(path, media.bytes, { contentType: mime });
-  if (upErr) throw new Error(upErr.message);
+  await saveObject("prescriptions", path, media.bytes);
 
-  const { data: rx, error: insErr } = await supabaseAdmin
-    .from("prescriptions")
-    .insert({
+  const rx = await prisma.prescriptions.create({
+    data: {
       patient_id: userId,
       file_path: path,
       file_mime: mime,
       status: "uploaded",
       source: "whatsapp",
-    })
-    .select("id")
-    .single();
-  if (insErr || !rx) throw new Error(insErr?.message ?? "Enregistrement impossible");
+    },
+    select: { id: true },
+  });
 
   try {
-    await extractPrescriptionCore(supabaseAdmin, userId, rx.id);
+    await extractPrescriptionCore(userId, rx.id);
   } catch (err) {
     const reason = err instanceof Error ? err.message : "Erreur inconnue";
     await patchSession(session, { state: "awaiting_rx" });
@@ -296,31 +305,32 @@ async function handleFreeOrderText(session: SessionRow, lang: BotLang, text: str
     return;
   }
 
-  const path = `${userId}/${crypto.randomUUID()}.txt`;
-  await supabaseAdmin.storage
-    .from("prescriptions")
-    .upload(path, new TextEncoder().encode(names.join("\n")), { contentType: "text/plain" });
+  const path = `${userId}/${randomUUID()}.txt`;
+  try {
+    await saveObject("prescriptions", path, new TextEncoder().encode(names.join("\n")));
+  } catch (err) {
+    // Comme avant : l'échec d'enregistrement du fichier texte n'est pas bloquant.
+    console.error("[whatsapp-bot] free order file", err);
+  }
 
-  const { data: rx, error } = await supabaseAdmin
-    .from("prescriptions")
-    .insert({
+  const rx = await prisma.prescriptions.create({
+    data: {
       patient_id: userId,
       file_path: path,
       file_mime: "text/plain",
       status: "verified",
       source: "whatsapp",
-    })
-    .select("id")
-    .single();
-  if (error || !rx) throw new Error(error?.message ?? "Enregistrement impossible");
+    },
+    select: { id: true },
+  });
 
-  await supabaseAdmin.from("prescription_items").insert(
-    names.map((n) => ({
+  await prisma.prescription_items.createMany({
+    data: names.map((n) => ({
       prescription_id: rx.id,
       medicine_name_raw: n,
       patient_verified: true,
     })),
-  );
+  });
 
   await patchSession(session, {
     state: "awaiting_location",
@@ -351,13 +361,13 @@ async function routeOrder(session: SessionRow, lang: BotLang, choice: DeliveryCh
   let routed: Awaited<ReturnType<typeof autoRouteCore>>;
   try {
     // Neighborhood coordinates are resolved server-side (source of truth).
-    const target = await resolveDeliveryTarget(supabaseAdmin, {
+    const target = await resolveDeliveryTarget({
       lat: choice.kind === "gps" ? choice.lat : null,
       lng: choice.kind === "gps" ? choice.lng : null,
       address: choice.kind === "gps" ? (choice.address ?? null) : null,
       neighborhoodId: choice.kind === "neighborhood" ? choice.neighborhoodId : null,
     });
-    routed = await autoRouteCore(supabaseAdmin, {
+    routed = await autoRouteCore({
       prescriptionId,
       patientId: userId,
       patientLat: target.lat,
@@ -440,12 +450,11 @@ async function handleNeighborhoodText(session: SessionRow, lang: BotLang, text: 
     return;
   }
 
-  const { data: rows } = await supabaseAdmin
-    .from("neighborhoods")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("name");
-  const all: NbCandidate[] = rows ?? [];
+  const all: NbCandidate[] = await prisma.neighborhoods.findMany({
+    where: { is_active: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 
   const exact = all.filter((n) => foldName(n.name) === query);
   const partial = exact.length
@@ -517,10 +526,10 @@ export async function handleInbound(msg: InboundMessage): Promise<void> {
         await sendMenu(session.wa_phone, lang, c().fallback);
         return;
       }
-      await supabaseAdmin
-        .from("prescriptions")
-        .update({ status: "verified" })
-        .eq("id", prescriptionId);
+      await prisma.prescriptions.updateMany({
+        where: { id: prescriptionId },
+        data: { status: "verified" },
+      });
       await patchSession(session, { state: "awaiting_location" });
       await sendLocationRequest(session.wa_phone, c().askLocation);
       return;

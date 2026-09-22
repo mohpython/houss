@@ -1,6 +1,10 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  createPharmacyApplication,
+  getPharmacyOnboardingStatus,
+} from "@/lib/pharmacy-portal.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,39 +32,40 @@ function Onboarding() {
     google_place_id: "",
   });
   const [saving, setSaving] = useState(false);
+  const fetchStatus = useServerFn(getPharmacyOnboardingStatus);
+  const createPharmacy = useServerFn(createPharmacyApplication);
 
   useEffect(() => {
     const check = async () => {
-      const [owned, staff, courier] = await Promise.all([
-        supabase.from("pharmacies").select("id").eq("owner_user_id", user.id).maybeSingle(),
-        supabase.from("pharmacy_staff").select("id").eq("user_id", user.id).maybeSingle(),
-        supabase.from("couriers").select("id").eq("user_id", user.id).maybeSingle(),
-      ]);
-      if (owned.data || staff.data) setBlocked("pharmacy");
-      else if (courier.data) setBlocked("courier");
+      try {
+        const st = await fetchStatus();
+        if (st.owned || st.staff) setBlocked("pharmacy");
+        else if (st.courier) setBlocked("courier");
+      } catch {
+        // en cas d'erreur, le formulaire reste accessible (comme avant)
+      }
       setChecking(false);
     };
     check();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
-
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const { error } = await supabase.from("pharmacies").insert({
-        owner_user_id: user.id,
-        name: form.name,
-        license_number: form.license_number,
-        address: form.address,
-        city: form.city || null,
-        phone: form.phone || null,
-        lat: form.lat ? Number(form.lat) : null,
-        lng: form.lng ? Number(form.lng) : null,
-        google_place_id: form.google_place_id || null,
-        status: "pending",
+      await createPharmacy({
+        data: {
+          name: form.name,
+          license_number: form.license_number,
+          address: form.address,
+          city: form.city || null,
+          phone: form.phone || null,
+          lat: form.lat ? Number(form.lat) : null,
+          lng: form.lng ? Number(form.lng) : null,
+          google_place_id: form.google_place_id || null,
+        },
       });
-      if (error) throw error;
       toast.success("Demande envoyée. En attente de validation.");
       router.navigate({ to: "/app" });
     } catch (err) {
@@ -98,7 +103,6 @@ function Onboarding() {
   }
 
   return (
-
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="text-2xl font-bold tracking-tight">Inscrire une pharmacie</h1>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -184,9 +188,15 @@ function Onboarding() {
             />
             <p className="text-xs text-muted-foreground">
               Permet aux patients de voir vos stocks dans les résultats Google Maps. Trouvez-le sur{" "}
-              <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+              <a
+                href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
                 Place ID Finder
-              </a>.
+              </a>
+              .
             </p>
           </div>
           <Button type="submit" className="w-full" disabled={saving}>

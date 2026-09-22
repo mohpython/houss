@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { searchPlacesPharmaciesAdmin, registerPlacePharmacyAdmin } from "@/lib/pharmacy.functions";
+import { listApprovedPharmacies } from "@/lib/admin-data.functions";
 import {
-  searchPlacesPharmaciesAdmin,
-  registerPlacePharmacyAdmin,
-} from "@/lib/pharmacy.functions";
+  deleteInventoryItem,
+  listPharmacyInventory,
+  updateInventoryItem,
+  upsertInventoryItem,
+} from "@/lib/pharmacy-portal.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -62,13 +65,16 @@ function AdminInventory() {
   const searchFn = useServerFn(searchPlacesPharmaciesAdmin);
   const registerFn = useServerFn(registerPlacePharmacyAdmin);
 
+  const fetchPharms = useServerFn(listApprovedPharmacies);
+  const fetchInventory = useServerFn(listPharmacyInventory);
+  const upsertItem = useServerFn(upsertInventoryItem);
+  const updateItem = useServerFn(updateInventoryItem);
+  const deleteItem = useServerFn(deleteInventoryItem);
+
   const loadPharms = () => {
-    supabase
-      .from("pharmacies")
-      .select("id, name, address, city")
-      .eq("status", "approved")
-      .order("name")
-      .then(({ data }) => setPharms((data as Pharm[]) ?? []));
+    fetchPharms()
+      .then((data) => setPharms((data as Pharm[]) ?? []))
+      .catch(() => setPharms([]));
   };
 
   useEffect(() => {
@@ -105,8 +111,9 @@ function AdminInventory() {
       toast.success(res.created ? "Pharmacie ajoutée" : "Déjà enregistrée");
       loadPharms();
       setSelected(res.id);
-      setGmapsResults((r) =>
-        r?.map((x) => (x.placeId === p.placeId ? { ...x, localPharmacyId: res.id } : x)) ?? null,
+      setGmapsResults(
+        (r) =>
+          r?.map((x) => (x.placeId === p.placeId ? { ...x, localPharmacyId: res.id } : x)) ?? null,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
@@ -115,14 +122,14 @@ function AdminInventory() {
     }
   };
 
-
   const loadInv = async (pharmacyId: string) => {
     setRows(null);
-    const { data } = await supabase
-      .from("inventory")
-      .select("id, stock_qty, price, medicines(id, normalized_name, strength, generic_name)")
-      .eq("pharmacy_id", pharmacyId);
-    setRows((data as unknown as Row[]) ?? []);
+    try {
+      const data = await fetchInventory({ data: { pharmacyId } });
+      setRows((data as Row[]) ?? []);
+    } catch {
+      setRows([]);
+    }
   };
 
   useEffect(() => {
@@ -147,37 +154,16 @@ function AdminInventory() {
     e.preventDefault();
     if (!selected) return;
     try {
-      const normalized = form.name.trim().toLowerCase();
-      const { data: existing } = await supabase
-        .from("medicines")
-        .select("id")
-        .eq("normalized_name", normalized)
-        .eq("strength", form.strength || "")
-        .maybeSingle();
-      let medId = existing?.id;
-      if (!medId) {
-        const { data: newMed, error: mErr } = await supabase
-          .from("medicines")
-          .insert({
-            normalized_name: normalized,
-            generic_name: form.generic || null,
-            strength: form.strength || null,
-          })
-          .select("id")
-          .single();
-        if (mErr) throw mErr;
-        medId = newMed.id;
-      }
-      const { error } = await supabase.from("inventory").upsert(
-        {
-          pharmacy_id: selected,
-          medicine_id: medId,
-          stock_qty: Number(form.stock) || 0,
+      await upsertItem({
+        data: {
+          pharmacyId: selected,
+          name: form.name,
+          generic: form.generic,
+          strength: form.strength,
+          stock: Number(form.stock) || 0,
           price: form.price ? Number(form.price) : null,
         },
-        { onConflict: "pharmacy_id,medicine_id" },
-      );
-      if (error) throw error;
+      });
       setForm({ name: "", generic: "", strength: "", stock: "1", price: "" });
       toast.success("Ajouté");
       loadInv(selected);
@@ -187,18 +173,30 @@ function AdminInventory() {
   };
 
   const remove = async (id: string) => {
-    await supabase.from("inventory").delete().eq("id", id);
+    try {
+      await deleteItem({ data: { id } });
+    } catch {
+      // ignoré, comme avant
+    }
     if (selected) loadInv(selected);
   };
 
   const setStock = async (id: string, stock: number) => {
     setRows((r) => r?.map((row) => (row.id === id ? { ...row, stock_qty: stock } : row)) ?? null);
-    await supabase.from("inventory").update({ stock_qty: stock }).eq("id", id);
+    try {
+      await updateItem({ data: { id, stock_qty: stock } });
+    } catch {
+      // ignoré, comme avant
+    }
   };
 
   const setPrice = async (id: string, price: number | null) => {
     setRows((r) => r?.map((row) => (row.id === id ? { ...row, price } : row)) ?? null);
-    await supabase.from("inventory").update({ price }).eq("id", id);
+    try {
+      await updateItem({ data: { id, price } });
+    } catch {
+      // ignoré, comme avant
+    }
   };
 
   return (
@@ -268,8 +266,6 @@ function AdminInventory() {
         )}
       </Card>
 
-
-
       <div className="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
         <Card className="p-3">
           <div className="relative">
@@ -284,18 +280,14 @@ function AdminInventory() {
           <div className="mt-3 max-h-[70vh] space-y-1 overflow-y-auto">
             {pharms === null && <Skeleton className="h-16 w-full" />}
             {pharms?.length === 0 && (
-              <div className="p-4 text-sm text-muted-foreground">
-                Aucune pharmacie approuvée.
-              </div>
+              <div className="p-4 text-sm text-muted-foreground">Aucune pharmacie approuvée.</div>
             )}
             {filtered.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setSelected(p.id)}
                 className={`flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                  selected === p.id
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-secondary"
+                  selected === p.id ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
                 }`}
               >
                 <Store className="mt-0.5 h-4 w-4 shrink-0" />
@@ -407,7 +399,10 @@ function AdminInventory() {
                             {r.medicines?.normalized_name} {r.medicines?.strength}
                           </span>
                           {outOfStock && (
-                            <Badge variant="secondary" className="bg-destructive/10 text-destructive">
+                            <Badge
+                              variant="secondary"
+                              className="bg-destructive/10 text-destructive"
+                            >
                               <AlertTriangle className="mr-1 h-3 w-3" /> Rupture
                             </Badge>
                           )}

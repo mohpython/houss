@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { listMyReservations } from "@/lib/reservations.functions";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ListSkeleton } from "@/components/ui/skeletons";
@@ -24,12 +24,9 @@ function List() {
   const { user } = Route.useRouteContext();
   const [rows, setRows] = useState<Res[] | null>(null);
   useEffect(() => {
-    supabase
-      .from("reservations")
-      .select("id, status, created_at, pharmacies(name, address)")
-      .eq("patient_id", user.id)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => setRows((data as unknown as Res[]) ?? []));
+    listMyReservations()
+      .then((data) => setRows((data as unknown as Res[]) ?? []))
+      .catch(() => setRows([]));
   }, [user.id]);
 
   return (
@@ -38,7 +35,9 @@ function List() {
       <div className="mt-6 space-y-3">
         {rows === null && <ListSkeleton rows={3} rowClassName="h-24" />}
         {rows?.length === 0 && (
-          <Card className="p-8 text-center text-sm text-muted-foreground">{t("resList.empty")}</Card>
+          <Card className="p-8 text-center text-sm text-muted-foreground">
+            {t("resList.empty")}
+          </Card>
         )}
         {rows?.map((r) => (
           <Link key={r.id} to="/app/reservations/$id" params={{ id: r.id }}>
@@ -47,7 +46,9 @@ function List() {
                 <Store className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="truncate font-medium">{r.pharmacies?.name ?? t("home.pharmacyLabel")}</div>
+                <div className="truncate font-medium">
+                  {r.pharmacies?.name ?? t("home.pharmacyLabel")}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {new Date(r.created_at).toLocaleString(getDateLocale())}
                 </div>
@@ -84,5 +85,9 @@ function StatusBadge({ status }: { status: string }) {
     cancelled: { label: t("resStatus.cancelled"), cls: "bg-muted text-muted-foreground" },
   };
   const s = map[status] ?? map.pending;
-  return <Badge variant="secondary" className={s.cls}>{s.label}</Badge>;
+  return (
+    <Badge variant="secondary" className={s.cls}>
+      {s.label}
+    </Badge>
+  );
 }

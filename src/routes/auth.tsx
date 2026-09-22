@@ -1,60 +1,45 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import { auth } from "@/integrations/auth/client";
+import { getAuthConfig } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { GlassCard } from "@/components/GlassCard";
 import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 import { Camera, Sparkles, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-/**
- * Phone (SMS OTP) sign-in requires an SMS provider (Twilio) to be configured in
- * Cloud → Auth settings. Until then, requests fail server-side ("missing Twilio
- * account SID"), so the option is hidden. Flip to true once the provider is set.
- */
-const PHONE_AUTH_ENABLED = false;
-
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
+  error: z.string().optional(),
 });
-
-/** Resolves once Supabase has persisted a session, or null after the timeout. */
-async function waitForSession(timeoutMs = 8000) {
-  const { data } = await supabase.auth.getSession();
-  if (data.session) return data.session;
-
-  return new Promise<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>(
-    (resolve) => {
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (!session) return;
-        sub.subscription.unsubscribe();
-        clearTimeout(timer);
-        resolve(session);
-      });
-      const timer = setTimeout(() => {
-        sub.subscription.unsubscribe();
-        resolve(null);
-      }, timeoutMs);
-    },
-  );
-}
-
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
       { title: "Connexion — SAHA Santé" },
-      { name: "description", content: "Accédez à votre compte SAHA Santé pour scanner et livrer vos ordonnances." },
+      {
+        name: "description",
+        content: "Accédez à votre compte SAHA Santé pour scanner et livrer vos ordonnances.",
+      },
       { property: "og:title", content: "Connexion — SAHA Santé" },
-      { property: "og:description", content: "Accédez à votre compte SAHA Santé pour scanner et livrer vos ordonnances." },
+      {
+        property: "og:description",
+        content: "Accédez à votre compte SAHA Santé pour scanner et livrer vos ordonnances.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sahasantemali.com/auth" },
       { name: "twitter:card", content: "summary" },
@@ -68,7 +53,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { mode: initialMode } = Route.useSearch();
+  const { mode: initialMode, error: callbackError } = Route.useSearch();
   const [mode, setMode] = useState<"signin" | "signup">(initialMode ?? "signin");
   const [method, setMethod] = useState<"email" | "phone">("email");
   const [email, setEmail] = useState("");
@@ -79,12 +64,22 @@ function AuthPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [config, setConfig] = useState({ google: false, phone: false, passwordReset: true });
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const PHONE_AUTH_ENABLED = config.phone;
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/app" });
     });
+    getAuthConfig()
+      .then(setConfig)
+      .catch(() => undefined);
   }, [navigate]);
+
+  useEffect(() => {
+    if (callbackError) toast.error(t("auth.googleError"));
+  }, [callbackError, t]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -97,19 +92,12 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/app`,
-            data: { full_name: fullName },
-          },
-        });
+        const { error } = await auth.signUp({ email, password, fullName });
         if (error) throw error;
         toast.success(t("auth.created"));
         navigate({ to: "/app" });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await auth.signInWithPassword({ email, password });
         if (error) throw error;
         navigate({ to: "/app" });
       }
@@ -131,9 +119,9 @@ function AuthPage() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await auth.signInWithOtp({
         phone: normalizedPhone,
-        options: mode === "signup" ? { data: { full_name: fullName } } : undefined,
+        fullName: mode === "signup" ? fullName : undefined,
       });
       if (error) throw error;
       setOtpSent(true);
@@ -154,11 +142,7 @@ function AuthPage() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        phone: normalizedPhone,
-        token: otp,
-        type: "sms",
-      });
+      const { error } = await auth.verifyOtp({ phone: normalizedPhone, token: otp });
       if (error) throw error;
       navigate({ to: "/app" });
     } catch (err) {
@@ -168,34 +152,10 @@ function AuthPage() {
     }
   };
 
-  const handleGoogle = async () => {
+  const handleGoogle = () => {
     setLoading(true);
-    try {
-      try {
-        sessionStorage.setItem("saha_post_login_path", "/app");
-      } catch {
-        /* sessionStorage unavailable — default destination is used */
-      }
-
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/auth-callback`,
-      });
-      if (result.error) throw result.error;
-      if (result.redirected) return;
-
-      // Popup flow: wait until the session is actually persisted before routing,
-      // otherwise the protected layout bounces back to /auth.
-      const session = await waitForSession();
-      if (!session) throw new Error(t("auth.googleError"));
-      navigate({ to: "/app" });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("auth.googleError"));
-    } finally {
-      setLoading(false);
-    }
+    auth.signInWithGoogle("/app");
   };
-
-
 
   return (
     <div className="relative min-h-screen">
@@ -205,7 +165,11 @@ function AuthPage() {
         {/* Left: brand story */}
         <div className="hidden md:flex md:flex-col md:justify-between md:pr-8">
           <Link to="/" className="flex items-center gap-3">
-            <img src={sahaLogo.url} alt="SAHA Santé" className="h-11 w-11 rounded-2xl object-cover ring-1 ring-white/20" />
+            <img
+              src={sahaLogo.url}
+              alt="SAHA Santé"
+              className="h-11 w-11 rounded-2xl object-cover ring-1 ring-white/20"
+            />
             <span className="font-display text-2xl">SAHA Santé</span>
           </Link>
 
@@ -215,9 +179,7 @@ function AuthPage() {
               <br />
               <span className="italic aurora-text">{t("auth.brandTagline2")}</span>
             </h1>
-            <p className="mt-6 max-w-md text-foreground/70">
-              {t("auth.brandDesc")}
-            </p>
+            <p className="mt-6 max-w-md text-foreground/70">{t("auth.brandDesc")}</p>
 
             <div className="mt-10 space-y-4">
               <Perk icon={<Sparkles className="h-4 w-4" />} label={t("auth.perk1")} />
@@ -235,7 +197,11 @@ function AuthPage() {
         <div className="mx-auto w-full max-w-md">
           <div className="mb-4 flex items-center justify-between md:hidden">
             <Link to="/" className="flex items-center gap-2">
-              <img src={sahaLogo.url} alt="SAHA Santé" className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/15" />
+              <img
+                src={sahaLogo.url}
+                alt="SAHA Santé"
+                className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/15"
+              />
               <span className="font-display text-lg">SAHA Santé</span>
             </Link>
             <LanguageSwitcher compact />
@@ -252,34 +218,56 @@ function AuthPage() {
               {mode === "signup" ? t("auth.signupSub") : t("auth.signinSub")}
             </p>
 
-            <Button
-              type="button"
-              variant="ghost"
-              className="mt-6 h-11 w-full rounded-full border border-white/15 bg-white/5 text-foreground hover:bg-white/10"
-              onClick={handleGoogle}
-              disabled={loading}
-            >
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              {t("auth.google")}
-            </Button>
+            {config.google && (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="mt-6 h-11 w-full rounded-full border border-white/15 bg-white/5 text-foreground hover:bg-white/10"
+                  onClick={handleGoogle}
+                  disabled={loading}
+                >
+                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  {t("auth.google")}
+                </Button>
 
-            <div className="my-5 flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/10" />
-              <span className="text-[10px] uppercase tracking-widest text-foreground/50">{t("auth.or")}</span>
-              <div className="h-px flex-1 bg-white/10" />
-            </div>
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-white/10" />
+                  <span className="text-[10px] uppercase tracking-widest text-foreground/50">
+                    {t("auth.or")}
+                  </span>
+                  <div className="h-px flex-1 bg-white/10" />
+                </div>
+              </>
+            )}
+            {!config.google && <div className="mt-6" />}
 
             {/* Method toggle — phone is hidden until the SMS provider is configured */}
             {PHONE_AUTH_ENABLED && (
               <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-white/5 p-1">
                 <button
                   type="button"
-                  onClick={() => { setMethod("email"); setOtpSent(false); }}
+                  onClick={() => {
+                    setMethod("email");
+                    setOtpSent(false);
+                  }}
                   className={`h-9 rounded-full text-xs font-medium transition ${method === "email" ? "bg-white/15 text-foreground" : "text-foreground/60 hover:text-foreground"}`}
                 >
                   {t("auth.methodEmail")}
@@ -298,7 +286,12 @@ function AuthPage() {
               <form onSubmit={handleEmail} className="space-y-3">
                 {mode === "signup" && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="fullName" className="text-xs uppercase tracking-widest text-foreground/60">{t("auth.fullName")}</Label>
+                    <Label
+                      htmlFor="fullName"
+                      className="text-xs uppercase tracking-widest text-foreground/60"
+                    >
+                      {t("auth.fullName")}
+                    </Label>
                     <Input
                       id="fullName"
                       value={fullName}
@@ -310,7 +303,12 @@ function AuthPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs uppercase tracking-widest text-foreground/60">{t("auth.email")}</Label>
+                  <Label
+                    htmlFor="email"
+                    className="text-xs uppercase tracking-widest text-foreground/60"
+                  >
+                    {t("auth.email")}
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -322,7 +320,12 @@ function AuthPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="password" className="text-xs uppercase tracking-widest text-foreground/60">{t("auth.password")}</Label>
+                  <Label
+                    htmlFor="password"
+                    className="text-xs uppercase tracking-widest text-foreground/60"
+                  >
+                    {t("auth.password")}
+                  </Label>
                   <Input
                     id="password"
                     type="password"
@@ -334,6 +337,17 @@ function AuthPage() {
                     className="h-11 rounded-xl border-white/10 bg-white/5"
                   />
                 </div>
+                {mode === "signin" && config.passwordReset && (
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      className="text-xs text-foreground/60 hover:text-foreground hover:underline"
+                      onClick={() => setForgotOpen(true)}
+                    >
+                      {t("auth.forgotPassword")}
+                    </button>
+                  </div>
+                )}
                 <Button
                   type="submit"
                   className="mt-2 h-11 w-full rounded-full aurora-bg text-primary-foreground shadow-lg shadow-primary/30"
@@ -348,7 +362,12 @@ function AuthPage() {
               <form onSubmit={handleSendOtp} className="space-y-3">
                 {mode === "signup" && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="fullNameP" className="text-xs uppercase tracking-widest text-foreground/60">{t("auth.fullName")}</Label>
+                    <Label
+                      htmlFor="fullNameP"
+                      className="text-xs uppercase tracking-widest text-foreground/60"
+                    >
+                      {t("auth.fullName")}
+                    </Label>
                     <Input
                       id="fullNameP"
                       value={fullName}
@@ -360,7 +379,12 @@ function AuthPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <Label htmlFor="phone" className="text-xs uppercase tracking-widest text-foreground/60">{t("auth.phone")}</Label>
+                  <Label
+                    htmlFor="phone"
+                    className="text-xs uppercase tracking-widest text-foreground/60"
+                  >
+                    {t("auth.phone")}
+                  </Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -389,7 +413,12 @@ function AuthPage() {
                   {t("auth.codeSubtitle", { phone: normalizedPhone })}
                 </p>
                 <div className="space-y-1.5">
-                  <Label htmlFor="otp" className="text-xs uppercase tracking-widest text-foreground/60">{t("auth.enterCode")}</Label>
+                  <Label
+                    htmlFor="otp"
+                    className="text-xs uppercase tracking-widest text-foreground/60"
+                  >
+                    {t("auth.enterCode")}
+                  </Label>
                   <Input
                     id="otp"
                     inputMode="numeric"
@@ -414,7 +443,10 @@ function AuthPage() {
                   <button
                     type="button"
                     className="text-foreground/60 hover:text-foreground"
-                    onClick={() => { setOtpSent(false); setOtp(""); }}
+                    onClick={() => {
+                      setOtpSent(false);
+                      setOtp("");
+                    }}
                   >
                     {t("auth.changeNumber")}
                   </button>
@@ -424,7 +456,9 @@ function AuthPage() {
                     className="font-medium text-primary hover:underline disabled:text-foreground/40 disabled:no-underline"
                     onClick={(e) => handleSendOtp(e as unknown as React.FormEvent)}
                   >
-                    {resendCooldown > 0 ? t("auth.resendIn", { seconds: resendCooldown }) : t("auth.resend")}
+                    {resendCooldown > 0
+                      ? t("auth.resendIn", { seconds: resendCooldown })
+                      : t("auth.resend")}
                   </button>
                 </div>
               </form>
@@ -435,16 +469,75 @@ function AuthPage() {
               <button
                 type="button"
                 className="font-medium text-primary hover:underline"
-                onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setOtpSent(false); }}
+                onClick={() => {
+                  setMode(mode === "signup" ? "signin" : "signup");
+                  setOtpSent(false);
+                }}
               >
                 {mode === "signup" ? t("auth.toSignin") : t("auth.toSignup")}
               </button>
             </p>
-
           </GlassCard>
         </div>
       </div>
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} initialEmail={email} />
     </div>
+  );
+}
+
+function ForgotPasswordDialog({
+  open,
+  onOpenChange,
+  initialEmail,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialEmail: string;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(initialEmail);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (open) setValue(initialEmail);
+  }, [open, initialEmail]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    const { error } = await auth.requestPasswordReset(value);
+    setSending(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(t("auth.resetSent"));
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t("auth.resetTitle")}</DialogTitle>
+          <DialogDescription>{t("auth.resetSub")}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <Input
+            type="email"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            required
+            autoComplete="email"
+            placeholder={t("auth.email")}
+            className="h-11 rounded-xl"
+          />
+          <Button type="submit" className="h-11 w-full rounded-full" disabled={sending}>
+            {sending ? t("auth.sending") : t("auth.resetSend")}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

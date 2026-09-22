@@ -1,28 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-async function assertCallerIsAdmin(supabase: any, userId: string) {
-  const { data: row } = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!row) throw new Error("Accès réservé aux administrateurs");
-}
-
-async function findUserByEmail(supabaseAdmin: any, email: string) {
-  for (let page = 1; page <= 20; page++) {
-    const { data: list, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) throw new Error(error.message);
-    const match = list.users.find((u: any) => (u.email ?? "").toLowerCase() === email);
-    if (match) return match;
-    if (list.users.length < 200) break;
-  }
-  return null;
-}
+import { requireAuth } from "@/integrations/auth/middleware";
 
 export type PharmacyOwnerRow = {
   id: string;
@@ -36,37 +14,34 @@ export type PharmacyOwnerRow = {
 };
 
 export const listPharmaciesWithOwners = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }): Promise<PharmacyOwnerRow[]> => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
 
-    const { data, error } = await supabaseAdmin
-      .from("pharmacies")
-      .select("id, name, address, city, status, owner_user_id, claim_email")
-      .order("name");
-    if (error) throw new Error(error.message);
+    const rows = await prisma.pharmacies.findMany({
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        status: true,
+        owner_user_id: true,
+        claim_email: true,
+        owner: { select: { email: true } },
+      },
+      orderBy: { name: "asc" },
+    });
 
-    const rows = data ?? [];
-    const ownerIds = Array.from(
-      new Set(rows.map((r) => r.owner_user_id).filter((v): v is string => !!v)),
-    );
-    const emails = new Map<string, string>();
-    await Promise.all(
-      ownerIds.map(async (id) => {
-        const { data: u } = await supabaseAdmin.auth.admin.getUserById(id);
-        if (u?.user?.email) emails.set(id, u.user.email);
-      }),
-    );
-
-    return rows.map((r) => ({
+    return rows.map(({ owner, ...r }) => ({
       ...r,
-      owner_email: r.owner_user_id ? (emails.get(r.owner_user_id) ?? "(inconnu)") : null,
+      owner_email: r.owner_user_id ? (owner?.email ?? "(inconnu)") : null,
     }));
   });
 
 export const assignPharmacyOwner = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -76,139 +51,147 @@ export const assignPharmacyOwner = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin, isAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
 
-    const { data: pharmacy, error: pErr } = await supabaseAdmin
-      .from("pharmacies")
-      .select("id, name, owner_user_id")
-      .eq("id", data.pharmacyId)
-      .maybeSingle();
-    if (pErr) throw new Error(pErr.message);
+    const pharmacy = await prisma.pharmacies.findUnique({
+      where: { id: data.pharmacyId },
+      select: { id: true, name: true, owner_user_id: true },
+    });
     if (!pharmacy) throw new Error("Pharmacie introuvable");
     if (pharmacy.owner_user_id) {
       throw new Error("Cette pharmacie a déjà un gérant. Retirez-le d'abord.");
     }
 
-    const user = await findUserByEmail(supabaseAdmin, data.email);
+    const user = await prisma.users.findFirst({
+      where: { email: { equals: data.email, mode: "insensitive" } },
+      select: { id: true, email: true },
+    });
 
     if (!user) {
       // No account yet: reserve the pharmacy for this email.
-      const { data: reserved } = await supabaseAdmin
-        .from("pharmacies")
-        .select("id, name")
-        .ilike("claim_email", data.email)
-        .neq("id", data.pharmacyId)
-        .maybeSingle();
+      const reserved = await prisma.pharmacies.findFirst({
+        where: {
+          claim_email: { equals: data.email, mode: "insensitive" },
+          id: { not: data.pharmacyId },
+        },
+        select: { id: true, name: true },
+      });
       if (reserved) {
         throw new Error(`Cet email est déjà réservé pour « ${reserved.name} »`);
       }
-      const { error } = await supabaseAdmin
-        .from("pharmacies")
-        .update({ claim_email: data.email })
-        .eq("id", data.pharmacyId);
-      if (error) throw new Error(error.message);
+      await prisma.pharmacies.update({
+        where: { id: data.pharmacyId },
+        data: { claim_email: data.email },
+      });
 
-      await supabaseAdmin.from("audit_logs").insert({
-        actor_user_id: context.userId,
-        action: "pharmacy.owner_invited",
-        entity: "pharmacy",
-        entity_id: data.pharmacyId,
-        meta: { email: data.email },
+      await prisma.audit_logs.create({
+        data: {
+          actor_user_id: context.userId,
+          action: "pharmacy.owner_invited",
+          entity: "pharmacy",
+          entity_id: data.pharmacyId,
+          meta: { email: data.email },
+        },
       });
       return { status: "invited" as const, email: data.email };
     }
 
     // Account exists — enforce exclusivity rules.
-    const [{ data: ownsOther }, { data: staffOther }, { data: courier }, { data: isAdmin }] =
-      await Promise.all([
-        supabaseAdmin.from("pharmacies").select("id, name").eq("owner_user_id", user.id).maybeSingle(),
-        supabaseAdmin.from("pharmacy_staff").select("id").eq("user_id", user.id).maybeSingle(),
-        supabaseAdmin.from("couriers").select("id").eq("user_id", user.id).maybeSingle(),
-        supabaseAdmin
-          .from("user_roles")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .maybeSingle(),
-      ]);
+    const [ownsOther, staffOther, courier, targetIsAdmin] = await Promise.all([
+      prisma.pharmacies.findFirst({
+        where: { owner_user_id: user.id },
+        select: { id: true, name: true },
+      }),
+      prisma.pharmacy_staff.findFirst({ where: { user_id: user.id }, select: { id: true } }),
+      prisma.couriers.findFirst({ where: { user_id: user.id }, select: { id: true } }),
+      isAdmin(user.id),
+    ]);
 
-    if (!isAdmin) {
+    if (!targetIsAdmin) {
       if (ownsOther) throw new Error(`Ce compte gère déjà « ${ownsOther.name} »`);
       if (staffOther) throw new Error("Ce compte est déjà rattaché à une autre pharmacie");
-      if (courier) throw new Error("Ce compte est déjà livreur : un compte ne peut pas cumuler les deux rôles");
+      if (courier)
+        throw new Error(
+          "Ce compte est déjà livreur : un compte ne peut pas cumuler les deux rôles",
+        );
     }
 
-    const { error: upErr } = await supabaseAdmin
-      .from("pharmacies")
-      .update({ owner_user_id: user.id, claim_email: null })
-      .eq("id", data.pharmacyId);
-    if (upErr) throw new Error(upErr.message);
+    await prisma.pharmacies.update({
+      where: { id: data.pharmacyId },
+      data: { owner_user_id: user.id, claim_email: null },
+    });
 
-    await supabaseAdmin
-      .from("pharmacy_staff")
-      .insert({ pharmacy_id: data.pharmacyId, user_id: user.id });
-    await supabaseAdmin.from("user_roles").insert({ user_id: user.id, role: "pharmacy_staff" });
+    // Comme avant, les échecs de ces insertions (doublons) sont ignorés.
+    await prisma.pharmacy_staff
+      .create({ data: { pharmacy_id: data.pharmacyId, user_id: user.id } })
+      .catch(() => undefined);
+    await prisma.user_roles
+      .upsert({
+        where: { user_id_role: { user_id: user.id, role: "pharmacy_staff" } },
+        create: { user_id: user.id, role: "pharmacy_staff" },
+        update: {},
+      })
+      .catch(() => undefined);
 
-    await supabaseAdmin.from("audit_logs").insert({
-      actor_user_id: context.userId,
-      action: "pharmacy.owner_assigned",
-      entity: "pharmacy",
-      entity_id: data.pharmacyId,
-      meta: { email: data.email, user_id: user.id },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "pharmacy.owner_assigned",
+        entity: "pharmacy",
+        entity_id: data.pharmacyId,
+        meta: { email: data.email, user_id: user.id },
+      },
     });
 
     return { status: "assigned" as const, email: data.email, userId: user.id };
   });
 
 export const unassignPharmacyOwner = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ pharmacyId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
 
-    const { data: pharmacy } = await supabaseAdmin
-      .from("pharmacies")
-      .select("id, owner_user_id")
-      .eq("id", data.pharmacyId)
-      .maybeSingle();
+    const pharmacy = await prisma.pharmacies.findUnique({
+      where: { id: data.pharmacyId },
+      select: { id: true, owner_user_id: true },
+    });
     if (!pharmacy) throw new Error("Pharmacie introuvable");
 
     const ownerId = pharmacy.owner_user_id;
 
-    const { error } = await supabaseAdmin
-      .from("pharmacies")
-      .update({ owner_user_id: null, claim_email: null })
-      .eq("id", data.pharmacyId);
-    if (error) throw new Error(error.message);
+    await prisma.pharmacies.update({
+      where: { id: data.pharmacyId },
+      data: { owner_user_id: null, claim_email: null },
+    });
 
     if (ownerId) {
-      await supabaseAdmin
-        .from("pharmacy_staff")
-        .delete()
-        .eq("pharmacy_id", data.pharmacyId)
-        .eq("user_id", ownerId);
-      const { data: stillStaff } = await supabaseAdmin
-        .from("pharmacy_staff")
-        .select("id")
-        .eq("user_id", ownerId)
-        .maybeSingle();
+      await prisma.pharmacy_staff.deleteMany({
+        where: { pharmacy_id: data.pharmacyId, user_id: ownerId },
+      });
+      const stillStaff = await prisma.pharmacy_staff.findFirst({
+        where: { user_id: ownerId },
+        select: { id: true },
+      });
       if (!stillStaff) {
-        await supabaseAdmin
-          .from("user_roles")
-          .delete()
-          .eq("user_id", ownerId)
-          .eq("role", "pharmacy_staff");
+        await prisma.user_roles.deleteMany({
+          where: { user_id: ownerId, role: "pharmacy_staff" },
+        });
       }
     }
 
-    await supabaseAdmin.from("audit_logs").insert({
-      actor_user_id: context.userId,
-      action: "pharmacy.owner_removed",
-      entity: "pharmacy",
-      entity_id: data.pharmacyId,
-      meta: { previous_owner: ownerId },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "pharmacy.owner_removed",
+        entity: "pharmacy",
+        entity_id: data.pharmacyId,
+        meta: { previous_owner: ownerId },
+      },
     });
 
     return { ok: true };

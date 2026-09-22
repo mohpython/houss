@@ -67,9 +67,8 @@ export const signInWithPassword = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { basePrisma } = await import("@/server/prisma-base.server");
-    const { verifyPassword, hashPassword, createSession, requestMeta } = await import(
-      "@/server/auth.server"
-    );
+    const { verifyPassword, hashPassword, createSession, requestMeta } =
+      await import("@/server/auth.server");
     const { rateLimit } = await import("@/server/rate-limit.server");
     const request = getRequest();
     rateLimit(`signin:${clientIp(request)}`, 20, 15 * 60_000);
@@ -92,9 +91,7 @@ export const signInWithPassword = createServerFn({ method: "POST" })
 
 export const requestPhoneOtp = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z
-      .object({ phone: phoneSchema, fullName: z.string().trim().max(120).optional() })
-      .parse(input),
+    z.object({ phone: phoneSchema, fullName: z.string().trim().max(120).optional() }).parse(input),
   )
   .handler(async ({ data }) => {
     const { basePrisma } = await import("@/server/prisma-base.server");
@@ -132,9 +129,8 @@ export const verifyPhoneOtp = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { basePrisma } = await import("@/server/prisma-base.server");
-    const { sha256, createAccount, createSession, requestMeta } = await import(
-      "@/server/auth.server"
-    );
+    const { sha256, createAccount, createSession, requestMeta } =
+      await import("@/server/auth.server");
     const request = getRequest();
 
     const token = await basePrisma.auth_tokens.findFirst({
@@ -240,9 +236,8 @@ export const resetPassword = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { basePrisma } = await import("@/server/prisma-base.server");
-    const { sha256, hashPassword, revokeAllSessions, createSession, requestMeta } = await import(
-      "@/server/auth.server"
-    );
+    const { sha256, hashPassword, revokeAllSessions, createSession, requestMeta } =
+      await import("@/server/auth.server");
     const row = await basePrisma.auth_tokens.findFirst({
       where: { kind: "password_reset", token_hash: sha256(data.token), consumed_at: null },
     });
@@ -264,7 +259,9 @@ export const resetPassword = createServerFn({ method: "POST" })
 export const changePassword = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((input: unknown) =>
-    z.object({ currentPassword: z.string().max(200).optional(), password: passwordSchema }).parse(input),
+    z
+      .object({ currentPassword: z.string().max(200).optional(), password: passwordSchema })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { basePrisma } = await import("@/server/prisma-base.server");

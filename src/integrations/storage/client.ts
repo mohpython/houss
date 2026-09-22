@@ -15,7 +15,11 @@ export async function uploadPrescriptionFile(file: File): Promise<{ path: string
     headers: { Authorization: `Bearer ${token}` },
     body,
   });
-  const json = (await res.json().catch(() => ({}))) as { path?: string; mime?: string; error?: string };
+  const json = (await res.json().catch(() => ({}))) as {
+    path?: string;
+    mime?: string;
+    error?: string;
+  };
   if (!res.ok || !json.path) throw new Error(json.error ?? "Échec du téléversement");
   return { path: json.path, mime: json.mime ?? file.type };
 }

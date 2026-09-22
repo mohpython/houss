@@ -7,7 +7,6 @@
     "dev": "vite dev",
     "build": "prisma generate && vite build",
     "start": "node .output/server/index.mjs",
-    "worker": "tsx scripts/worker.ts",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -18,7 +17,10 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "admin:create": "tsx scripts/create-admin.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:import-supabase": "bash scripts/migrate-from-supabase.sh",
+    "storage:import-supabase": "tsx scripts/migrate-storage-from-supabase.ts",
+    "cap:prepare": "node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').writeFileSync('dist/index.html','<!doctype html><meta charset=utf-8><title>SAHA Sant\u00e9</title>')\""
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.7",

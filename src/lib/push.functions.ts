@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toPlain } from "@/server/serialize";
 
 /** Public web-push configuration (all values are publishable Firebase identifiers). */
 export const getPushWebConfig = createServerFn({ method: "GET" }).handler(async () => {
@@ -27,7 +28,7 @@ export const getPushWebConfig = createServerFn({ method: "GET" }).handler(async 
 });
 
 export const registerDeviceToken = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input) =>
     z
       .object({
@@ -38,40 +39,47 @@ export const registerDeviceToken = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("device_tokens").upsert(
-      {
+    const { prisma } = await import("@/server/db.server");
+    // RLS : un jeton appartenant à un autre utilisateur ne peut pas être repris.
+    const existing = await prisma.device_tokens.findUnique({
+      where: { token: data.token },
+      select: { user_id: true },
+    });
+    if (existing && existing.user_id !== context.userId) {
+      throw new Error("Ce jeton d'appareil appartient à un autre compte.");
+    }
+    await prisma.device_tokens.upsert({
+      where: { token: data.token },
+      create: {
         user_id: context.userId,
         token: data.token,
         platform: data.platform,
         language: data.language,
-        updated_at: new Date().toISOString(),
       },
-      { onConflict: "token" },
-    );
-    if (error) throw new Error(error.message);
+      update: { platform: data.platform, language: data.language, updated_at: new Date() },
+    });
     return { ok: true };
   });
 
 export const unregisterDeviceToken = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input) => z.object({ token: z.string().min(20).max(4096) }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("device_tokens")
-      .delete()
-      .eq("token", data.token)
-      .eq("user_id", context.userId);
-    if (error) throw new Error(error.message);
+    const { prisma } = await import("@/server/db.server");
+    await prisma.device_tokens.deleteMany({
+      where: { token: data.token, user_id: context.userId },
+    });
     return { ok: true };
   });
 
 export const listMyDevices = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { data } = await context.supabase
-      .from("device_tokens")
-      .select("id, platform, created_at")
-      .eq("user_id", context.userId)
-      .order("created_at", { ascending: false });
-    return data ?? [];
+    const { prisma } = await import("@/server/db.server");
+    const data = await prisma.device_tokens.findMany({
+      where: { user_id: context.userId },
+      select: { id: true, platform: true, created_at: true },
+      orderBy: { created_at: "desc" },
+    });
+    return toPlain(data);
   });

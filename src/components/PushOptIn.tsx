@@ -83,7 +83,7 @@ export function PushOptIn() {
 
   if (dismissed) return null;
 
-  // Inside the Lovable preview iframe browsers block the Notification API.
+  // Inside an iframe (embedded preview) browsers block the Notification API.
   if (blocked === "iframe") {
     return (
       <Shell>
@@ -129,7 +129,6 @@ export function PushOptIn() {
   }
 
   if (state === "unsupported") return null;
-
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

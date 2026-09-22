@@ -64,7 +64,10 @@ export async function assertPharmacyMemberOrAdmin(userId: string, pharmacyId: st
 export async function userPharmacyIds(userId: string): Promise<string[]> {
   const [owned, staff] = await Promise.all([
     basePrisma.pharmacies.findMany({ where: { owner_user_id: userId }, select: { id: true } }),
-    basePrisma.pharmacy_staff.findMany({ where: { user_id: userId }, select: { pharmacy_id: true } }),
+    basePrisma.pharmacy_staff.findMany({
+      where: { user_id: userId },
+      select: { pharmacy_id: true },
+    }),
   ]);
   return [...new Set([...owned.map((p) => p.id), ...staff.map((s) => s.pharmacy_id)])];
 }
@@ -86,7 +89,10 @@ export async function getPractitionerForUser(userId: string) {
   return basePrisma.practitioners.findUnique({ where: { user_id: userId } });
 }
 
-export async function isUserPractitioner(userId: string, practitionerId: string | null | undefined) {
+export async function isUserPractitioner(
+  userId: string,
+  practitionerId: string | null | undefined,
+) {
   if (!practitionerId) return false;
   const p = await basePrisma.practitioners.findFirst({
     where: { id: practitionerId, user_id: userId },
@@ -116,8 +122,7 @@ export async function reservationAccess(
     isAdmin(userId),
   ]);
   const isPatient = r.patient_id === userId;
-  const canRead =
-    isPatient || admin || courier || (pharmacy && r.payment_status !== "unpaid");
+  const canRead = isPatient || admin || courier || (pharmacy && r.payment_status !== "unpaid");
   return { isPatient, isPharmacy: pharmacy, isCourier: courier, isAdmin: admin, canRead };
 }
 

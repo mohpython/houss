@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-
+import { listMyNotifications, markNotificationsRead } from "@/lib/account.functions";
+import { subscribeRealtime } from "@/integrations/realtime/client";
 
 export type Notification = {
   id: string;
@@ -21,13 +21,12 @@ export function useNotifications(userId: string | null) {
 
   const fetchAll = useCallback(async () => {
     if (!userId) return;
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setItems((data ?? []) as Notification[]);
+    try {
+      const data = await listMyNotifications();
+      setItems((data ?? []) as Notification[]);
+    } catch {
+      /* hors ligne : on garde la liste actuelle */
+    }
   }, [userId]);
 
   const tRef = useRef(t);
@@ -38,35 +37,32 @@ export function useNotifications(userId: string | null) {
   useEffect(() => {
     if (!userId) return;
     fetchAll();
-    const channel = supabase
-      .channel(`notif-${userId}-${Math.random().toString(36).slice(2)}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        (payload) => {
-          const n = payload.new as Notification;
-          setItems((prev) => [n, ...prev]);
-          const title = tRef.current(`notif.${n.type}.title`, { defaultValue: n.title || "Notification" });
-          const body = tRef.current(`notif.${n.type}.body`, { defaultValue: n.body || "" });
-          toast(title, { description: body });
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return subscribeRealtime(
+      [{ table: "notifications", event: "INSERT", filter: { user_id: userId } }],
+      (payload) => {
+        const n = payload.new as unknown as Notification;
+        setItems((prev) => (prev.some((p) => p.id === n.id) ? prev : [n, ...prev]));
+        const title = tRef.current(`notif.${n.type}.title`, {
+          defaultValue: n.title || "Notification",
+        });
+        const body = tRef.current(`notif.${n.type}.body`, { defaultValue: n.body || "" });
+        toast(title, { description: body });
+      },
+      { onResync: () => void fetchAll() },
+    );
   }, [userId, fetchAll]);
-
 
   const markAllRead = useCallback(async () => {
     if (!userId) return;
-    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).is("read_at", null);
+    await markNotificationsRead({ data: { all: true } });
     setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
   }, [userId]);
 
   const markRead = useCallback(async (id: string) => {
-    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id);
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: n.read_at ?? new Date().toISOString() } : n)));
+    await markNotificationsRead({ data: { id } });
+    setItems((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read_at: n.read_at ?? new Date().toISOString() } : n)),
+    );
   }, []);
 
   const unreadCount = items.filter((n) => !n.read_at).length;

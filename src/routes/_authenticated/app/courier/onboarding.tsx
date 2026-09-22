@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getCourierOnboardingState } from "@/lib/courier.functions";
 import { registerCourier } from "@/lib/delivery.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,22 +19,22 @@ function Onboarding() {
   const register = useServerFn(registerCourier);
   const [existing, setExisting] = useState<{ status: string } | null | undefined>(undefined);
   const [isPharmacy, setIsPharmacy] = useState(false);
-  const [form, setForm] = useState({ fullName: "", phone: "", vehicleType: "moto", licenseNumber: "" });
+  const [form, setForm] = useState({
+    fullName: "",
+    phone: "",
+    vehicleType: "moto",
+    licenseNumber: "",
+  });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const [courier, owned, staff] = await Promise.all([
-        supabase.from("couriers").select("status").eq("user_id", user.id).maybeSingle(),
-        supabase.from("pharmacies").select("id").eq("owner_user_id", user.id).maybeSingle(),
-        supabase.from("pharmacy_staff").select("id").eq("user_id", user.id).maybeSingle(),
-      ]);
-      setIsPharmacy(!!owned.data || !!staff.data);
-      setExisting(courier.data);
+      const state = await getCourierOnboardingState().catch(() => null);
+      setIsPharmacy(!!state?.isPharmacy);
+      setExisting(state?.courier ?? null);
     };
     load();
   }, [user.id]);
-
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +56,8 @@ function Onboarding() {
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="text-xl font-semibold">Inscription impossible</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Ce compte gère déjà une pharmacie. Un compte ne peut pas être à la fois gérant de pharmacie
-          et livreur.
+          Ce compte gère déjà une pharmacie. Un compte ne peut pas être à la fois gérant de
+          pharmacie et livreur.
         </p>
       </div>
     );
@@ -66,7 +66,9 @@ function Onboarding() {
   if (existing) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">Inscription {existing.status === "pending" ? "en attente" : existing.status}</h1>
+        <h1 className="text-xl font-semibold">
+          Inscription {existing.status === "pending" ? "en attente" : existing.status}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {existing.status === "pending" && "Un admin doit valider votre compte livreur."}
           {existing.status === "approved" && "Votre compte livreur est actif."}
@@ -88,11 +90,19 @@ function Onboarding() {
         <form onSubmit={submit} className="space-y-4">
           <div>
             <Label>Nom complet</Label>
-            <Input required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+            <Input
+              required
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+            />
           </div>
           <div>
             <Label>Téléphone</Label>
-            <Input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input
+              required
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
           </div>
           <div>
             <Label>Type de véhicule</Label>
@@ -108,7 +118,10 @@ function Onboarding() {
           </div>
           <div>
             <Label>N° permis (facultatif)</Label>
-            <Input value={form.licenseNumber} onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })} />
+            <Input
+              value={form.licenseNumber}
+              onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })}
+            />
           </div>
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? "Envoi…" : "S'inscrire"}

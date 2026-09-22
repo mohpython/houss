@@ -3,23 +3,100 @@
  * Used by pharmacy search, automatic routing, reservation pricing, OTC and the
  * WhatsApp bot so that the same prescription always yields the same result.
  */
-import type { AnySupabase } from "./rx-core.server";
+import { prisma } from "@/server/db.server";
 
 /** Words that describe a form / packaging, never the product itself. */
 const NOISE = new Set([
-  "cp", "cps", "comp", "comprime", "comprimes", "co", "tab", "tabs", "tablet", "tablets",
-  "gelule", "gelules", "gel", "capsule", "capsules", "caps",
-  "sirop", "syrup", "sol", "solution", "susp", "suspension", "buv", "buvable",
-  "inj", "injectable", "amp", "ampoule", "ampoules", "fl", "flacon", "flacons",
-  "tube", "tubes", "creme", "cream", "pommade", "collyre", "gouttes", "drops",
-  "sachet", "sachets", "pl", "plaquette", "plaquettes", "bte", "boite", "boites", "box",
-  "dermique", "sterile", "steriles", "enfant", "enfants", "adulte", "adultes", "nourrisson",
-  "forte", "fort", "simple", "retard", "lp", "eff", "effervescent", "sec", "ovule", "ovules",
-  "poudre", "spray", "patch", "unite", "unites", "de", "du", "des", "le", "la", "les", "et",
-  "x", "b", "p", "t", "n", "pcs", "pieces",
+  "cp",
+  "cps",
+  "comp",
+  "comprime",
+  "comprimes",
+  "co",
+  "tab",
+  "tabs",
+  "tablet",
+  "tablets",
+  "gelule",
+  "gelules",
+  "gel",
+  "capsule",
+  "capsules",
+  "caps",
+  "sirop",
+  "syrup",
+  "sol",
+  "solution",
+  "susp",
+  "suspension",
+  "buv",
+  "buvable",
+  "inj",
+  "injectable",
+  "amp",
+  "ampoule",
+  "ampoules",
+  "fl",
+  "flacon",
+  "flacons",
+  "tube",
+  "tubes",
+  "creme",
+  "cream",
+  "pommade",
+  "collyre",
+  "gouttes",
+  "drops",
+  "sachet",
+  "sachets",
+  "pl",
+  "plaquette",
+  "plaquettes",
+  "bte",
+  "boite",
+  "boites",
+  "box",
+  "dermique",
+  "sterile",
+  "steriles",
+  "enfant",
+  "enfants",
+  "adulte",
+  "adultes",
+  "nourrisson",
+  "forte",
+  "fort",
+  "simple",
+  "retard",
+  "lp",
+  "eff",
+  "effervescent",
+  "sec",
+  "ovule",
+  "ovules",
+  "poudre",
+  "spray",
+  "patch",
+  "unite",
+  "unites",
+  "de",
+  "du",
+  "des",
+  "le",
+  "la",
+  "les",
+  "et",
+  "x",
+  "b",
+  "p",
+  "t",
+  "n",
+  "pcs",
+  "pieces",
 ]);
 
-const UNIT_RE = /^\d+([.,]\d+)?(mg|g|gr|kg|ml|l|cl|mcg|µg|ug|ui|iu|%|cc|mmol|meq)(\/\d*([.,]\d+)?(mg|g|ml|l|kg)?)?$/;
+const UNIT_RE =
+  /^\d+([.,]\d+)?(mg|g|gr|kg|ml|l|cl|mcg|µg|ug|ui|iu|%|cc|mmol|meq)(\/\d*([.,]\d+)?(mg|g|ml|l|kg)?)?$/;
 const PACK_RE = /^(b|p|bt|bte|t)\/?\d+[a-z]*$/;
 const DIM_RE = /^\d+x\d+$/;
 
@@ -184,10 +261,10 @@ export function bestInventoryMatch<L extends InventoryLine>(
       !best ||
       score > best.score ||
       (score === best.score &&
-        ((line.stock_qty ?? 0) > 0) !== ((best.line.stock_qty ?? 0) > 0) &&
+        (line.stock_qty ?? 0) > 0 !== (best.line.stock_qty ?? 0) > 0 &&
         (line.stock_qty ?? 0) > 0) ||
       (score === best.score &&
-        ((line.stock_qty ?? 0) > 0) === ((best.line.stock_qty ?? 0) > 0) &&
+        (line.stock_qty ?? 0) > 0 === (best.line.stock_qty ?? 0) > 0 &&
         (line.medicines.normalized_name.length < best.line.medicines!.normalized_name.length ||
           (line.medicines.normalized_name.length === best.line.medicines!.normalized_name.length &&
             line.medicines.id < best.line.medicines!.id)))
@@ -245,36 +322,33 @@ export function bestCatalogMatch(name: string, catalog: CatalogMed[]): CatalogMe
 }
 
 /** Loads the whole catalog (a few hundred rows). */
-export async function loadCatalog(supabase: AnySupabase): Promise<CatalogMed[]> {
-  const { data } = await supabase
-    .from("medicines")
-    .select("id, normalized_name, generic_name")
-    .order("normalized_name")
-    .limit(2000);
-  return (data ?? []) as CatalogMed[];
+export async function loadCatalog(): Promise<CatalogMed[]> {
+  const data = await prisma.medicines.findMany({
+    select: { id: true, normalized_name: true, generic_name: true },
+    orderBy: { normalized_name: "asc" },
+    take: 2000,
+  });
+  return data as CatalogMed[];
 }
 
 /**
  * Links every line of a prescription to a catalog medicine once and for all,
  * so later searches are stable regardless of AI wording variations.
  */
-export async function linkPrescriptionItemsToCatalog(
-  supabase: AnySupabase,
-  prescriptionId: string,
-): Promise<number> {
-  const { data: items } = await supabase
-    .from("prescription_items")
-    .select("id, medicine_name_raw")
-    .eq("prescription_id", prescriptionId);
-  if (!items || items.length === 0) return 0;
-  const catalog = await loadCatalog(supabase);
+export async function linkPrescriptionItemsToCatalog(prescriptionId: string): Promise<number> {
+  const items = await prisma.prescription_items.findMany({
+    where: { prescription_id: prescriptionId },
+    select: { id: true, medicine_name_raw: true },
+  });
+  if (items.length === 0) return 0;
+  const catalog = await loadCatalog();
   let linked = 0;
   for (const it of items) {
     const med = bestCatalogMatch(it.medicine_name_raw, catalog);
-    await supabase
-      .from("prescription_items")
-      .update({ normalized_medicine_id: med?.id ?? null })
-      .eq("id", it.id);
+    await prisma.prescription_items.update({
+      where: { id: it.id },
+      data: { normalized_medicine_id: med?.id ?? null },
+    });
     if (med) linked++;
   }
   return linked;

@@ -1,18 +1,17 @@
 /**
  * Core prescription extraction — server only.
  * Shared by the web app (authenticated server fn) and the WhatsApp bot
- * (service-role client), so both go through the exact same AI pipeline.
+ * (server side), so both go through the exact same AI pipeline.
  */
 import { z } from "zod";
 import { resolveRxDate, rxDateStatus } from "./date-utils";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
-import type { Database } from "@/integrations/supabase/types";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/server/db.server";
+import { readObject } from "@/server/storage.server";
+import { visionModel } from "@/server/ai.server";
+import { toDateOnly } from "@/server/serialize";
 import { catalogHint, linkPrescriptionItemsToCatalog, loadCatalog } from "./medicine-match.server";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnySupabase = SupabaseClient<Database, any, any>;
 
 export const ExtractionSchema = z.object({
   is_prescription: z.boolean(),
@@ -101,7 +100,6 @@ Date rules (CRITICAL for authenticity — the YEAR is the most common error, be 
 - If several dates appear, use the prescribing date (not a birth date, not an expiry date of a medicine).
 - If truly no date is visible, set BOTH date fields to null — never invent one.`;
 
-
 export type ReviewSeverity = "critical" | "moderate" | "minor";
 
 export type ExtractResult = {
@@ -138,10 +136,8 @@ export function classifySeverity(res: {
   const reasons: string[] = [];
 
   if (res.count === 0) reasons.push("Aucun médicament détecté");
-  if (res.dateStatus === "missing")
-    reasons.push("Date illisible ou absente");
-  if (res.dateStatus === "expired")
-    reasons.push("Ordonnance périmée (> 90 jours)");
+  if (res.dateStatus === "missing") reasons.push("Date illisible ou absente");
+  if (res.dateStatus === "expired") reasons.push("Ordonnance périmée (> 90 jours)");
   if (res.confidence < 60) reasons.push(`Confiance IA faible (${res.confidence}%)`);
   if (res.authenticityScore < 70)
     reasons.push(`Score d'authenticité faible (${res.authenticityScore}%)`);
@@ -149,10 +145,7 @@ export function classifySeverity(res: {
   for (const i of res.inconsistencies) reasons.push(`Incohérence : ${i}`);
   if (res.qualityNotes) reasons.push(`Qualité image : ${res.qualityNotes}`);
 
-  const critical =
-    res.count === 0 ||
-    res.dateStatus === "future" ||
-    res.authenticityScore < 50;
+  const critical = res.count === 0 || res.dateStatus === "future" || res.authenticityScore < 50;
 
   const moderate =
     !critical &&
@@ -164,9 +157,7 @@ export function classifySeverity(res: {
   const minor =
     !critical &&
     !moderate &&
-    (res.dateStatus === "missing" ||
-      res.unreadableZones.length > 0 ||
-      res.qualityNotes !== null);
+    (res.dateStatus === "missing" || res.unreadableZones.length > 0 || res.qualityNotes !== null);
 
   const severity: ReviewSeverity = critical
     ? "critical"
@@ -189,43 +180,29 @@ export function classifySeverity(res: {
  * document is rejected or unreadable.
  */
 export async function extractPrescriptionCore(
-  supabase: AnySupabase,
   actorUserId: string,
   prescriptionId: string,
 ): Promise<ExtractResult> {
-  const { data: rx, error: rxErr } = await supabase
-    .from("prescriptions")
-    .select("*")
-    .eq("id", prescriptionId)
-    .single();
-  if (rxErr || !rx) throw new Error("Ordonnance introuvable");
+  const rx = await prisma.prescriptions.findUnique({ where: { id: prescriptionId } });
+  if (!rx) throw new Error("Ordonnance introuvable");
 
-  const { data: signed, error: signErr } = await supabase.storage
-    .from("prescriptions")
-    .createSignedUrl(rx.file_path, 300);
-  if (signErr || !signed) throw new Error("Impossible d'accéder au fichier");
+  let fileBytes: Buffer;
+  try {
+    fileBytes = await readObject("prescriptions", rx.file_path);
+  } catch {
+    throw new Error("Impossible d'accéder au fichier");
+  }
 
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY manquant");
+  const model = visionModel();
 
-  await supabase.from("prescriptions").update({ status: "processing" }).eq("id", rx.id);
+  await prisma.prescriptions.update({ where: { id: rx.id }, data: { status: "processing" } });
 
-  const provider = createOpenAICompatible({
-    name: "lovable",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    headers: {
-      "Lovable-API-Key": apiKey,
-      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-    },
-  });
-
-  const model = provider("google/gemini-3-flash-preview");
   const isPdf = rx.file_mime === "application/pdf";
 
   // Catalog names help the model spell medicine names consistently run after run.
   let hint = "";
   try {
-    hint = catalogHint(await loadCatalog(supabase));
+    hint = catalogHint(await loadCatalog());
   } catch {
     hint = "";
   }
@@ -240,16 +217,14 @@ export async function extractPrescriptionCore(
     },
   ];
   if (isPdf) {
-    const res = await fetch(signed.signedUrl);
-    const buf = new Uint8Array(await res.arrayBuffer());
     userContent.push({
       type: "file",
-      data: buf,
+      data: new Uint8Array(fileBytes),
       mediaType: "application/pdf",
       filename: "prescription.pdf",
     });
   } else {
-    userContent.push({ type: "image", image: new URL(signed.signedUrl) });
+    userContent.push({ type: "image", image: new Uint8Array(fileBytes), mediaType: rx.file_mime });
   }
 
   try {
@@ -262,23 +237,25 @@ export async function extractPrescriptionCore(
     });
 
     if (!output.is_prescription || output.authenticity_score < 50) {
-      await supabase
-        .from("prescriptions")
-        .update({
+      await prisma.prescriptions.update({
+        where: { id: rx.id },
+        data: {
           status: "failed",
           ai_confidence: output.authenticity_score,
-          ai_raw: JSON.parse(JSON.stringify(output)),
-        })
-        .eq("id", rx.id);
-      await supabase.from("prescription_items").delete().eq("prescription_id", rx.id);
-      await supabase.from("audit_logs").insert({
-        actor_user_id: actorUserId,
-        action: "prescription_rejected",
-        entity: "prescription",
-        entity_id: rx.id,
-        meta: {
-          authenticity_score: output.authenticity_score,
-          reason: output.rejection_reason,
+          ai_raw: JSON.parse(JSON.stringify(output)) as Prisma.InputJsonValue,
+        },
+      });
+      await prisma.prescription_items.deleteMany({ where: { prescription_id: rx.id } });
+      await prisma.audit_logs.create({
+        data: {
+          actor_user_id: actorUserId,
+          action: "prescription_rejected",
+          entity: "prescription",
+          entity_id: rx.id,
+          meta: {
+            authenticity_score: output.authenticity_score,
+            reason: output.rejection_reason,
+          },
         },
       });
       throw new Error(
@@ -294,23 +271,22 @@ export async function extractPrescriptionCore(
     const isoDate = resolved.implausibleYear ? null : resolved.iso;
     if (resolved.yearConflict)
       output.inconsistencies.push("Année de la date incertaine (lecture IA corrigée)");
-    if (resolved.implausibleYear)
-      output.unreadable_zones.push("année de la date invraisemblable");
+    if (resolved.implausibleYear) output.unreadable_zones.push("année de la date invraisemblable");
     const dateStatus = rxDateStatus(isoDate);
-
 
     if (dateStatus === "future") {
       // Date dans le futur : on ne bloque plus l'extraction, on signale à l'admin.
       output.inconsistencies.push("Date de l'ordonnance dans le futur");
-      await supabase.from("audit_logs").insert({
-        actor_user_id: actorUserId,
-        action: "prescription_flagged",
-        entity: "prescription",
-        entity_id: rx.id,
-        meta: { reason: "future_date", date: isoDate },
+      await prisma.audit_logs.create({
+        data: {
+          actor_user_id: actorUserId,
+          action: "prescription_flagged",
+          entity: "prescription",
+          entity_id: rx.id,
+          meta: { reason: "future_date", date: isoDate },
+        },
       });
     }
-
 
     // No readable date => authenticity penalty, the document stays reviewable.
     const confidence =
@@ -318,25 +294,27 @@ export async function extractPrescriptionCore(
         ? Math.max(0, Math.round(output.confidence * 0.7))
         : output.confidence;
 
-    await supabase
-      .from("prescriptions")
-      .update({
+    await prisma.prescriptions.update({
+      where: { id: rx.id },
+      data: {
         patient_name: output.patient_name,
         doctor_name: output.doctor_name,
         hospital: output.hospital,
-        prescription_date: isoDate,
+        prescription_date: toDateOnly(isoDate),
         prescription_date_raw: rawDate,
         date_source: "ai",
         ai_confidence: confidence,
-        ai_raw: JSON.parse(JSON.stringify({ ...output, date_iso: isoDate, date_status: dateStatus })),
+        ai_raw: JSON.parse(
+          JSON.stringify({ ...output, date_iso: isoDate, date_status: dateStatus }),
+        ) as Prisma.InputJsonValue,
         status: "extracted",
-      })
-      .eq("id", rx.id);
+      },
+    });
 
-    await supabase.from("prescription_items").delete().eq("prescription_id", rx.id);
+    await prisma.prescription_items.deleteMany({ where: { prescription_id: rx.id } });
     if (output.medicines.length > 0) {
-      await supabase.from("prescription_items").insert(
-        output.medicines.map((m) => ({
+      await prisma.prescription_items.createMany({
+        data: output.medicines.map((m) => ({
           prescription_id: rx.id,
           medicine_name_raw: m.name,
           strength: m.strength,
@@ -346,22 +324,24 @@ export async function extractPrescriptionCore(
           instructions: m.instructions,
           patient_verified: confidence >= 85,
         })),
-      );
+      });
       // Link each line to the catalog once: later searches become deterministic.
-      await linkPrescriptionItemsToCatalog(supabase, rx.id);
+      await linkPrescriptionItemsToCatalog(rx.id);
     }
 
-    await supabase.from("audit_logs").insert({
-      actor_user_id: actorUserId,
-      action: "prescription_extracted",
-      entity: "prescription",
-      entity_id: rx.id,
-      meta: {
-        confidence,
-        authenticity_score: output.authenticity_score,
-        count: output.medicines.length,
-        date: isoDate,
-        date_status: dateStatus,
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: actorUserId,
+        action: "prescription_extracted",
+        entity: "prescription",
+        entity_id: rx.id,
+        meta: {
+          confidence,
+          authenticity_score: output.authenticity_score,
+          count: output.medicines.length,
+          date: isoDate,
+          date_status: dateStatus,
+        },
       },
     });
 
@@ -387,7 +367,9 @@ export async function extractPrescriptionCore(
     } else if (err instanceof Error) {
       message = err.message;
     }
-    await supabase.from("prescriptions").update({ status: "failed" }).eq("id", rx.id);
+    await prisma.prescriptions
+      .update({ where: { id: rx.id }, data: { status: "failed" } })
+      .catch(() => undefined);
     throw new Error(message);
   }
 }

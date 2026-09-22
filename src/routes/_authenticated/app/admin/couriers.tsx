@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getIsAdmin, listCouriersAdmin } from "@/lib/admin-data.functions";
 import { approveCourier, deleteCourier } from "@/lib/delivery.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,22 +56,23 @@ function AdminCouriers() {
   const approve = useServerFn(approveCourier);
   const remove = useServerFn(deleteCourier);
 
+  const checkAdmin = useServerFn(getIsAdmin);
+  const fetchCouriers = useServerFn(listCouriersAdmin);
+
   useEffect(() => {
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => setIsAdmin(!!data));
+    checkAdmin()
+      .then((r) => setIsAdmin(r.isAdmin))
+      .catch(() => setIsAdmin(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   const load = async () => {
-    const { data } = await supabase
-      .from("couriers")
-      .select("id, full_name, phone, vehicle_type, license_number, status, created_at")
-      .order("created_at", { ascending: false });
-    setRows((data as C[]) ?? []);
+    try {
+      const data = await fetchCouriers();
+      setRows((data as C[]) ?? []);
+    } catch {
+      setRows([]);
+    }
   };
   useEffect(() => {
     if (isAdmin) load();
@@ -115,7 +116,8 @@ function AdminCouriers() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="text-2xl font-bold tracking-tight">Livreurs</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Validez, refusez ou supprimez un livreur. La suppression est impossible s'il a une livraison en cours.
+        Validez, refusez ou supprimez un livreur. La suppression est impossible s'il a une livraison
+        en cours.
       </p>
       <div className="mt-6 space-y-3">
         {rows === null && <Skeleton className="h-24 w-full" />}
@@ -128,7 +130,8 @@ function AdminCouriers() {
               <div>
                 <div className="font-semibold">{c.full_name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {c.phone} · {c.vehicle_type} {c.license_number ? `· Permis ${c.license_number}` : ""}
+                  {c.phone} · {c.vehicle_type}{" "}
+                  {c.license_number ? `· Permis ${c.license_number}` : ""}
                 </div>
               </div>
               <Badge
@@ -162,7 +165,12 @@ function AdminCouriers() {
               )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="destructive" className="min-h-11" disabled={busy === c.id}>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="min-h-11"
+                    disabled={busy === c.id}
+                  >
                     <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
                     Supprimer {c.full_name}
                   </Button>
@@ -171,8 +179,8 @@ function AdminCouriers() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Supprimer ce livreur ?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {c.full_name} sera retiré définitivement de la plateforme et perdra son rôle de
-                      livreur. Les livraisons déjà terminées restent enregistrées.
+                      {c.full_name} sera retiré définitivement de la plateforme et perdra son rôle
+                      de livreur. Les livraisons déjà terminées restent enregistrées.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -188,4 +196,3 @@ function AdminCouriers() {
     </div>
   );
 }
-

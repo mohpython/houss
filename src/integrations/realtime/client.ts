@@ -39,7 +39,12 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let retryDelay = 2000;
 let hadConnection = false;
 
-function matches(spec: RealtimeSpec, table: string, type: RealtimeEventType, row: Record<string, unknown>) {
+function matches(
+  spec: RealtimeSpec,
+  table: string,
+  type: RealtimeEventType,
+  row: Record<string, unknown>,
+) {
   if (spec.table !== table) return false;
   if (spec.event && spec.event !== "*" && spec.event !== type) return false;
   if (spec.filter) {
@@ -109,6 +114,16 @@ function connect() {
 
 if (typeof window !== "undefined") {
   onAuthChange(() => connect());
+  // Les navigateurs gardent parfois la page quittée en cache (bfcache) avec son
+  // flux ouvert : on le ferme explicitement, sinon les connexions s'accumulent
+  // jusqu'à la limite de 6 par domaine et le site se bloque.
+  window.addEventListener("pagehide", () => close());
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) {
+      connect();
+      for (const sub of [...subscribers]) sub.onResync?.();
+    }
+  });
 }
 
 export function subscribeRealtime(

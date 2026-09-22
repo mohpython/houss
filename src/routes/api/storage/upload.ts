@@ -32,10 +32,16 @@ export const Route = createFileRoute("/api/storage/upload")({
         }
         const mime = file.type || "image/jpeg";
         if (!ALLOWED.test(mime)) {
-          return Response.json({ error: "Format non accepté (photo ou PDF uniquement)" }, { status: 415 });
+          return Response.json(
+            { error: "Format non accepté (photo ou PDF uniquement)" },
+            { status: 415 },
+          );
         }
         if (file.size > MAX_BYTES) {
-          return Response.json({ error: "Fichier trop volumineux (15 Mo maximum)" }, { status: 413 });
+          return Response.json(
+            { error: "Fichier trop volumineux (15 Mo maximum)" },
+            { status: 413 },
+          );
         }
 
         const { saveObject, extFromMime } = await import("@/server/storage.server");

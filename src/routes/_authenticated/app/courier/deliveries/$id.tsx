@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getCourierDelivery } from "@/lib/courier.functions";
 import { getDeliveryRoute, updateDeliveryStatus } from "@/lib/delivery.functions";
 import { verifyReceiptCode } from "@/lib/fulfillment.functions";
 import { Input } from "@/components/ui/input";
@@ -85,13 +85,7 @@ function DeliveryPage() {
   };
 
   const load = async () => {
-    const { data } = await supabase
-      .from("reservations")
-      .select(
-        "id, delivery_status, patient_lat, patient_lng, patient_address, patient_name, patient_phone, pickup_code, pickup_code_verified_at, receipt_code_verified_at, pharmacies(name, address, phone, lat, lng), reservation_items(prescription_items(medicine_name_raw, strength, quantity))",
-      )
-      .eq("id", id)
-      .single();
+    const data = await getCourierDelivery({ data: { id } }).catch(() => null);
     if (data) setD(data as unknown as Delivery);
     setLoading(false);
   };

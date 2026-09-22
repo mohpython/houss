@@ -41,22 +41,32 @@ export function startScheduler() {
   if (g.__sahaSchedulerStarted || !env.schedulerEnabled) return;
   g.__sahaSchedulerStarted = true;
 
-  every("appointment-reminders", () => msUntil(5), 3600_000, async () => {
-    const { sendAppointmentReminders } = await import("./lifecycle.server");
-    await sendAppointmentReminders();
-  });
+  every(
+    "appointment-reminders",
+    () => msUntil(5),
+    3600_000,
+    async () => {
+      const { sendAppointmentReminders } = await import("./lifecycle.server");
+      await sendAppointmentReminders();
+    },
+  );
 
-  every("cleanup", () => msUntil(15, 3), 86400_000, async () => {
-    const { basePrisma } = await import("./prisma-base.server");
-    const now = new Date();
-    await basePrisma.sessions.deleteMany({ where: { expires_at: { lt: now } } });
-    await basePrisma.auth_tokens.deleteMany({
-      where: { expires_at: { lt: new Date(now.getTime() - 7 * 86400_000) } },
-    });
-    await basePrisma.whatsapp_events.deleteMany({
-      where: { created_at: { lt: new Date(now.getTime() - 30 * 86400_000) } },
-    });
-  });
+  every(
+    "cleanup",
+    () => msUntil(15, 3),
+    86400_000,
+    async () => {
+      const { basePrisma } = await import("./prisma-base.server");
+      const now = new Date();
+      await basePrisma.sessions.deleteMany({ where: { expires_at: { lt: now } } });
+      await basePrisma.auth_tokens.deleteMany({
+        where: { expires_at: { lt: new Date(now.getTime() - 7 * 86400_000) } },
+      });
+      await basePrisma.whatsapp_events.deleteMany({
+        where: { created_at: { lt: new Date(now.getTime() - 30 * 86400_000) } },
+      });
+    },
+  );
 
   console.info("[scheduler] tâches planifiées démarrées");
 }

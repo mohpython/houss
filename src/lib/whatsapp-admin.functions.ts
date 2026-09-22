@@ -1,17 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { TEMPLATE_KEYS, defaultTemplate, type BotLang, type TemplateKey } from "@/lib/whatsapp-copy";
+import { requireAuth } from "@/integrations/auth/middleware";
+import {
+  TEMPLATE_KEYS,
+  defaultTemplate,
+  type BotLang,
+  type TemplateKey,
+} from "@/lib/whatsapp-copy";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function assertAdmin(supabase: any, userId: string) {
-  const { data: row } = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!row) throw new Error("Accès réservé aux administrateurs");
+async function assertAdmin(userId: string) {
+  const { assertAdmin: check } = await import("@/server/authz.server");
+  await check(userId, "Accès réservé aux administrateurs");
 }
 
 export type WaOrder = {
@@ -50,36 +49,55 @@ export type WaTemplate = {
 
 /** WhatsApp orders + live sessions for the admin follow-up board. */
 export const getWhatsappOverview = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
 
-    const [{ data: res, error }, { data: sessions }] = await Promise.all([
-      supabaseAdmin
-        .from("reservations")
-        .select(
-          "id, created_at, patient_name, patient_phone, delivery_mode, patient_address, status, delivery_status, fulfillment_method, total_amount, payment_status, is_partial, neighborhoods(name), pharmacies(name), couriers(full_name)",
-        )
-        .eq("source", "whatsapp")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      supabaseAdmin
-        .from("whatsapp_sessions")
-        .select("wa_phone, wa_name, language, state, last_message_at, user_id")
-        .order("last_message_at", { ascending: false, nullsFirst: false })
-        .limit(100),
+    const [res, sessions] = await Promise.all([
+      prisma.reservations.findMany({
+        where: { source: "whatsapp" },
+        select: {
+          id: true,
+          created_at: true,
+          patient_name: true,
+          patient_phone: true,
+          delivery_mode: true,
+          patient_address: true,
+          status: true,
+          delivery_status: true,
+          fulfillment_method: true,
+          total_amount: true,
+          payment_status: true,
+          is_partial: true,
+          neighborhoods: { select: { name: true } },
+          pharmacies: { select: { name: true } },
+          couriers: { select: { full_name: true } },
+        },
+        orderBy: { created_at: "desc" },
+        take: 200,
+      }),
+      prisma.whatsapp_sessions.findMany({
+        select: {
+          wa_phone: true,
+          wa_name: true,
+          language: true,
+          state: true,
+          last_message_at: true,
+          user_id: true,
+        },
+        orderBy: { last_message_at: { sort: "desc", nulls: "last" } },
+        take: 100,
+      }),
     ]);
-    if (error) throw new Error(error.message);
 
-    const orders: WaOrder[] = (res ?? []).map((r) => {
-      const row = r as unknown as Record<string, unknown>;
-      const nb = row.neighborhoods as { name: string } | null;
-      const ph = row.pharmacies as { name: string } | null;
-      const co = row.couriers as { full_name: string } | null;
+    const orders: WaOrder[] = res.map((r) => {
+      const nb = r.neighborhoods;
+      const ph = r.pharmacies;
+      const co = r.couriers;
       return {
         id: r.id,
-        created_at: r.created_at,
+        created_at: r.created_at.toISOString(),
         patient_name: r.patient_name,
         patient_phone: r.patient_phone,
         neighborhood: nb?.name ?? null,
@@ -96,12 +114,12 @@ export const getWhatsappOverview = createServerFn({ method: "POST" })
       };
     });
 
-    const sess: WaSession[] = (sessions ?? []).map((s) => ({
+    const sess: WaSession[] = sessions.map((s) => ({
       wa_phone: s.wa_phone,
       wa_name: s.wa_name,
       language: s.language,
       state: s.state,
-      last_message_at: s.last_message_at,
+      last_message_at: s.last_message_at ? s.last_message_at.toISOString() : null,
       linked: !!s.user_id,
     }));
 
@@ -110,13 +128,15 @@ export const getWhatsappOverview = createServerFn({ method: "POST" })
 
 /** All editable bot templates with current (custom or default) values. */
 export const listWhatsappTemplates = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { data, error } = await context.supabase.from("whatsapp_templates").select("key, lang, body");
-    if (error) throw new Error(error.message);
+    await assertAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
+    const data = await prisma.whatsapp_templates.findMany({
+      select: { key: true, lang: true, body: true },
+    });
     const custom = new Map<string, string>();
-    for (const r of data ?? []) custom.set(`${r.key}:${r.lang}`, r.body);
+    for (const r of data) custom.set(`${r.key}:${r.lang}`, r.body);
 
     const langs: BotLang[] = ["fr", "en", "ar"];
     return TEMPLATE_KEYS.map((t): WaTemplate => {
@@ -133,27 +153,24 @@ const keySchema = z.enum(TEMPLATE_KEYS.map((t) => t.key) as [TemplateKey, ...Tem
 
 /** Save a custom template; empty body resets to the built-in default. */
 export const saveWhatsappTemplate = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({ key: keySchema, lang: z.enum(["fr", "en", "ar"]), body: z.string().max(2000) })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
+    await assertAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
     const body = data.body.trim();
     if (!body || body === defaultTemplate(data.key, data.lang)) {
-      const { error } = await context.supabase
-        .from("whatsapp_templates")
-        .delete()
-        .eq("key", data.key)
-        .eq("lang", data.lang);
-      if (error) throw new Error(error.message);
+      await prisma.whatsapp_templates.deleteMany({ where: { key: data.key, lang: data.lang } });
       return { ok: true, custom: false };
     }
-    const { error } = await context.supabase
-      .from("whatsapp_templates")
-      .upsert({ key: data.key, lang: data.lang, body, updated_by: context.userId }, { onConflict: "key,lang" });
-    if (error) throw new Error(error.message);
+    await prisma.whatsapp_templates.upsert({
+      where: { key_lang: { key: data.key, lang: data.lang } },
+      create: { key: data.key, lang: data.lang, body, updated_by: context.userId },
+      update: { body, updated_by: context.userId },
+    });
     return { ok: true, custom: true };
   });

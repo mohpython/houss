@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { subscribeRealtime } from "@/integrations/realtime/client";
+import { listMyRecentReservations } from "@/lib/prescriptions.functions";
 import { Camera, ListChecks, Store, Stethoscope, Package, Truck, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getDateLocale } from "@/i18n";
@@ -11,7 +13,10 @@ export const Route = createFileRoute("/_authenticated/app/")({
       { title: "Accueil — SAHA Santé" },
       { name: "description", content: "Scannez votre ordonnance : SAHA Santé s'occupe du reste." },
       { property: "og:title", content: "Accueil — SAHA Santé" },
-      { property: "og:description", content: "Scannez votre ordonnance : SAHA Santé s'occupe du reste." },
+      {
+        property: "og:description",
+        content: "Scannez votre ordonnance : SAHA Santé s'occupe du reste.",
+      },
     ],
   }),
   component: Home,
@@ -29,38 +34,29 @@ function Home() {
   const { t } = useTranslation();
   const { user } = Route.useRouteContext();
   const [recent, setRecent] = useState<Recent[] | null>(null);
+  const listRecent = useServerFn(listMyRecentReservations);
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from("reservations")
-        .select("id, status, delivery_status, created_at, pharmacies(name)")
-        .eq("patient_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(4);
-      setRecent((data as unknown as Recent[]) ?? []);
+      try {
+        const data = await listRecent();
+        setRecent((data as unknown as Recent[]) ?? []);
+      } catch {
+        setRecent([]);
+      }
     };
     load();
-    const ch = supabase
-      .channel(`patient-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "reservations", filter: `patient_id=eq.${user.id}` },
-        load,
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    return subscribeRealtime(
+      [{ table: "reservations", event: "*", filter: { patient_id: user.id } }],
+      () => void load(),
+      { onResync: () => void load() },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center px-6 py-10">
-      <Link
-        to="/app/scan"
-        className="flex flex-col items-center gap-3"
-        aria-label={t("nav.scan")}
-      >
+      <Link to="/app/scan" className="flex flex-col items-center gap-3" aria-label={t("nav.scan")}>
         <span className="flex h-40 w-40 items-center justify-center rounded-full aurora-bg text-primary-foreground shadow-2xl shadow-primary/40 transition-transform active:scale-95">
           <Camera className="h-20 w-20" />
         </span>
@@ -68,11 +64,22 @@ function Home() {
       </Link>
 
       <div className="mt-10 grid w-full grid-cols-3 gap-4">
-        <IconLink to="/app/prescriptions" label={t("nav.prescriptions")} icon={<ListChecks className="h-7 w-7" />} />
-        <IconLink to="/app/reservations" label={t("nav.reservations")} icon={<Store className="h-7 w-7" />} />
-        <IconLink to="/app/health" label={t("health.title")} icon={<Stethoscope className="h-7 w-7" />} />
+        <IconLink
+          to="/app/prescriptions"
+          label={t("nav.prescriptions")}
+          icon={<ListChecks className="h-7 w-7" />}
+        />
+        <IconLink
+          to="/app/reservations"
+          label={t("nav.reservations")}
+          icon={<Store className="h-7 w-7" />}
+        />
+        <IconLink
+          to="/app/health"
+          label={t("health.title")}
+          icon={<Stethoscope className="h-7 w-7" />}
+        />
       </div>
-
 
       <div className="mt-10 w-full space-y-2">
         {recent === null && (

@@ -1,52 +1,32 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-async function assertCallerIsAdmin(supabase: any, userId: string) {
-  const { data, error } = await supabase.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  // has_role lives in `private` schema; fall back to direct query if RPC not exposed.
-  if (error || data !== true) {
-    const { data: row } = await supabase
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!row) throw new Error("Accès réservé aux administrateurs");
-  }
-}
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toPlain } from "@/server/serialize";
 
 export const listAdmins = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }) => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
 
-    const { data: roles, error } = await supabaseAdmin
-      .from("user_roles")
-      .select("user_id, created_at")
-      .eq("role", "admin")
-      .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    const roles = await prisma.user_roles.findMany({
+      where: { role: "admin" },
+      select: { user_id: true, created_at: true, user: { select: { email: true } } },
+      orderBy: { created_at: "asc" },
+    });
 
-    const results = await Promise.all(
-      (roles ?? []).map(async (r) => {
-        const { data } = await supabaseAdmin.auth.admin.getUserById(r.user_id);
-        return {
-          user_id: r.user_id,
-          email: data?.user?.email ?? "(inconnu)",
-          created_at: r.created_at,
-        };
-      }),
+    return toPlain(
+      roles.map((r) => ({
+        user_id: r.user_id,
+        email: r.user?.email ?? "(inconnu)",
+        created_at: r.created_at,
+      })),
     );
-    return results;
   });
 
 export const manageAdminRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -56,30 +36,19 @@ export const manageAdminRole = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
 
-    // Find target user by email via listUsers (paged search).
-    let targetId: string | null = null;
-    let targetEmail: string | null = null;
-    let confirmed = false;
-    let page = 1;
-    for (; page <= 20; page++) {
-      const { data: list, error } = await supabaseAdmin.auth.admin.listUsers({
-        page,
-        perPage: 200,
-      });
-      if (error) throw new Error(error.message);
-      const match = list.users.find((u) => (u.email ?? "").toLowerCase() === data.email);
-      if (match) {
-        targetId = match.id;
-        targetEmail = match.email ?? data.email;
-        confirmed = !!match.email_confirmed_at || !!(match as any).confirmed_at;
-        break;
-      }
-      if (list.users.length < 200) break;
-    }
-    if (!targetId) throw new Error("Aucun utilisateur avec cet email");
+    const match = await prisma.users.findFirst({
+      where: { email: { equals: data.email, mode: "insensitive" } },
+      select: { id: true, email: true, email_verified_at: true },
+    });
+    if (!match) throw new Error("Aucun utilisateur avec cet email");
+    const targetId = match.id;
+    const targetEmail = match.email ?? data.email;
+    const confirmed = !!match.email_verified_at;
+
     if (data.action === "grant" && !confirmed) {
       throw new Error("Cet utilisateur n'a pas encore confirmé son email");
     }
@@ -88,27 +57,23 @@ export const manageAdminRole = createServerFn({ method: "POST" })
     }
 
     if (data.action === "grant") {
-      const { error } = await supabaseAdmin
-        .from("user_roles")
-        .insert({ user_id: targetId, role: "admin" });
-      if (error && !`${error.message}`.toLowerCase().includes("duplicate")) {
-        throw new Error(error.message);
-      }
+      await prisma.user_roles.upsert({
+        where: { user_id_role: { user_id: targetId, role: "admin" } },
+        create: { user_id: targetId, role: "admin" },
+        update: {},
+      });
     } else {
-      const { error } = await supabaseAdmin
-        .from("user_roles")
-        .delete()
-        .eq("user_id", targetId)
-        .eq("role", "admin");
-      if (error) throw new Error(error.message);
+      await prisma.user_roles.deleteMany({ where: { user_id: targetId, role: "admin" } });
     }
 
-    await supabaseAdmin.from("audit_logs").insert({
-      actor_user_id: context.userId,
-      action: data.action === "grant" ? "admin.grant" : "admin.revoke",
-      entity: "user_roles",
-      entity_id: targetId,
-      meta: { email: targetEmail },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: data.action === "grant" ? "admin.grant" : "admin.revoke",
+        entity: "user_roles",
+        entity_id: targetId,
+        meta: { email: targetEmail },
+      },
     });
 
     return { ok: true, user_id: targetId, email: targetEmail };

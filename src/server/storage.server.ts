@@ -76,9 +76,7 @@ export async function removeObjects(bucket: Bucket, keys: string[]) {
 }
 
 function sign(bucket: string, key: string, exp: number): string {
-  return createHmac("sha256", env.appSecret)
-    .update(`${bucket}/${key}:${exp}`)
-    .digest("base64url");
+  return createHmac("sha256", env.appSecret).update(`${bucket}/${key}:${exp}`).digest("base64url");
 }
 
 /** URL relative signée, valable `expiresInSec` secondes (équivalent createSignedUrl). */
@@ -93,7 +91,12 @@ export function createAbsoluteSignedUrl(bucket: Bucket, key: string, expiresInSe
   return `${env.appUrl}${createSignedUrl(bucket, key, expiresInSec)}`;
 }
 
-export function verifySignedUrl(bucket: string, key: string, exp: string | null, sig: string | null) {
+export function verifySignedUrl(
+  bucket: string,
+  key: string,
+  exp: string | null,
+  sig: string | null,
+) {
   if (!exp || !sig) return false;
   const expNum = Number(exp);
   if (!Number.isFinite(expNum) || expNum < Math.floor(Date.now() / 1000)) return false;

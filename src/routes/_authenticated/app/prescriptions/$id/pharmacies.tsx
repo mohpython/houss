@@ -1,8 +1,8 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
 import { findNearbyPharmaciesPlaces, createReservation } from "@/lib/pharmacy.functions";
+import { getPrescriptionDetail } from "@/lib/prescriptions.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,7 @@ function Pharmacies() {
   const [deliveryLoc, setDeliveryLoc] = useState<DeliveryLocation | null>(null);
   const findFn = useServerFn(findNearbyPharmaciesPlaces);
   const createRes = useServerFn(createReservation);
+  const getDetail = useServerFn(getPrescriptionDetail);
   const [pharms, setPharms] = useState<Pharm[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loc, setLoc] = useState<{ lat: number; lng: number } | null>(null);
@@ -48,20 +49,17 @@ function Pharmacies() {
   const [isOwner, setIsOwner] = useState<boolean | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("prescription_items")
-      .select("id")
-      .eq("prescription_id", id)
-      .then(({ data }) => setItemsAll((data ?? []).map((i) => i.id)));
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const { data: rx } = await supabase
-        .from("prescriptions")
-        .select("patient_id")
-        .eq("id", id)
-        .maybeSingle();
-      setIsOwner(!!rx && !!auth.user && rx.patient_id === auth.user.id);
+      try {
+        const detail = await getDetail({ data: { prescriptionId: id } });
+        setItemsAll(detail.items.map((i) => i.id));
+        setIsOwner(!!detail.rx && detail.isOwner);
+      } catch {
+        setItemsAll([]);
+        setIsOwner(false);
+      }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const load = async (coords: { lat: number; lng: number }) => {
@@ -101,13 +99,13 @@ function Pharmacies() {
           itemIds: ids,
           patientLat: deliveryLoc?.mode === "gps" ? deliveryLoc.lat : undefined,
           patientLng: deliveryLoc?.mode === "gps" ? deliveryLoc.lng : undefined,
-          neighborhoodId: deliveryLoc?.mode === "neighborhood" ? deliveryLoc.neighborhoodId : undefined,
+          neighborhoodId:
+            deliveryLoc?.mode === "neighborhood" ? deliveryLoc.neighborhoodId : undefined,
           patientAddress: deliveryLoc?.detail?.trim() || undefined,
         },
       });
       toast.success("Réservation créée");
       router.navigate({ to: "/app/reservations/$id/checkout", params: { id: res.id } });
-
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
@@ -134,8 +132,8 @@ function Pharmacies() {
 
       {isOwner === false && (
         <Card className="mt-6 border-warning/40 bg-warning/10 p-4 text-sm text-foreground">
-          Cette ordonnance appartient à un autre patient. Vous pouvez consulter les pharmacies,
-          mais seul le patient propriétaire peut réserver.
+          Cette ordonnance appartient à un autre patient. Vous pouvez consulter les pharmacies, mais
+          seul le patient propriétaire peut réserver.
         </Card>
       )}
 
@@ -169,10 +167,14 @@ function Pharmacies() {
                     </span>
                   ) : null}
                   {p.openNow === true && (
-                    <Badge variant="secondary" className="bg-success/10 text-success">Ouvert</Badge>
+                    <Badge variant="secondary" className="bg-success/10 text-success">
+                      Ouvert
+                    </Badge>
                   )}
                   {p.openNow === false && (
-                    <Badge variant="secondary" className="bg-muted text-muted-foreground">Fermé</Badge>
+                    <Badge variant="secondary" className="bg-muted text-muted-foreground">
+                      Fermé
+                    </Badge>
                   )}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -181,13 +183,18 @@ function Pharmacies() {
                     {p.address}
                   </span>
                   {p.phone && (
-                    <a href={`tel:${p.phone}`} className="flex items-center gap-1 hover:text-primary">
+                    <a
+                      href={`tel:${p.phone}`}
+                      className="flex items-center gap-1 hover:text-primary"
+                    >
                       <Phone className="h-3 w-3" />
                       {p.phone}
                     </a>
                   )}
                   {p.distanceKm != null && (
-                    <span className="rounded-full bg-secondary px-2 py-0.5">{p.distanceKm.toFixed(1)} km</span>
+                    <span className="rounded-full bg-secondary px-2 py-0.5">
+                      {p.distanceKm.toFixed(1)} km
+                    </span>
                   )}
                 </div>
               </div>
@@ -214,7 +221,10 @@ function Pharmacies() {
             {p.registered && p.availability.length > 0 && (
               <div className="mt-4 grid gap-1 text-sm sm:grid-cols-2">
                 {p.availability.map((a) => (
-                  <div key={a.itemId} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-1.5">
+                  <div
+                    key={a.itemId}
+                    className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-1.5"
+                  >
                     <span className="flex items-center gap-2 truncate">
                       {a.available ? (
                         <Check className="h-3.5 w-3.5 text-success" />
@@ -236,7 +246,9 @@ function Pharmacies() {
                 <Button
                   onClick={() => reserve(p)}
                   disabled={reserving === p.placeId || p.availableCount === 0 || isOwner === false}
-                  title={isOwner === false ? "Seul le patient propriétaire peut réserver" : undefined}
+                  title={
+                    isOwner === false ? "Seul le patient propriétaire peut réserver" : undefined
+                  }
                 >
                   {reserving === p.placeId ? "Réservation…" : "Réserver ici"}
                 </Button>

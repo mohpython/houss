@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getAdminDashboard, getIsAdmin } from "@/lib/admin-data.functions";
+import { subscribeRealtime } from "@/integrations/realtime/client";
 import { approvePharmacy } from "@/lib/pharmacy.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,50 +75,46 @@ function Admin() {
   const [rows, setRows] = useState<Ph[] | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [query, setQuery] = useState("");
-  const [global, setGlobal] = useState<Global>({ pharmacies: 0, couriers: 0, active: 0, delivered: 0 });
+  const [global, setGlobal] = useState<Global>({
+    pharmacies: 0,
+    couriers: 0,
+    active: 0,
+    delivered: 0,
+  });
   const approve = useServerFn(approvePharmacy);
   const { user } = Route.useRouteContext();
 
+  const checkAdmin = useServerFn(getIsAdmin);
+  const fetchDashboard = useServerFn(getAdminDashboard);
+
   useEffect(() => {
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => setIsAdmin(!!data));
+    checkAdmin()
+      .then((r) => setIsAdmin(r.isAdmin))
+      .catch(() => setIsAdmin(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   const load = async () => {
-    const [ph, cCourier, cPh, all] = await Promise.all([
-      supabase
-        .from("pharmacies")
-        .select("id, name, license_number, address, city, status, created_at")
-        .order("created_at", { ascending: false }),
-      supabase.from("couriers").select("id", { count: "exact", head: true }).eq("status", "approved"),
-      supabase.from("pharmacies").select("id", { count: "exact", head: true }).eq("status", "approved"),
-      supabase.from("reservations").select("status"),
-    ]);
-    setRows((ph.data as Ph[]) ?? []);
-    const list = all.data ?? [];
-    setGlobal({
-      pharmacies: cPh.count ?? 0,
-      couriers: cCourier.count ?? 0,
-      active: list.filter((r) => !["completed", "cancelled", "rejected"].includes(r.status)).length,
-      delivered: list.filter((r) => r.status === "completed").length,
-    });
+    try {
+      const d = await fetchDashboard();
+      setRows((d.pharmacies as Ph[]) ?? []);
+      setGlobal(d.global);
+    } catch {
+      setRows([]);
+    }
   };
   useEffect(() => {
     if (!isAdmin) return;
     load();
-    const ch = supabase
-      .channel(`admin-live`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "pharmacies" }, load)
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    return subscribeRealtime(
+      [
+        { table: "reservations", event: "*" },
+        { table: "pharmacies", event: "*" },
+      ],
+      () => load(),
+      { onResync: () => load() },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
   const act = async (pharmacyId: string, decision: "approved" | "rejected") => {
@@ -274,11 +271,24 @@ function Admin() {
         </Card>
       )}
 
-      <section aria-label="Statistiques globales" className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section
+        aria-label="Statistiques globales"
+        className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
         <Kpi icon={<Store className="h-4 w-4" />} label="Pharmacies" value={global.pharmacies} />
         <Kpi icon={<Users className="h-4 w-4" />} label="Livreurs" value={global.couriers} />
-        <Kpi icon={<Package className="h-4 w-4" />} label="Commandes actives" value={global.active} tone="warning" />
-        <Kpi icon={<Truck className="h-4 w-4" />} label="Livrées" value={global.delivered} tone="success" />
+        <Kpi
+          icon={<Package className="h-4 w-4" />}
+          label="Commandes actives"
+          value={global.active}
+          tone="warning"
+        />
+        <Kpi
+          icon={<Truck className="h-4 w-4" />}
+          label="Livrées"
+          value={global.delivered}
+          tone="success"
+        />
       </section>
 
       <div className="mt-8">
@@ -301,12 +311,17 @@ function Admin() {
       </div>
 
       {filtered.length === 0 && (
-        <p className="mt-6 text-sm text-muted-foreground">Aucune section ne correspond à « {query} ».</p>
+        <p className="mt-6 text-sm text-muted-foreground">
+          Aucune section ne correspond à « {query} ».
+        </p>
       )}
 
       {filtered.map((s) => (
         <section key={s.title} className="mt-8" aria-labelledby={`sec-${slug(s.title)}`}>
-          <h2 id={`sec-${slug(s.title)}`} className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2
+            id={`sec-${slug(s.title)}`}
+            className="text-sm font-semibold uppercase tracking-wide text-muted-foreground"
+          >
             {s.title}
           </h2>
           <ul className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -326,7 +341,10 @@ function Admin() {
                     <span className="block font-semibold">{i.label}</span>
                     <span className="block truncate text-xs text-muted-foreground">{i.desc}</span>
                   </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <ChevronRight
+                    className="h-4 w-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
                 </Link>
               </li>
             ))}
@@ -363,7 +381,11 @@ function Admin() {
                         : "bg-warning/10 text-warning"
                   }
                 >
-                  {p.status === "approved" ? "Approuvée" : p.status === "rejected" ? "Refusée" : "En attente"}
+                  {p.status === "approved"
+                    ? "Approuvée"
+                    : p.status === "rejected"
+                      ? "Refusée"
+                      : "En attente"}
                 </Badge>
               </div>
               {p.status === "pending" && (
@@ -415,7 +437,10 @@ function Kpi({
         : "bg-primary/10 text-primary";
   return (
     <Card className="p-3">
-      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${t}`} aria-hidden="true">
+      <div
+        className={`flex h-8 w-8 items-center justify-center rounded-lg ${t}`}
+        aria-hidden="true"
+      >
         {icon}
       </div>
       <div className="mt-2 text-2xl font-bold">{value}</div>

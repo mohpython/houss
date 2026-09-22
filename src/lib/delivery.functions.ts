@@ -1,25 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+import { requireAuth } from "@/integrations/auth/middleware";
 
 /**
  * Auto-routes a prescription to the closest approved pharmacy that has the most items in stock.
  * Creates a reservation + reservation_items for available items, stores missing ones.
  */
 export const autoRouteReservation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -33,15 +21,15 @@ export const autoRouteReservation = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
     const { autoRouteCore, resolveDeliveryTarget } = await import("./routing-core.server");
-    const target = await resolveDeliveryTarget(supabase, {
+    const target = await resolveDeliveryTarget({
       lat: data.patientLat,
       lng: data.patientLng,
       address: data.patientAddress,
       neighborhoodId: data.neighborhoodId,
     });
-    return autoRouteCore(supabase, {
+    return autoRouteCore({
       prescriptionId: data.prescriptionId,
       patientId: userId,
       patientLat: target.lat,
@@ -54,75 +42,86 @@ export const autoRouteReservation = createServerFn({ method: "POST" })
     });
   });
 
-
 /**
  * Assigns the closest online approved courier to a reservation.
  */
 export const assignCourier = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ reservationId: z.string().uuid() }).parse(input),
-  )
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) => z.object({ reservationId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const { reservationAccess } = await import("@/server/authz.server");
+    const { haversineKm } = await import("./routing-core.server");
+    const { updateReservationAs } = await import("./reservation-rules.server");
 
-    const { data: res } = await supabase
-      .from("reservations")
-      .select("id, pharmacy_id, courier_id, fulfillment_method, pharmacies(lat, lng)")
-      .eq("id", data.reservationId)
-      .single();
-    if (!res) throw new Error("Réservation introuvable");
+    const res = await prisma.reservations.findUnique({
+      where: { id: data.reservationId },
+      select: {
+        id: true,
+        patient_id: true,
+        pharmacy_id: true,
+        courier_id: true,
+        payment_status: true,
+        fulfillment_method: true,
+        pharmacies: { select: { lat: true, lng: true } },
+      },
+    });
+    if (!res || !(await reservationAccess(userId, res)).canRead) {
+      throw new Error("Réservation introuvable");
+    }
     if (res.courier_id) throw new Error("Livreur déjà assigné");
     if (res.fulfillment_method === "pickup")
       throw new Error("Le client récupère lui-même sa commande");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pharm = (res as any).pharmacies;
+    const pharm = res.pharmacies;
     if (!pharm?.lat || !pharm?.lng) throw new Error("Pharmacie sans coordonnées");
+    const pharmLat = pharm.lat;
+    const pharmLng = pharm.lng;
 
-    const { data: couriers } = await supabase
-      .from("couriers")
-      .select("id, full_name, phone, current_lat, current_lng")
-      .eq("status", "approved")
-      .eq("is_online", true)
-      .not("current_lat", "is", null)
-      .not("current_lng", "is", null);
+    const couriers = await prisma.couriers.findMany({
+      where: {
+        status: "approved",
+        is_online: true,
+        current_lat: { not: null },
+        current_lng: { not: null },
+      },
+      select: { id: true, full_name: true, phone: true, current_lat: true, current_lng: true },
+    });
 
-    if (!couriers || couriers.length === 0) {
+    if (couriers.length === 0) {
       throw new Error("Aucun livreur en ligne pour le moment");
     }
 
     const sorted = couriers
       .map((c) => ({
         c,
-        d: haversine(pharm.lat, pharm.lng, c.current_lat!, c.current_lng!),
+        d: haversineKm(pharmLat, pharmLng, c.current_lat!, c.current_lng!),
       }))
       .sort((a, b) => a.d - b.d);
     const best = sorted[0]!.c;
 
-    const { error } = await supabase
-      .from("reservations")
-      .update({
-        courier_id: best.id,
-        delivery_status: "assigned",
-        assigned_at: new Date().toISOString(),
-        status: "ready",
-      })
-      .eq("id", data.reservationId);
-    if (error) throw new Error(error.message);
+    await updateReservationAs(userId, data.reservationId, {
+      courier_id: best.id,
+      delivery_status: "assigned",
+      assigned_at: new Date(),
+      status: "ready",
+    });
 
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: "courier_assigned",
-      entity: "reservation",
-      entity_id: data.reservationId,
-      meta: { courier_id: best.id },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: "courier_assigned",
+        entity: "reservation",
+        entity_id: data.reservationId,
+        meta: { courier_id: best.id },
+      },
     });
 
     return { courierId: best.id, courierName: best.full_name };
   });
 
 export const updateCourierPosition = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -133,36 +132,41 @@ export const updateCourierPosition = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: courier } = await supabase
-      .from("couriers")
-      .select("id")
-      .eq("user_id", userId)
-      .single();
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const courier = await prisma.couriers.findUnique({
+      where: { user_id: userId },
+      select: { id: true },
+    });
     if (!courier) throw new Error("Livreur introuvable");
 
-    await supabase
-      .from("couriers")
-      .update({
+    await prisma.couriers.update({
+      where: { id: courier.id },
+      data: {
         current_lat: data.lat,
         current_lng: data.lng,
-        last_position_at: new Date().toISOString(),
-      })
-      .eq("id", courier.id);
+        last_position_at: new Date(),
+      },
+    });
 
     if (data.reservationId) {
-      await supabase.from("courier_positions").insert({
-        courier_id: courier.id,
-        reservation_id: data.reservationId,
-        lat: data.lat,
-        lng: data.lng,
-      });
+      // Les erreurs d'insertion étaient ignorées auparavant.
+      await prisma.courier_positions
+        .create({
+          data: {
+            courier_id: courier.id,
+            reservation_id: data.reservationId,
+            lat: data.lat,
+            lng: data.lng,
+          },
+        })
+        .catch(() => undefined);
     }
     return { ok: true };
   });
 
 export const updateDeliveryStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -172,36 +176,36 @@ export const updateDeliveryStatus = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const { updateReservationAs } = await import("./reservation-rules.server");
     const patch: {
       delivery_status: "picked_up" | "en_route" | "delivered" | "failed";
-      picked_up_at?: string;
-      delivered_at?: string;
+      picked_up_at?: Date;
+      delivered_at?: Date;
       status?: "completed";
     } = { delivery_status: data.status };
-    if (data.status === "picked_up") patch.picked_up_at = new Date().toISOString();
+    if (data.status === "picked_up") patch.picked_up_at = new Date();
     if (data.status === "delivered") {
-      patch.delivered_at = new Date().toISOString();
+      patch.delivered_at = new Date();
       patch.status = "completed";
     }
 
-    const { error } = await supabase
-      .from("reservations")
-      .update(patch)
-      .eq("id", data.reservationId);
-    if (error) throw new Error(error.message);
+    await updateReservationAs(userId, data.reservationId, patch);
 
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: `delivery_${data.status}`,
-      entity: "reservation",
-      entity_id: data.reservationId,
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: `delivery_${data.status}`,
+        entity: "reservation",
+        entity_id: data.reservationId,
+      },
     });
     return { ok: true };
   });
 
 export const setCourierOnline = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -212,29 +216,26 @@ export const setCourierOnline = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
     const patch: {
       is_online: boolean;
       current_lat?: number;
       current_lng?: number;
-      last_position_at?: string;
+      last_position_at?: Date;
     } = { is_online: data.online };
     if (data.lat !== undefined && data.lng !== undefined) {
       patch.current_lat = data.lat;
       patch.current_lng = data.lng;
-      patch.last_position_at = new Date().toISOString();
+      patch.last_position_at = new Date();
     }
 
-    const { error } = await supabase
-      .from("couriers")
-      .update(patch)
-      .eq("user_id", userId);
-    if (error) throw new Error(error.message);
+    await prisma.couriers.updateMany({ where: { user_id: userId }, data: patch });
     return { ok: true };
   });
 
 export const registerCourier = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -246,27 +247,28 @@ export const registerCourier = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: existing } = await supabase
-      .from("couriers")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const existing = await prisma.couriers.findUnique({
+      where: { user_id: userId },
+      select: { id: true },
+    });
     if (existing) throw new Error("Vous êtes déjà inscrit comme livreur");
 
-    const { error } = await supabase.from("couriers").insert({
-      user_id: userId,
-      full_name: data.fullName,
-      phone: data.phone,
-      vehicle_type: data.vehicleType,
-      license_number: data.licenseNumber ?? null,
+    await prisma.couriers.create({
+      data: {
+        user_id: userId,
+        full_name: data.fullName,
+        phone: data.phone,
+        vehicle_type: data.vehicleType,
+        license_number: data.licenseNumber ?? null,
+      },
     });
-    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 export const approveCourier = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -276,33 +278,28 @@ export const approveCourier = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: adminRow } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!adminRow) throw new Error("Réservé aux admins");
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const { isAdmin } = await import("@/server/authz.server");
+    if (!(await isAdmin(userId))) throw new Error("Réservé aux admins");
 
-    const { data: courier } = await supabase
-      .from("couriers")
-      .select("user_id")
-      .eq("id", data.courierId)
-      .single();
+    const courier = await prisma.couriers.findUnique({
+      where: { id: data.courierId },
+      select: { user_id: true },
+    });
     if (!courier) throw new Error("Livreur introuvable");
 
-    const { error } = await supabase
-      .from("couriers")
-      .update({ status: data.decision })
-      .eq("id", data.courierId);
-    if (error) throw new Error(error.message);
+    await prisma.couriers.update({
+      where: { id: data.courierId },
+      data: { status: data.decision },
+    });
 
     if (data.decision === "approved") {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      await supabaseAdmin
-        .from("user_roles")
-        .upsert({ user_id: courier.user_id, role: "courier" }, { onConflict: "user_id,role" });
+      await prisma.user_roles.upsert({
+        where: { user_id_role: { user_id: courier.user_id, role: "courier" } },
+        create: { user_id: courier.user_id, role: "courier" },
+        update: {},
+      });
     }
     return { ok: true };
   });
@@ -311,7 +308,7 @@ export const approveCourier = createServerFn({ method: "POST" })
  * Google Directions route between two points, returns encoded polyline + duration/distance.
  */
 export const getDeliveryRoute = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -323,28 +320,23 @@ export const getDeliveryRoute = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
     const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!apiKey || !gmapsKey) throw new Error("Google Maps non configuré");
+    if (!gmapsKey) throw new Error("Google Maps non configuré");
 
-    const res = await fetch(
-      "https://connector-gateway.lovable.dev/google_maps/routes/directions/v2:computeRoutes",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "X-Connection-Api-Key": gmapsKey,
-          "Content-Type": "application/json",
-          "X-Goog-FieldMask": "routes.polyline.encodedPolyline,routes.duration,routes.distanceMeters",
-        },
-        body: JSON.stringify({
-          origin: { location: { latLng: { latitude: data.originLat, longitude: data.originLng } } },
-          destination: { location: { latLng: { latitude: data.destLat, longitude: data.destLng } } },
-          travelMode: "DRIVE",
-          routingPreference: "TRAFFIC_AWARE",
-        }),
+    const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+      method: "POST",
+      headers: {
+        "X-Goog-Api-Key": gmapsKey,
+        "Content-Type": "application/json",
+        "X-Goog-FieldMask": "routes.polyline.encodedPolyline,routes.duration,routes.distanceMeters",
       },
-    );
+      body: JSON.stringify({
+        origin: { location: { latLng: { latitude: data.originLat, longitude: data.originLng } } },
+        destination: { location: { latLng: { latitude: data.destLat, longitude: data.destLng } } },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_AWARE",
+      }),
+    });
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`Routes API (${res.status}): ${body.slice(0, 200)}`);
@@ -366,56 +358,49 @@ export const getDeliveryRoute = createServerFn({ method: "POST" })
 
 /** Admin: supprimer définitivement un livreur. */
 export const deleteCourier = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ courierId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { data: adminRow } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!adminRow) throw new Error("Réservé aux admins");
+    const { prisma } = await import("@/server/db.server");
+    const { isAdmin } = await import("@/server/authz.server");
+    if (!(await isAdmin(context.userId))) throw new Error("Réservé aux admins");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: courier } = await supabaseAdmin
-      .from("couriers")
-      .select("id, user_id")
-      .eq("id", data.courierId)
-      .maybeSingle();
+    const courier = await prisma.couriers.findUnique({
+      where: { id: data.courierId },
+      select: { id: true, user_id: true },
+    });
     if (!courier) throw new Error("Livreur introuvable");
 
-    const { count: activeCount } = await supabaseAdmin
-      .from("reservations")
-      .select("id", { count: "exact", head: true })
-      .eq("courier_id", data.courierId)
-      .in("delivery_status", ["assigned", "picked_up", "en_route"]);
-    if ((activeCount ?? 0) > 0) {
+    const activeCount = await prisma.reservations.count({
+      where: {
+        courier_id: data.courierId,
+        delivery_status: { in: ["assigned", "picked_up", "en_route"] },
+      },
+    });
+    if (activeCount > 0) {
       throw new Error("Ce livreur a des livraisons en cours : terminez-les avant de le supprimer.");
     }
 
-    await supabaseAdmin
-      .from("reservations")
-      .update({ courier_id: null })
-      .eq("courier_id", data.courierId);
-    await supabaseAdmin.from("courier_positions").delete().eq("courier_id", data.courierId);
+    await prisma.reservations.updateMany({
+      where: { courier_id: data.courierId },
+      data: { courier_id: null },
+    });
+    await prisma.courier_positions.deleteMany({ where: { courier_id: data.courierId } });
 
-    const { error } = await supabaseAdmin.from("couriers").delete().eq("id", data.courierId);
-    if (error) throw new Error(error.message);
+    await prisma.couriers.delete({ where: { id: data.courierId } });
 
-    await supabaseAdmin
-      .from("user_roles")
-      .delete()
-      .eq("user_id", courier.user_id)
-      .eq("role", "courier");
+    await prisma.user_roles.deleteMany({
+      where: { user_id: courier.user_id, role: "courier" },
+    });
 
-    await supabaseAdmin.from("audit_logs").insert({
-      actor_user_id: context.userId,
-      action: "courier.delete",
-      entity: "couriers",
-      entity_id: data.courierId,
-      meta: {},
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "courier.delete",
+        entity: "couriers",
+        entity_id: data.courierId,
+        meta: {},
+      },
     });
 
     return { ok: true };

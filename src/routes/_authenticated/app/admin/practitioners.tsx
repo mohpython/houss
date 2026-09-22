@@ -1,8 +1,12 @@
-import { getPractitionerResponseStats, type PractitionerResponseStats } from "@/lib/practitioner.functions";
+import {
+  getPractitionerResponseStats,
+  type PractitionerResponseStats,
+} from "@/lib/practitioner.functions";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getMyRoles } from "@/lib/account.functions";
+import { listSpecialties } from "@/lib/health.functions";
 import {
   listPractitionersAdmin,
   upsertPractitioner,
@@ -92,29 +96,26 @@ function AdminPractitioners() {
   const upsert = useServerFn(upsertPractitioner);
   const setStatus = useServerFn(setPractitionerStatus);
   const remove = useServerFn(deletePractitioner);
+  const fetchRoles = useServerFn(getMyRoles);
+  const fetchSpecialties = useServerFn(listSpecialties);
 
   useEffect(() => {
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => setIsAdmin(!!data));
+    fetchRoles()
+      .then((roles) => setIsAdmin(roles.includes("admin")))
+      .catch(() => setIsAdmin(false));
   }, [user.id]);
 
   const load = async () => {
     try {
       const [data, spec] = await Promise.all([
         list(),
-        supabase
-          .from("practitioner_specialties")
-          .select("code, label_fr, practitioner_type")
-          .order("label_fr"),
+        fetchSpecialties().catch(() => [] as Specialty[]),
       ]);
       setRows(data);
-      setSpecialties((spec.data as Specialty[]) ?? []);
-      loadStats().then(setStats).catch(() => setStats({}));
+      setSpecialties((spec as Specialty[]) ?? []);
+      loadStats()
+        .then(setStats)
+        .catch(() => setStats({}));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur");
       setRows([]);
@@ -370,9 +371,7 @@ function AdminPractitioners() {
               <Label>Statut</Label>
               <Select
                 value={form.status}
-                onValueChange={(v) =>
-                  setForm({ ...form, status: v as FormState["status"] })
-                }
+                onValueChange={(v) => setForm({ ...form, status: v as FormState["status"] })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -421,9 +420,7 @@ function AdminPractitioners() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold">{p.full_name}</span>
-                <Badge variant="secondary">
-                  {p.type === "doctor" ? "Médecin" : "Infirmier"}
-                </Badge>
+                <Badge variant="secondary">{p.type === "doctor" ? "Médecin" : "Infirmier"}</Badge>
                 <Badge
                   variant="secondary"
                   className={
@@ -439,8 +436,7 @@ function AdminPractitioners() {
                 {p.home_visits && <Badge variant="outline">Domicile</Badge>}
               </div>
               <div className="mt-1 text-xs text-muted-foreground">
-                {specialties.find((s) => s.code === p.specialty_code)?.label_fr ??
-                  p.specialty_code}
+                {specialties.find((s) => s.code === p.specialty_code)?.label_fr ?? p.specialty_code}
                 {p.city ? ` · ${p.city}` : ""}
                 {p.phone ? ` · ${p.phone}` : ""}
               </div>
@@ -454,7 +450,8 @@ function AdminPractitioners() {
                   </Badge>
                   {stats[p.id].avgResponseHours !== null && (
                     <Badge variant="outline">
-                      Réponse moy. {stats[p.id].avgResponseHours! < 1
+                      Réponse moy.{" "}
+                      {stats[p.id].avgResponseHours! < 1
                         ? `${Math.round(stats[p.id].avgResponseHours! * 60)} min`
                         : `${stats[p.id].avgResponseHours!.toFixed(1)} h`}
                     </Badge>

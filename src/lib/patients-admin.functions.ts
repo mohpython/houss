@@ -1,17 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function assertAdmin(supabase: any, userId: string) {
-  const { data: row } = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!row) throw new Error("Accès réservé aux administrateurs");
-}
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toPlain } from "@/server/serialize";
 
 export type PatientRow = {
   user_id: string;
@@ -44,49 +34,65 @@ export type PatientOrder = {
 
 /** All registered users with roles, last delivery neighborhood and order counts. */
 export const listPatients = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
 
-    const users: { id: string; email: string | null; created_at: string; last_sign_in_at: string | null; source: string | null }[] = [];
-    for (let page = 1; page <= 20; page++) {
-      const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
-      if (error) throw new Error(error.message);
-      for (const u of data.users) {
-        users.push({
-          id: u.id,
-          email: u.email ?? null,
-          created_at: u.created_at,
-          last_sign_in_at: u.last_sign_in_at ?? null,
-          source: (u.user_metadata?.source as string | undefined) ?? null,
-        });
-      }
-      if (data.users.length < 200) break;
-    }
-
-    const [{ data: profiles }, { data: roles }, { data: orders }] = await Promise.all([
-      supabaseAdmin.from("profiles").select("id, full_name, phone, language"),
-      supabaseAdmin.from("user_roles").select("user_id, role"),
-      supabaseAdmin
-        .from("reservations")
-        .select("patient_id, created_at, neighborhoods(name)")
-        .order("created_at", { ascending: false })
-        .limit(5000),
+    const [rawUsers, profiles, roles, rawOrders] = await Promise.all([
+      prisma.users.findMany({
+        select: {
+          id: true,
+          email: true,
+          created_at: true,
+          last_sign_in_at: true,
+          raw_user_meta_data: true,
+        },
+        orderBy: { created_at: "asc" },
+        take: 4000,
+      }),
+      prisma.profiles.findMany({
+        select: { id: true, full_name: true, phone: true, language: true },
+      }),
+      prisma.user_roles.findMany({ select: { user_id: true, role: true } }),
+      prisma.reservations.findMany({
+        select: { patient_id: true, created_at: true, neighborhoods: { select: { name: true } } },
+        orderBy: { created_at: "desc" },
+        take: 5000,
+      }),
     ]);
+    const users = rawUsers.map((u) => {
+      const meta = (u.raw_user_meta_data ?? {}) as Record<string, unknown>;
+      return {
+        id: u.id,
+        email: u.email ?? null,
+        created_at: u.created_at.toISOString(),
+        last_sign_in_at: u.last_sign_in_at ? u.last_sign_in_at.toISOString() : null,
+        source: typeof meta.source === "string" ? meta.source : null,
+      };
+    });
+    const orders = toPlain(rawOrders);
 
-    const profMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+    const profMap = new Map(profiles.map((p) => [p.id, p]));
     const roleMap = new Map<string, string[]>();
-    for (const r of roles ?? []) roleMap.set(r.user_id, [...(roleMap.get(r.user_id) ?? []), r.role]);
-    const orderMap = new Map<string, { count: number; last: string; neighborhood: string | null }>();
-    for (const o of orders ?? []) {
-      const nb = (o as unknown as { neighborhoods: { name: string } | null }).neighborhoods;
+    for (const r of roles) roleMap.set(r.user_id, [...(roleMap.get(r.user_id) ?? []), r.role]);
+    const orderMap = new Map<
+      string,
+      { count: number; last: string; neighborhood: string | null }
+    >();
+    for (const o of orders) {
+      const nb = o.neighborhoods;
       const cur = orderMap.get(o.patient_id);
       if (cur) {
         cur.count += 1;
         if (!cur.neighborhood && nb?.name) cur.neighborhood = nb.name;
       } else {
-        orderMap.set(o.patient_id, { count: 1, last: o.created_at, neighborhood: nb?.name ?? null });
+        orderMap.set(o.patient_id, {
+          count: 1,
+          last: o.created_at,
+          neighborhood: nb?.name ?? null,
+        });
       }
     }
 
@@ -108,28 +114,41 @@ export const listPatients = createServerFn({ method: "POST" })
         source: u.source,
       };
     });
-    rows.sort((a, b) => (b.last_order_at ?? b.created_at).localeCompare(a.last_order_at ?? a.created_at));
+    rows.sort((a, b) =>
+      (b.last_order_at ?? b.created_at).localeCompare(a.last_order_at ?? a.created_at),
+    );
     return rows;
   });
 
 /** Order history of one user. */
 export const getPatientOrders = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await supabaseAdmin
-      .from("reservations")
-      .select(
-        "id, created_at, source, status, delivery_status, fulfillment_method, total_amount, payment_status, patient_address, pharmacies(name), neighborhoods(name)",
-      )
-      .eq("patient_id", data.userId)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (error) throw new Error(error.message);
-    return (rows ?? []).map((r): PatientOrder => {
-      const row = r as unknown as Record<string, unknown>;
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
+    const rows = toPlain(
+      await prisma.reservations.findMany({
+        where: { patient_id: data.userId },
+        select: {
+          id: true,
+          created_at: true,
+          source: true,
+          status: true,
+          delivery_status: true,
+          fulfillment_method: true,
+          total_amount: true,
+          payment_status: true,
+          patient_address: true,
+          pharmacies: { select: { name: true } },
+          neighborhoods: { select: { name: true } },
+        },
+        orderBy: { created_at: "desc" },
+        take: 100,
+      }),
+    );
+    return rows.map((r): PatientOrder => {
       return {
         id: r.id,
         created_at: r.created_at,
@@ -139,8 +158,8 @@ export const getPatientOrders = createServerFn({ method: "POST" })
         fulfillment_method: r.fulfillment_method,
         total_amount: Number(r.total_amount ?? 0),
         payment_status: r.payment_status,
-        pharmacy: (row.pharmacies as { name: string } | null)?.name ?? null,
-        neighborhood: (row.neighborhoods as { name: string } | null)?.name ?? null,
+        pharmacy: r.pharmacies?.name ?? null,
+        neighborhood: r.neighborhoods?.name ?? null,
         patient_address: r.patient_address,
       };
     });
@@ -148,28 +167,33 @@ export const getPatientOrders = createServerFn({ method: "POST" })
 
 /** Grant or revoke the admin role for a user (professional roles are managed on their own pages). */
 export const setAdminRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z.object({ userId: z.string().uuid(), admin: z.boolean() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
     if (!data.admin && data.userId === context.userId) {
       throw new Error("Vous ne pouvez pas retirer votre propre rôle admin");
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.admin) {
-      const { error } = await supabaseAdmin.from("user_roles").insert({ user_id: data.userId, role: "admin" });
-      if (error && !`${error.message}`.toLowerCase().includes("duplicate")) throw new Error(error.message);
+      await prisma.user_roles.upsert({
+        where: { user_id_role: { user_id: data.userId, role: "admin" } },
+        create: { user_id: data.userId, role: "admin" },
+        update: {},
+      });
     } else {
-      const { error } = await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).eq("role", "admin");
-      if (error) throw new Error(error.message);
+      await prisma.user_roles.deleteMany({ where: { user_id: data.userId, role: "admin" } });
     }
-    await supabaseAdmin.from("audit_logs").insert({
-      actor_user_id: context.userId,
-      action: data.admin ? "admin.grant" : "admin.revoke",
-      entity: "user_roles",
-      entity_id: data.userId,
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: data.admin ? "admin.grant" : "admin.revoke",
+        entity: "user_roles",
+        entity_id: data.userId,
+      },
     });
     return { ok: true };
   });

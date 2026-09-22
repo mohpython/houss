@@ -6,9 +6,8 @@ export const Route = createFileRoute("/api/auth/google/")({
     handlers: {
       GET: async ({ request }) => {
         const { env } = await import("@/server/env.server");
-        const { buildGoogleAuthUrl, cookieHeader, OAUTH_COOKIE } = await import(
-          "@/server/oauth.server"
-        );
+        const { buildGoogleAuthUrl, cookieHeader, OAUTH_COOKIE } =
+          await import("@/server/oauth.server");
         if (!env.googleClientId || !env.googleClientSecret) {
           return Response.redirect(`${env.appUrl}/auth?error=google_disabled`, 302);
         }

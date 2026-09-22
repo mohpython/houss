@@ -1,31 +1,70 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toPlain } from "@/server/serialize";
 import type { InventoryLine } from "./medicine-match.server";
 
+/** Clé Google Maps (API Places v1), lue côté serveur uniquement. */
+function googleMapsKey(): string {
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key) throw new Error("Google Maps non configuré");
+  return key;
+}
 
+const PLACES_API = "https://places.googleapis.com/v1";
+
+/**
+ * Pharmacies visibles par l'utilisateur (ancienne RLS de `pharmacies`) :
+ * approuvées, ou dont il est propriétaire, ou toutes pour un admin.
+ */
+async function visiblePharmacyWhere(userId: string) {
+  const { isAdmin } = await import("@/server/authz.server");
+  if (await isAdmin(userId)) return {};
+  return { OR: [{ status: "approved" as const }, { owner_user_id: userId }] };
+}
+
+/** Lignes d'ordonnance lisibles (ancienne RLS : patient propriétaire ou admin). */
+async function readableItems(userId: string, prescriptionId: string) {
+  const { prisma } = await import("@/server/db.server");
+  const { isAdmin } = await import("@/server/authz.server");
+  const rx = await prisma.prescriptions.findUnique({
+    where: { id: prescriptionId },
+    select: { patient_id: true },
+  });
+  if (!rx) return [];
+  if (rx.patient_id !== userId && !(await isAdmin(userId))) return [];
+  return prisma.prescription_items.findMany({
+    where: { prescription_id: prescriptionId },
+    select: { id: true, medicine_name_raw: true, strength: true, normalized_medicine_id: true },
+  });
+}
+
+const INVENTORY_SELECT = {
+  pharmacy_id: true,
+  stock_qty: true,
+  price: true,
+  medicines: { select: { id: true, normalized_name: true, generic_name: true } },
+} as const;
 
 export const extractPrescription = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ prescriptionId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
 
-    const { data: rx } = await supabase
-      .from("prescriptions")
-      .select("id")
-      .eq("id", data.prescriptionId)
-      .eq("patient_id", userId)
-      .maybeSingle();
+    const rx = await prisma.prescriptions.findFirst({
+      where: { id: data.prescriptionId, patient_id: userId },
+      select: { id: true },
+    });
     if (!rx) throw new Error("Ordonnance introuvable");
 
     const { extractPrescriptionCore } = await import("./rx-core.server");
-    return extractPrescriptionCore(supabase, userId, data.prescriptionId);
+    return extractPrescriptionCore(userId, data.prescriptionId);
   });
 
-
 export const findNearbyPharmacies = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -36,32 +75,46 @@ export const findNearbyPharmacies = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
     const { matchItemsToInventory } = await import("./medicine-match.server");
 
-    const { data: items } = await supabase
-      .from("prescription_items")
-      .select("id, medicine_name_raw, strength, normalized_medicine_id")
-      .eq("prescription_id", data.prescriptionId);
+    const items = await readableItems(userId, data.prescriptionId);
 
-    if (!items || items.length === 0) return { pharmacies: [] };
+    if (items.length === 0) return { pharmacies: [] };
 
-    // Load approved pharmacies (patients only see approved via RLS)
-    const { data: pharmacies, error } = await supabase
-      .from("pharmacies")
-      .select("id, name, address, city, lat, lng, phone, opening_hours, rating");
-    if (error) throw error;
-    if (!pharmacies) return { pharmacies: [] };
+    // Load approved pharmacies (patients only see approved, like the old RLS)
+    const pharmacies = await prisma.pharmacies.findMany({
+      where: await visiblePharmacyWhere(userId),
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        lat: true,
+        lng: true,
+        phone: true,
+        opening_hours: true,
+        rating: true,
+      },
+    });
 
     // Load inventory joined with medicines for these pharmacies
     const pharmIds = pharmacies.map((p) => p.id);
-    const { data: inv } = await supabase
-      .from("inventory")
-      .select("pharmacy_id, stock_qty, price, medicines(id, normalized_name, generic_name, strength)")
-      .in("pharmacy_id", pharmIds);
+    const inv = await prisma.inventory.findMany({
+      where: { pharmacy_id: { in: pharmIds } },
+      select: {
+        pharmacy_id: true,
+        stock_qty: true,
+        price: true,
+        medicines: {
+          select: { id: true, normalized_name: true, generic_name: true, strength: true },
+        },
+      },
+    });
 
     const enriched = pharmacies.map((p) => {
-      const pharmInv = (inv ?? []).filter((i) => i.pharmacy_id === p.id);
+      const pharmInv = inv.filter((i) => i.pharmacy_id === p.id);
       const availability = matchItemsToInventory(items, pharmInv as unknown as InventoryLine[]);
       const availableCount = availability.filter((a) => a.available).length;
       let distanceKm: number | null = null;
@@ -78,15 +131,17 @@ export const findNearbyPharmacies = createServerFn({ method: "POST" })
       return da - db;
     });
 
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: "pharmacy_search",
-      entity: "prescription",
-      entity_id: data.prescriptionId,
-      meta: { pharmacy_count: enriched.length },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: "pharmacy_search",
+        entity: "prescription",
+        entity_id: data.prescriptionId,
+        meta: { pharmacy_count: enriched.length },
+      },
     });
 
-    return { pharmacies: enriched };
+    return toPlain({ pharmacies: enriched });
   });
 
 type PlaceResult = {
@@ -101,7 +156,7 @@ type PlaceResult = {
 };
 
 export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -113,44 +168,35 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
     const { matchItemsToInventory } = await import("./medicine-match.server");
 
-    const apiKey = process.env.LOVABLE_API_KEY;
-    const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!apiKey || !gmapsKey) throw new Error("Google Maps non configuré");
+    const gmapsKey = googleMapsKey();
 
-    const { data: items } = await supabase
-      .from("prescription_items")
-      .select("id, medicine_name_raw, strength, normalized_medicine_id")
-      .eq("prescription_id", data.prescriptionId);
-    const rxItems = items ?? [];
+    const rxItems = await readableItems(userId, data.prescriptionId);
 
     const radius = data.radiusMeters ?? 5000;
 
-    const res = await fetch(
-      "https://connector-gateway.lovable.dev/google_maps/places/v1/places:searchNearby",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "X-Connection-Api-Key": gmapsKey,
-          "Content-Type": "application/json",
-          "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.rating,places.currentOpeningHours.openNow,places.googleMapsUri",
-        },
-        body: JSON.stringify({
-          includedTypes: ["pharmacy"],
-          maxResultCount: 20,
-          locationRestriction: {
-            circle: {
-              center: { latitude: data.lat, longitude: data.lng },
-              radius,
-            },
-          },
-        }),
+    const res = await fetch(`${PLACES_API}/places:searchNearby`, {
+      method: "POST",
+      headers: {
+        "X-Goog-Api-Key": gmapsKey,
+        "Content-Type": "application/json",
+        "X-Goog-FieldMask":
+          "places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.rating,places.currentOpeningHours.openNow,places.googleMapsUri",
       },
-    );
+      body: JSON.stringify({
+        includedTypes: ["pharmacy"],
+        maxResultCount: 20,
+        locationRestriction: {
+          circle: {
+            center: { latitude: data.lat, longitude: data.lng },
+            radius,
+          },
+        },
+      }),
+    });
 
     if (!res.ok) {
       const body = await res.text();
@@ -162,20 +208,27 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
     const placeIds = places.map((p) => p.id);
 
     // Match against locally registered pharmacies
-    const { data: localPharms } = await supabase
-      .from("pharmacies")
-      .select("id, google_place_id")
-      .in("google_place_id", placeIds.length > 0 ? placeIds : ["__none__"]);
+    const visibleWhere = await visiblePharmacyWhere(userId);
+    const localPharms =
+      placeIds.length > 0
+        ? await prisma.pharmacies.findMany({
+            where: { AND: [visibleWhere, { google_place_id: { in: placeIds } }] },
+            select: { id: true, google_place_id: true },
+          })
+        : [];
 
-    const localIds = (localPharms ?? []).map((p) => p.id);
-    const { data: inv } = await supabase
-      .from("inventory")
-      .select("pharmacy_id, stock_qty, price, medicines(id, normalized_name, generic_name)")
-      .in("pharmacy_id", localIds.length > 0 ? localIds : ["00000000-0000-0000-0000-000000000000"]);
+    const localIds = localPharms.map((p) => p.id);
+    const inv =
+      localIds.length > 0
+        ? await prisma.inventory.findMany({
+            where: { pharmacy_id: { in: localIds } },
+            select: INVENTORY_SELECT,
+          })
+        : [];
 
     const results = places.map((p) => {
-      const local = (localPharms ?? []).find((lp) => lp.google_place_id === p.id);
-      const pharmInv = local ? (inv ?? []).filter((i) => i.pharmacy_id === local.id) : [];
+      const local = localPharms.find((lp) => lp.google_place_id === p.id);
+      const pharmInv = local ? inv.filter((i) => i.pharmacy_id === local.id) : [];
       const availability = matchItemsToInventory(rxItems, pharmInv as unknown as InventoryLine[]);
       const distanceKm = p.location
         ? haversine(data.lat, data.lng, p.location.latitude, p.location.longitude)
@@ -201,11 +254,20 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
     // (covers pharmacies registered by admin without a google_place_id).
     const radiusKm = radius / 1000;
     const placeIdSet = new Set(placeIds);
-    const { data: extraLocal } = await supabase
-      .from("pharmacies")
-      .select("id, name, address, phone, lat, lng, rating, google_place_id")
-      .eq("status", "approved");
-    const extras = (extraLocal ?? [])
+    const extraLocal = await prisma.pharmacies.findMany({
+      where: { status: "approved" },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        phone: true,
+        lat: true,
+        lng: true,
+        rating: true,
+        google_place_id: true,
+      },
+    });
+    const extras = extraLocal
       .filter((lp) => {
         if (lp.google_place_id && placeIdSet.has(lp.google_place_id)) return false;
         if (lp.lat == null || lp.lng == null) return false;
@@ -213,7 +275,7 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
         return d <= radiusKm;
       })
       .map((lp) => {
-        const pharmInv = (inv ?? []).filter((i) => i.pharmacy_id === lp.id);
+        const pharmInv = inv.filter((i) => i.pharmacy_id === lp.id);
         // If inv wasn't loaded for this pharmacy id, fetch skipped — reload below if needed.
         const availability = matchItemsToInventory(rxItems, pharmInv as unknown as InventoryLine[]);
         return {
@@ -224,9 +286,10 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
           phone: lp.phone ?? null,
           rating: lp.rating ?? null,
           openNow: null as boolean | null,
-          mapsUri: lp.lat != null && lp.lng != null
-            ? `https://www.google.com/maps/search/?api=1&query=${lp.lat},${lp.lng}`
-            : null,
+          mapsUri:
+            lp.lat != null && lp.lng != null
+              ? `https://www.google.com/maps/search/?api=1&query=${lp.lat},${lp.lng}`
+              : null,
           distanceKm: haversine(data.lat, data.lng, lp.lat!, lp.lng!),
           availability,
           availableCount: availability.filter((a) => a.available).length,
@@ -237,15 +300,15 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
 
     // Load inventory for any extra pharmacies not covered above
     const missingInvIds = extras
-      .filter((e) => !(inv ?? []).some((i) => i.pharmacy_id === e.localPharmacyId))
+      .filter((e) => !inv.some((i) => i.pharmacy_id === e.localPharmacyId))
       .map((e) => e.localPharmacyId!);
     if (missingInvIds.length > 0) {
-      const { data: inv2 } = await supabase
-        .from("inventory")
-        .select("pharmacy_id, stock_qty, price, medicines(id, normalized_name, generic_name)")
-        .in("pharmacy_id", missingInvIds);
+      const inv2 = await prisma.inventory.findMany({
+        where: { pharmacy_id: { in: missingInvIds } },
+        select: INVENTORY_SELECT,
+      });
       for (const e of extras) {
-        const pharmInv = (inv2 ?? []).filter((i) => i.pharmacy_id === e.localPharmacyId);
+        const pharmInv = inv2.filter((i) => i.pharmacy_id === e.localPharmacyId);
         if (pharmInv.length === 0) continue;
         e.availability = matchItemsToInventory(rxItems, pharmInv as unknown as InventoryLine[]);
         e.availableCount = e.availability.filter((a) => a.available).length;
@@ -253,7 +316,6 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
     }
 
     results.push(...extras);
-
 
     // Priority: registered partners with stock → registered → unregistered; then stock count; then distance
     results.sort((a, b) => {
@@ -264,15 +326,17 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
       return (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9);
     });
 
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: "pharmacy_search_places",
-      entity: "prescription",
-      entity_id: data.prescriptionId,
-      meta: { count: results.length, radius },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: "pharmacy_search_places",
+        entity: "prescription",
+        entity_id: data.prescriptionId,
+        meta: { count: results.length, radius },
+      },
     });
 
-    return { pharmacies: results };
+    return toPlain({ pharmacies: results });
   });
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -281,14 +345,12 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 export const createReservation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -304,14 +366,14 @@ export const createReservation = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
     const { matchItemsToInventory } = await import("./medicine-match.server");
 
-    const { data: rx } = await supabase
-      .from("prescriptions")
-      .select("id, patient_id")
-      .eq("id", data.prescriptionId)
-      .maybeSingle();
+    const rx = await prisma.prescriptions.findUnique({
+      where: { id: data.prescriptionId },
+      select: { id: true, patient_id: true },
+    });
     if (!rx) throw new Error("Ordonnance introuvable");
     if (rx.patient_id !== userId) {
       throw new Error(
@@ -323,72 +385,85 @@ export const createReservation = createServerFn({ method: "POST" })
     const { DELIVERY_FEE, resolveDeliveryTarget } = await import("./routing-core.server");
     const target =
       data.neighborhoodId || (data.patientLat != null && data.patientLng != null)
-        ? await resolveDeliveryTarget(supabase, {
+        ? await resolveDeliveryTarget({
             lat: data.patientLat,
             lng: data.patientLng,
             address: data.patientAddress,
             neighborhoodId: data.neighborhoodId,
           })
         : null;
-    const { data: chosen } = await supabase
-      .from("prescription_items")
-      .select("id, medicine_name_raw, normalized_medicine_id")
-      .in("id", data.itemIds.length > 0 ? data.itemIds : ["00000000-0000-0000-0000-000000000000"]);
-    const { data: inv } = await supabase
-      .from("inventory")
-      .select("stock_qty, price, medicines(id, normalized_name, generic_name)")
-      .eq("pharmacy_id", data.pharmacyId);
+    // Only lines of this prescription can be reserved.
+    const chosen =
+      data.itemIds.length > 0
+        ? await prisma.prescription_items.findMany({
+            where: { id: { in: data.itemIds }, prescription_id: data.prescriptionId },
+            select: { id: true, medicine_name_raw: true, normalized_medicine_id: true },
+          })
+        : [];
+    const chosenIds = new Set(chosen.map((c) => c.id));
+    const itemIds = data.itemIds.filter((id) => chosenIds.has(id));
+    const inv = await prisma.inventory.findMany({
+      where: {
+        pharmacy_id: data.pharmacyId,
+        pharmacies: await visiblePharmacyWhere(userId),
+      },
+      select: INVENTORY_SELECT,
+    });
 
-    const availability = matchItemsToInventory(chosen ?? [], (inv ?? []) as unknown as InventoryLine[]);
+    const availability = matchItemsToInventory(chosen, inv as unknown as InventoryLine[]);
     const prices = new Map<string, number | null>(availability.map((a) => [a.itemId, a.price]));
     const itemsTotal = [...prices.values()].reduce<number>((s, p) => s + (p ?? 0), 0);
 
-    const { data: res, error } = await supabase
-      .from("reservations")
-      .insert({
-        prescription_id: data.prescriptionId,
-        patient_id: userId,
-        pharmacy_id: data.pharmacyId,
-        status: "pending",
-        notes: data.notes ?? null,
-        patient_lat: target?.lat ?? null,
-        patient_lng: target?.lng ?? null,
-        patient_address: target?.address ?? data.patientAddress ?? null,
-        neighborhood_id: target?.neighborhoodId ?? null,
-        delivery_mode: target?.deliveryMode ?? "gps",
-        items_total: itemsTotal,
-        delivery_fee: DELIVERY_FEE,
-        total_amount: itemsTotal + DELIVERY_FEE,
-        payment_status: "unpaid",
-      })
-      .select("id")
-      .single();
-    if (error || !res) throw new Error(error?.message ?? "Erreur de réservation");
+    let res: { id: string };
+    try {
+      res = await prisma.reservations.create({
+        data: {
+          prescription_id: data.prescriptionId,
+          patient_id: userId,
+          pharmacy_id: data.pharmacyId,
+          status: "pending",
+          notes: data.notes ?? null,
+          patient_lat: target?.lat ?? null,
+          patient_lng: target?.lng ?? null,
+          patient_address: target?.address ?? data.patientAddress ?? null,
+          neighborhood_id: target?.neighborhoodId ?? null,
+          delivery_mode: target?.deliveryMode ?? "gps",
+          items_total: itemsTotal,
+          delivery_fee: DELIVERY_FEE,
+          total_amount: itemsTotal + DELIVERY_FEE,
+          payment_status: "unpaid",
+        },
+        select: { id: true },
+      });
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Erreur de réservation");
+    }
 
-    if (data.itemIds.length > 0) {
-      await supabase.from("reservation_items").insert(
-        data.itemIds.map((id) => ({
+    if (itemIds.length > 0) {
+      await prisma.reservation_items.createMany({
+        data: itemIds.map((id) => ({
           reservation_id: res.id,
           prescription_item_id: id,
           unit_price: prices.get(id) ?? null,
         })),
-      );
+      });
     }
 
-
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: "reservation_created",
-      entity: "reservation",
-      entity_id: res.id,
-      meta: { pharmacy_id: data.pharmacyId, item_count: data.itemIds.length },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: "reservation_created",
+        entity: "reservation",
+        entity_id: res.id,
+        meta: { pharmacy_id: data.pharmacyId, item_count: data.itemIds.length },
+      },
     });
 
     return { id: res.id };
   });
 
 export const respondToReservation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -398,32 +473,34 @@ export const respondToReservation = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const { updateReservationAs } = await import("./reservation-rules.server");
+
     const patch: {
       status: typeof data.decision;
-      accepted_at?: string;
-      ready_at?: string;
-      delivered_at?: string;
+      accepted_at?: Date;
+      ready_at?: Date;
+      delivered_at?: Date;
     } = { status: data.decision };
-    if (data.decision === "accepted") patch.accepted_at = new Date().toISOString();
-    if (data.decision === "ready") patch.ready_at = new Date().toISOString();
-    if (data.decision === "completed") patch.delivered_at = new Date().toISOString();
-    const { error } = await supabase
-      .from("reservations")
-      .update(patch)
-      .eq("id", data.reservationId);
-    if (error) throw new Error(error.message);
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: `reservation_${data.decision}`,
-      entity: "reservation",
-      entity_id: data.reservationId,
+    if (data.decision === "accepted") patch.accepted_at = new Date();
+    if (data.decision === "ready") patch.ready_at = new Date();
+    if (data.decision === "completed") patch.delivered_at = new Date();
+    // Ancienne RLS UPDATE + trigger enforce_reservation_update_columns.
+    await updateReservationAs(userId, data.reservationId, patch);
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: `reservation_${data.decision}`,
+        entity: "reservation",
+        entity_id: data.reservationId,
+      },
     });
     return { ok: true };
   });
 
 export const approvePharmacy = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -433,89 +510,66 @@ export const approvePharmacy = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const { isAdmin } = await import("@/server/authz.server");
 
-    const { data: adminRow } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!adminRow) throw new Error("Accès admin requis");
+    if (!(await isAdmin(userId))) throw new Error("Accès admin requis");
 
-    const { error } = await supabase
-      .from("pharmacies")
-      .update({ status: data.decision })
-      .eq("id", data.pharmacyId);
-    if (error) throw new Error(error.message);
+    const pharm = await prisma.pharmacies.update({
+      where: { id: data.pharmacyId },
+      data: { status: data.decision },
+      select: { id: true, owner_user_id: true },
+    });
 
     if (data.decision === "approved") {
       // Grant pharmacy_staff role to owner (if the pharmacy has been claimed)
-      const { data: pharm } = await supabase
-        .from("pharmacies")
-        .select("owner_user_id")
-        .eq("id", data.pharmacyId)
-        .single();
-      if (pharm?.owner_user_id) {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await supabaseAdmin
-          .from("user_roles")
-          .insert({ user_id: pharm.owner_user_id, role: "pharmacy_staff" })
-          .select();
+      if (pharm.owner_user_id) {
+        const { addRole } = await import("@/server/auth.server");
+        await addRole(pharm.owner_user_id, "pharmacy_staff");
       }
     }
 
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: `pharmacy_${data.decision}`,
-      entity: "pharmacy",
-      entity_id: data.pharmacyId,
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: `pharmacy_${data.decision}`,
+        entity: "pharmacy",
+        entity_id: data.pharmacyId,
+      },
     });
     return { ok: true };
   });
 
-async function requireAdmin(supabase: ReturnType<typeof import("@supabase/supabase-js").createClient>, userId: string) {
-  const { data } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!data) throw new Error("Accès admin requis");
+async function requireAdmin(userId: string) {
+  const { isAdmin } = await import("@/server/authz.server");
+  if (!(await isAdmin(userId))) throw new Error("Accès admin requis");
 }
 
 export const searchPlacesPharmaciesAdmin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ query: z.string().min(2).max(200) }).parse(input),
-  )
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) => z.object({ query: z.string().min(2).max(200) }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await requireAdmin(supabase as any, userId);
+    const { userId } = context;
+    await requireAdmin(userId);
+    const { prisma } = await import("@/server/db.server");
 
-    const apiKey = process.env.LOVABLE_API_KEY;
-    const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!apiKey || !gmapsKey) throw new Error("Google Maps non configuré");
+    const gmapsKey = googleMapsKey();
 
-    const res = await fetch(
-      "https://connector-gateway.lovable.dev/google_maps/places/v1/places:searchText",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "X-Connection-Api-Key": gmapsKey,
-          "Content-Type": "application/json",
-          "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.rating",
-        },
-        body: JSON.stringify({
-          textQuery: `pharmacie ${data.query}`,
-          includedType: "pharmacy",
-          maxResultCount: 15,
-        }),
+    const res = await fetch(`${PLACES_API}/places:searchText`, {
+      method: "POST",
+      headers: {
+        "X-Goog-Api-Key": gmapsKey,
+        "Content-Type": "application/json",
+        "X-Goog-FieldMask":
+          "places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.rating",
       },
-    );
+      body: JSON.stringify({
+        textQuery: `pharmacie ${data.query}`,
+        includedType: "pharmacy",
+        maxResultCount: 15,
+      }),
+    });
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`Google Places (${res.status}): ${body.slice(0, 200)}`);
@@ -524,11 +578,14 @@ export const searchPlacesPharmaciesAdmin = createServerFn({ method: "POST" })
     const places = payload.places ?? [];
     const ids = places.map((p) => p.id);
 
-    const { data: existing } = await supabase
-      .from("pharmacies")
-      .select("id, google_place_id")
-      .in("google_place_id", ids.length > 0 ? ids : ["__none__"]);
-    const existingMap = new Map((existing ?? []).map((e) => [e.google_place_id, e.id]));
+    const existing =
+      ids.length > 0
+        ? await prisma.pharmacies.findMany({
+            where: { google_place_id: { in: ids } },
+            select: { id: true, google_place_id: true },
+          })
+        : [];
+    const existingMap = new Map(existing.map((e) => [e.google_place_id, e.id]));
 
     return {
       places: places.map((p) => ({
@@ -545,7 +602,7 @@ export const searchPlacesPharmaciesAdmin = createServerFn({ method: "POST" })
   });
 
 export const registerPlacePharmacyAdmin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -559,41 +616,44 @@ export const registerPlacePharmacyAdmin = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await requireAdmin(supabase as any, userId);
+    const { userId } = context;
+    await requireAdmin(userId);
+    const { prisma } = await import("@/server/db.server");
 
-    const { data: existing } = await supabase
-      .from("pharmacies")
-      .select("id")
-      .eq("google_place_id", data.placeId)
-      .maybeSingle();
+    const existing = await prisma.pharmacies.findFirst({
+      where: { google_place_id: data.placeId },
+      select: { id: true },
+    });
     if (existing) return { id: existing.id, created: false };
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: inserted, error } = await supabaseAdmin
-      .from("pharmacies")
-      .insert({
-        owner_user_id: null,
-        name: data.name,
-        address: data.address,
-        phone: data.phone,
-        lat: data.lat,
-        lng: data.lng,
-        license_number: `GMAPS-${data.placeId.slice(0, 20)}`,
-        google_place_id: data.placeId,
-        status: "approved",
-      })
-      .select("id")
-      .single();
-    if (error || !inserted) throw new Error(error?.message ?? "Erreur");
+    let inserted: { id: string };
+    try {
+      inserted = await prisma.pharmacies.create({
+        data: {
+          owner_user_id: null,
+          name: data.name,
+          address: data.address,
+          phone: data.phone,
+          lat: data.lat,
+          lng: data.lng,
+          license_number: `GMAPS-${data.placeId.slice(0, 20)}`,
+          google_place_id: data.placeId,
+          status: "approved",
+        },
+        select: { id: true },
+      });
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Erreur");
+    }
 
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: "pharmacy_registered_from_places",
-      entity: "pharmacy",
-      entity_id: inserted.id,
-      meta: { place_id: data.placeId },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: "pharmacy_registered_from_places",
+        entity: "pharmacy",
+        entity_id: inserted.id,
+        meta: { place_id: data.placeId },
+      },
     });
 
     return { id: inserted.id, created: true };

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { Database } from "@/integrations/supabase/types";
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toPlain } from "@/server/serialize";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -51,84 +51,126 @@ export type PractitionerDashboard = {
   counts: { requested: number; today: number; upcoming: number; completed: number };
 };
 
-const ME_COLS = "id, full_name, type, specialty_code, is_available, status, home_visits";
+const ME_SELECT = {
+  id: true,
+  full_name: true,
+  type: true,
+  specialty_code: true,
+  is_available: true,
+  status: true,
+  home_visits: true,
+} as const;
 
-async function getMyPractitioner(
-  supabase: any,
-  userId: string,
-  email?: string | null,
-): Promise<PractitionerMe | null> {
-  const { data, error } = await supabase
-    .from("practitioners")
-    .select(ME_COLS)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
+async function getMyPractitioner(userId: string): Promise<PractitionerMe | null> {
+  const { prisma } = await import("@/server/db.server");
+  const data = await prisma.practitioners.findUnique({
+    where: { user_id: userId },
+    select: ME_SELECT,
+  });
   if (data) return data as PractitionerMe;
 
   // Auto-claim: an admin invited this email but the account was created
   // (or the email changed) afterwards — link the profile on first visit.
-  const normalized = (email ?? "").trim().toLowerCase();
+  const user = await prisma.users.findUnique({ where: { id: userId }, select: { email: true } });
+  const normalized = (user?.email ?? "").trim().toLowerCase();
   if (!normalized) return null;
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: invited } = await supabaseAdmin
-    .from("practitioners")
-    .select(`${ME_COLS}, claim_email`)
-    .ilike("claim_email", normalized)
-    .is("user_id", null)
-    .maybeSingle();
+  const invited = await prisma.practitioners.findFirst({
+    where: { user_id: null, claim_email: { equals: normalized, mode: "insensitive" } },
+    select: ME_SELECT,
+  });
   if (!invited) return null;
-  await supabaseAdmin
-    .from("practitioners")
-    .update({ user_id: userId, claim_email: null })
-    .eq("id", invited.id)
-    .is("user_id", null);
-  await supabaseAdmin
-    .from("user_roles")
-    .upsert({ user_id: userId, role: invited.type }, { onConflict: "user_id,role" });
-  const { claim_email: _drop, ...me } = invited as PractitionerMe & { claim_email: string | null };
-  return me;
+  await prisma.practitioners.updateMany({
+    where: { id: invited.id, user_id: null },
+    data: { user_id: userId, claim_email: null },
+  });
+  const { addRole } = await import("@/server/auth.server");
+  await addRole(userId, invited.type);
+  return invited as PractitionerMe;
 }
+
+const APPT_SELECT = {
+  id: true,
+  patient_id: true,
+  patient_phone: true,
+  patient_address: true,
+  patient_lat: true,
+  patient_lng: true,
+  reason: true,
+  symptoms: true,
+  triage: true,
+  at_home: true,
+  status: true,
+  requested_at: true,
+  scheduled_at: true,
+  proposed_at: true,
+  practitioner_notes: true,
+  report: true,
+  rejection_reason: true,
+  completed_at: true,
+  prescribed_items: true,
+  patient_ack_at: true,
+  patient_completed_at: true,
+  last_reminder_at: true,
+  reminder_count: true,
+} as const;
 
 async function attachPatients(rows: any[]): Promise<PractitionerAppointment[]> {
   if (rows.length === 0) return [];
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { prisma } = await import("@/server/db.server");
   const ids = Array.from(new Set(rows.map((r) => r.patient_id as string)));
-  const { data: profiles } = await supabaseAdmin
-    .from("profiles")
-    .select("id, full_name, phone")
-    .in("id", ids);
-  const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
-  return rows.map((r) => {
+  const profiles = await prisma.profiles.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, full_name: true, phone: true },
+  });
+  const byId = new Map(profiles.map((p) => [p.id, p]));
+  return rows.map((raw) => {
+    const r = toPlain(raw) as any;
     const p = byId.get(r.patient_id);
     return {
       ...r,
-      triage: (r.triage && typeof r.triage === "object" ? (r.triage as TriageInfo) : null),
-      prescribed_items: Array.isArray(r.prescribed_items) ? (r.prescribed_items as PrescribedItem[]) : [],
+      triage: r.triage && typeof r.triage === "object" ? (r.triage as TriageInfo) : null,
+      prescribed_items: Array.isArray(r.prescribed_items)
+        ? (r.prescribed_items as PrescribedItem[])
+        : [],
       patient_name: p?.full_name?.trim() || "Patient",
       patient_phone: r.patient_phone || p?.phone || null,
     } as PractitionerAppointment;
   });
 }
 
-const APPT_COLS =
-  "id, patient_id, patient_phone, patient_address, patient_lat, patient_lng, reason, symptoms, triage, at_home, status, requested_at, scheduled_at, proposed_at, practitioner_notes, report, rejection_reason, completed_at, prescribed_items, patient_ack_at, patient_completed_at, last_reminder_at, reminder_count";
+async function findOwnAppointment(practitionerId: string, id: string) {
+  const { prisma } = await import("@/server/db.server");
+  return prisma.appointments.findFirst({
+    where: { id, practitioner_id: practitionerId },
+    select: { id: true, status: true, reminder_count: true, last_reminder_at: true },
+  });
+}
+
+async function updateAppointment(userId: string, id: string, patch: Record<string, unknown>) {
+  const { updateAppointmentAs } = await import("./appointments-core.server");
+  await updateAppointmentAs(userId, id, patch as never);
+}
 
 export const getMyPractitionerDashboard = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }): Promise<PractitionerDashboard> => {
-    const me = await getMyPractitioner(context.supabase, context.userId, (context.claims as any)?.email);
-    if (!me) return { me: null, appointments: [], counts: { requested: 0, today: 0, upcoming: 0, completed: 0 } };
+    const me = await getMyPractitioner(context.userId);
+    if (!me)
+      return {
+        me: null,
+        appointments: [],
+        counts: { requested: 0, today: 0, upcoming: 0, completed: 0 },
+      };
 
-    const { data, error } = await context.supabase
-      .from("appointments")
-      .select(APPT_COLS)
-      .eq("practitioner_id", me.id)
-      .order("requested_at", { ascending: false })
-      .limit(300);
-    if (error) throw new Error(error.message);
+    const { prisma } = await import("@/server/db.server");
+    const data = await prisma.appointments.findMany({
+      where: { practitioner_id: me.id },
+      select: APPT_SELECT,
+      orderBy: { requested_at: "desc" },
+      take: 300,
+    });
 
-    const appointments = await attachPatients(data ?? []);
+    const appointments = await attachPatients(data);
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const endOfDay = startOfDay + 86_400_000;
@@ -146,38 +188,37 @@ export const getMyPractitionerDashboard = createServerFn({ method: "POST" })
   });
 
 export const getPractitionerAppointment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(
-    async ({ data, context }): Promise<{ appointment: PractitionerAppointment; history: PractitionerAppointment[] }> => {
-      const me = await getMyPractitioner(context.supabase, context.userId, (context.claims as any)?.email);
+    async ({
+      data,
+      context,
+    }): Promise<{ appointment: PractitionerAppointment; history: PractitionerAppointment[] }> => {
+      const me = await getMyPractitioner(context.userId);
       if (!me) throw new Error("Aucun profil praticien lié à ce compte.");
-      const { data: row, error } = await context.supabase
-        .from("appointments")
-        .select(APPT_COLS)
-        .eq("id", data.id)
-        .eq("practitioner_id", me.id)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
+      const { prisma } = await import("@/server/db.server");
+      const row = await prisma.appointments.findFirst({
+        where: { id: data.id, practitioner_id: me.id },
+        select: APPT_SELECT,
+      });
       if (!row) throw new Error("Rendez-vous introuvable.");
 
-      const { data: hist } = await context.supabase
-        .from("appointments")
-        .select(APPT_COLS)
-        .eq("practitioner_id", me.id)
-        .eq("patient_id", row.patient_id)
-        .neq("id", row.id)
-        .order("requested_at", { ascending: false })
-        .limit(20);
+      const hist = await prisma.appointments.findMany({
+        where: { practitioner_id: me.id, patient_id: row.patient_id, id: { not: row.id } },
+        select: APPT_SELECT,
+        orderBy: { requested_at: "desc" },
+        take: 20,
+      });
 
       const [appointment] = await attachPatients([row]);
-      const history = await attachPatients(hist ?? []);
+      const history = await attachPatients(hist);
       return { appointment, history };
     },
   );
 
 export const respondToAppointment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -189,39 +230,33 @@ export const respondToAppointment = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const me = await getMyPractitioner(context.supabase, context.userId, (context.claims as any)?.email);
+    const me = await getMyPractitioner(context.userId);
     if (!me) throw new Error("Aucun profil praticien lié à ce compte.");
 
-    const { data: row } = await context.supabase
-      .from("appointments")
-      .select("id, status")
-      .eq("id", data.id)
-      .eq("practitioner_id", me.id)
-      .maybeSingle();
+    const row = await findOwnAppointment(me.id, data.id);
     if (!row) throw new Error("Rendez-vous introuvable.");
     if (["completed", "cancelled", "rejected"].includes(row.status)) {
       throw new Error("Ce rendez-vous est déjà clôturé.");
     }
 
-    type Patch = Database["public"]["Tables"]["appointments"]["Update"];
-    let patch: Patch;
+    let patch: Record<string, unknown>;
     if (data.action === "accept") {
       if (!data.at) throw new Error("Choisissez une date et une heure.");
-      patch = { status: "accepted", scheduled_at: data.at, proposed_at: data.at, rejection_reason: null };
+      const at = new Date(data.at);
+      patch = { status: "accepted", scheduled_at: at, proposed_at: at, rejection_reason: null };
     } else if (data.action === "reschedule") {
       if (!data.at) throw new Error("Choisissez une nouvelle date.");
-      patch = { status: "rescheduled", proposed_at: data.at, scheduled_at: null };
+      patch = { status: "rescheduled", proposed_at: new Date(data.at), scheduled_at: null };
     } else {
       patch = { status: "rejected", rejection_reason: data.reason?.trim() || null };
     }
 
-    const { error } = await context.supabase.from("appointments").update(patch).eq("id", data.id);
-    if (error) throw new Error(error.message);
+    await updateAppointment(context.userId, data.id, patch);
     return { ok: true };
   });
 
 export const saveAppointmentNotes = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -243,17 +278,12 @@ export const saveAppointmentNotes = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const me = await getMyPractitioner(context.supabase, context.userId, (context.claims as any)?.email);
+    const me = await getMyPractitioner(context.userId);
     if (!me) throw new Error("Aucun profil praticien lié à ce compte.");
-    const { data: row } = await context.supabase
-      .from("appointments")
-      .select("id, status")
-      .eq("id", data.id)
-      .eq("practitioner_id", me.id)
-      .maybeSingle();
+    const row = await findOwnAppointment(me.id, data.id);
     if (!row) throw new Error("Rendez-vous introuvable.");
 
-    const patch: Database["public"]["Tables"]["appointments"]["Update"] = {};
+    const patch: Record<string, unknown> = {};
     if (data.notes !== undefined) patch.practitioner_notes = data.notes;
     if (data.report !== undefined) patch.report = data.report;
     if (data.prescribedItems !== undefined) patch.prescribed_items = data.prescribedItems;
@@ -262,124 +292,150 @@ export const saveAppointmentNotes = createServerFn({ method: "POST" })
         throw new Error("Ce rendez-vous ne peut plus être terminé.");
       }
       patch.status = "completed";
-      patch.completed_at = new Date().toISOString();
+      patch.completed_at = new Date();
     }
-    const { error } = await context.supabase.from("appointments").update(patch).eq("id", data.id);
-    if (error) throw new Error(error.message);
+    await updateAppointment(context.userId, data.id, patch);
     return { ok: true };
   });
 
 export const setPractitionerAvailability = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ available: z.boolean() }).parse(input))
   .handler(async ({ data, context }) => {
-    const me = await getMyPractitioner(context.supabase, context.userId, (context.claims as any)?.email);
+    const me = await getMyPractitioner(context.userId);
     if (!me) throw new Error("Aucun profil praticien lié à ce compte.");
-    const { error } = await context.supabase
-      .from("practitioners")
-      .update({ is_available: data.available })
-      .eq("id", me.id);
-    if (error) throw new Error(error.message);
+    const { prisma } = await import("@/server/db.server");
+    await prisma.practitioners.update({
+      where: { id: me.id },
+      data: { is_available: data.available },
+    });
     return { ok: true };
   });
 
-/** Practitioner sends a manual reminder to the patient (notification created by DB trigger). */
+/** Practitioner sends a manual reminder to the patient (notification created by the prisma hooks). */
 export const sendAppointmentReminder = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const me = await getMyPractitioner(context.supabase, context.userId, (context.claims as any)?.email);
+    const me = await getMyPractitioner(context.userId);
     if (!me) throw new Error("Aucun profil praticien lié à ce compte.");
-    const { data: row } = await context.supabase
-      .from("appointments")
-      .select("id, status, reminder_count, last_reminder_at")
-      .eq("id", data.id)
-      .eq("practitioner_id", me.id)
-      .maybeSingle();
+    const row = await findOwnAppointment(me.id, data.id);
     if (!row) throw new Error("Rendez-vous introuvable.");
-    if (["cancelled", "rejected"].includes(row.status)) throw new Error("Ce rendez-vous est clôturé.");
-    if (row.last_reminder_at && Date.now() - new Date(row.last_reminder_at).getTime() < 15 * 60_000) {
+    if (["cancelled", "rejected"].includes(row.status))
+      throw new Error("Ce rendez-vous est clôturé.");
+    if (
+      row.last_reminder_at &&
+      Date.now() - new Date(row.last_reminder_at).getTime() < 15 * 60_000
+    ) {
       throw new Error("Un rappel a déjà été envoyé il y a moins de 15 minutes.");
     }
-    const { error } = await context.supabase
-      .from("appointments")
-      .update({ last_reminder_at: new Date().toISOString(), reminder_count: (row.reminder_count ?? 0) + 1 })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    await updateAppointment(context.userId, data.id, {
+      last_reminder_at: new Date(),
+      reminder_count: (row.reminder_count ?? 0) + 1,
+    });
     return { ok: true };
   });
 
 /* ---------- Patient side ---------- */
 
+export type MyAppointmentRow = {
+  id: string;
+  reason: string;
+  status: string;
+  at_home: boolean;
+  created_at: string;
+  scheduled_at: string | null;
+  proposed_at: string | null;
+  report: string | null;
+  rejection_reason: string | null;
+  prescribed_items: PrescribedItem[] | null;
+  patient_completed_at: string | null;
+  practitioners: { full_name: string; type: string; phone: string | null } | null;
+};
+
+/** Patient's own appointments (was a direct `appointments` select from the browser). */
+export const listMyAppointments = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .handler(async ({ context }): Promise<MyAppointmentRow[]> => {
+    const { prisma } = await import("@/server/db.server");
+    const rows = await prisma.appointments.findMany({
+      where: { patient_id: context.userId },
+      select: {
+        id: true,
+        reason: true,
+        status: true,
+        at_home: true,
+        created_at: true,
+        scheduled_at: true,
+        proposed_at: true,
+        report: true,
+        rejection_reason: true,
+        prescribed_items: true,
+        patient_completed_at: true,
+        practitioners: { select: { full_name: true, type: true, phone: true } },
+      },
+      orderBy: { created_at: "desc" },
+    });
+    return toPlain(rows) as unknown as MyAppointmentRow[];
+  });
+
+async function findPatientAppointment(userId: string, id: string) {
+  const { prisma } = await import("@/server/db.server");
+  return prisma.appointments.findFirst({
+    where: { id, patient_id: userId },
+    select: { id: true, status: true, proposed_at: true },
+  });
+}
+
 /** Patient confirms attendance (accepted) or confirms the consultation took place (completed). */
 export const patientConfirmAppointment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid(), kind: z.enum(["attendance", "completed"]) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: row } = await context.supabase
-      .from("appointments")
-      .select("id, status")
-      .eq("id", data.id)
-      .eq("patient_id", context.userId)
-      .maybeSingle();
+    const row = await findPatientAppointment(context.userId, data.id);
     if (!row) throw new Error("Rendez-vous introuvable.");
-    const now = new Date().toISOString();
-    let patch: Database["public"]["Tables"]["appointments"]["Update"];
+    const now = new Date();
+    let patch: Record<string, unknown>;
     if (data.kind === "attendance") {
-      if (row.status !== "accepted") throw new Error("Ce rendez-vous n'est pas confirmé par le praticien.");
+      if (row.status !== "accepted")
+        throw new Error("Ce rendez-vous n'est pas confirmé par le praticien.");
       patch = { patient_ack_at: now };
     } else {
       if (row.status !== "completed") throw new Error("La consultation n'est pas encore terminée.");
       patch = { patient_completed_at: now };
     }
-    const { error } = await context.supabase.from("appointments").update(patch).eq("id", data.id);
-    if (error) throw new Error(error.message);
+    await updateAppointment(context.userId, data.id, patch);
     return { ok: true };
   });
 
 export const patientRespondToProposal = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid(), accept: z.boolean() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: row } = await context.supabase
-      .from("appointments")
-      .select("id, status, proposed_at")
-      .eq("id", data.id)
-      .eq("patient_id", context.userId)
-      .maybeSingle();
+    const row = await findPatientAppointment(context.userId, data.id);
     if (!row) throw new Error("Rendez-vous introuvable.");
     if (row.status !== "rescheduled") throw new Error("Aucune proposition en attente.");
     const patch = data.accept
       ? { status: "accepted" as const, scheduled_at: row.proposed_at }
       : { status: "cancelled" as const };
-    const { error } = await context.supabase.from("appointments").update(patch).eq("id", data.id);
-    if (error) throw new Error(error.message);
+    await updateAppointment(context.userId, data.id, patch);
     return { ok: true };
   });
 
 export const cancelAppointment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { data: row } = await context.supabase
-      .from("appointments")
-      .select("id, status")
-      .eq("id", data.id)
-      .eq("patient_id", context.userId)
-      .maybeSingle();
+    const row = await findPatientAppointment(context.userId, data.id);
     if (!row) throw new Error("Rendez-vous introuvable.");
     if (["completed", "cancelled", "rejected"].includes(row.status)) {
       throw new Error("Ce rendez-vous est déjà clôturé.");
     }
-    const { error } = await context.supabase
-      .from("appointments")
-      .update({ status: "cancelled" })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    await updateAppointment(context.userId, data.id, { status: "cancelled" });
     return { ok: true };
   });
 
@@ -391,26 +447,22 @@ export type PractitionerResponseStats = Record<
 >;
 
 export const getPractitionerResponseStats = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }): Promise<PractitionerResponseStats> => {
-    const { data: adm } = await context.supabase
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!adm) throw new Error("Accès réservé aux administrateurs");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
-      .from("appointments")
-      .select("practitioner_id, status, requested_at, updated_at")
-      .gte("requested_at", new Date(Date.now() - 90 * 86_400_000).toISOString());
+    const { isAdmin } = await import("@/server/authz.server");
+    if (!(await isAdmin(context.userId))) throw new Error("Accès réservé aux administrateurs");
+    const { prisma } = await import("@/server/db.server");
+    const data = await prisma.appointments.findMany({
+      where: { requested_at: { gte: new Date(Date.now() - 90 * 86_400_000) } },
+      select: { practitioner_id: true, status: true, requested_at: true, updated_at: true },
+    });
     const out: PractitionerResponseStats = {};
-    for (const a of data ?? []) {
+    for (const a of data) {
       const s = (out[a.practitioner_id] ??= { pending: 0, avgResponseHours: null });
       if (a.status === "requested") s.pending++;
       else if (a.status !== "cancelled") {
-        const h = (new Date(a.updated_at).getTime() - new Date(a.requested_at).getTime()) / 3_600_000;
+        const h =
+          (new Date(a.updated_at).getTime() - new Date(a.requested_at).getTime()) / 3_600_000;
         const prevN = (s as any)._n ?? 0;
         (s as any)._n = prevN + 1;
         s.avgResponseHours = ((s.avgResponseHours ?? 0) * prevN + h) / (prevN + 1);
@@ -423,12 +475,8 @@ export const getPractitionerResponseStats = createServerFn({ method: "POST" })
 // Lightweight check used by the app shell so an invited doctor/nurse who signs up
 // afterwards immediately gets the "Praticien" entry in the navigation.
 export const ensurePractitionerAccess = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }): Promise<{ isPractitioner: boolean }> => {
-    const me = await getMyPractitioner(
-      context.supabase,
-      context.userId,
-      (context.claims as any)?.email,
-    );
+    const me = await getMyPractitioner(context.userId);
     return { isPractitioner: !!me };
   });

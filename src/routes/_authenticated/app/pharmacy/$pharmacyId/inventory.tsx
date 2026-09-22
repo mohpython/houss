@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  deleteInventoryItem,
+  listPharmacyInventory,
+  updateInventoryItem,
+  upsertInventoryItem,
+} from "@/lib/pharmacy-portal.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,7 +23,12 @@ type Row = {
   id: string;
   stock_qty: number;
   price: number | null;
-  medicines: { id: string; normalized_name: string; strength: string | null; generic_name: string | null } | null;
+  medicines: {
+    id: string;
+    normalized_name: string;
+    strength: string | null;
+    generic_name: string | null;
+  } | null;
 };
 
 function Inventory() {
@@ -25,12 +36,18 @@ function Inventory() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [form, setForm] = useState({ name: "", generic: "", strength: "", stock: "1", price: "" });
 
+  const fetchInventory = useServerFn(listPharmacyInventory);
+  const upsertItem = useServerFn(upsertInventoryItem);
+  const updateItem = useServerFn(updateInventoryItem);
+  const deleteItem = useServerFn(deleteInventoryItem);
+
   const load = async () => {
-    const { data } = await supabase
-      .from("inventory")
-      .select("id, stock_qty, price, medicines(id, normalized_name, strength, generic_name)")
-      .eq("pharmacy_id", pharmacyId);
-    setRows((data as unknown as Row[]) ?? []);
+    try {
+      const data = await fetchInventory({ data: { pharmacyId } });
+      setRows((data as Row[]) ?? []);
+    } catch {
+      setRows([]);
+    }
   };
   useEffect(() => {
     load();
@@ -40,39 +57,16 @@ function Inventory() {
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const normalized = form.name.trim().toLowerCase();
-      const { data: existing } = await supabase
-        .from("medicines")
-        .select("id")
-        .eq("normalized_name", normalized)
-        .eq("strength", form.strength || "")
-        .maybeSingle();
-      let medId = existing?.id;
-      if (!medId) {
-        const { data: newMed, error: mErr } = await supabase
-          .from("medicines")
-          .insert({
-            normalized_name: normalized,
-            generic_name: form.generic || null,
-            strength: form.strength || null,
-          })
-          .select("id")
-          .single();
-        if (mErr) throw mErr;
-        medId = newMed.id;
-      }
-      const { error } = await supabase
-        .from("inventory")
-        .upsert(
-          {
-            pharmacy_id: pharmacyId,
-            medicine_id: medId,
-            stock_qty: Number(form.stock) || 0,
-            price: form.price ? Number(form.price) : null,
-          },
-          { onConflict: "pharmacy_id,medicine_id" },
-        );
-      if (error) throw error;
+      await upsertItem({
+        data: {
+          pharmacyId,
+          name: form.name,
+          generic: form.generic,
+          strength: form.strength,
+          stock: Number(form.stock) || 0,
+          price: form.price ? Number(form.price) : null,
+        },
+      });
       setForm({ name: "", generic: "", strength: "", stock: "1", price: "" });
       toast.success("Ajouté");
       load();
@@ -82,13 +76,21 @@ function Inventory() {
   };
 
   const remove = async (id: string) => {
-    await supabase.from("inventory").delete().eq("id", id);
+    try {
+      await deleteItem({ data: { id } });
+    } catch {
+      // ignoré, comme avant
+    }
     load();
   };
 
   const setStock = async (id: string, stock: number) => {
     setRows((r) => r?.map((row) => (row.id === id ? { ...row, stock_qty: stock } : row)) ?? null);
-    await supabase.from("inventory").update({ stock_qty: stock }).eq("id", id);
+    try {
+      await updateItem({ data: { id, stock_qty: stock } });
+    } catch {
+      // ignoré, comme avant
+    }
   };
 
   return (
@@ -98,23 +100,50 @@ function Inventory() {
         <form onSubmit={add} className="grid gap-3 sm:grid-cols-6">
           <div className="sm:col-span-2 space-y-1">
             <Label htmlFor="mname">Médicament</Label>
-            <Input id="mname" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <Input
+              id="mname"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="gen">Générique</Label>
-            <Input id="gen" value={form.generic} onChange={(e) => setForm({ ...form, generic: e.target.value })} />
+            <Input
+              id="gen"
+              value={form.generic}
+              onChange={(e) => setForm({ ...form, generic: e.target.value })}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="str">Dosage</Label>
-            <Input id="str" placeholder="500 mg" value={form.strength} onChange={(e) => setForm({ ...form, strength: e.target.value })} />
+            <Input
+              id="str"
+              placeholder="500 mg"
+              value={form.strength}
+              onChange={(e) => setForm({ ...form, strength: e.target.value })}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="stk">Stock</Label>
-            <Input id="stk" type="number" min="0" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+            <Input
+              id="stk"
+              type="number"
+              min="0"
+              value={form.stock}
+              onChange={(e) => setForm({ ...form, stock: e.target.value })}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="prc">Prix</Label>
-            <Input id="prc" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+            <Input
+              id="prc"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+            />
           </div>
           <div className="sm:col-span-6">
             <Button type="submit">

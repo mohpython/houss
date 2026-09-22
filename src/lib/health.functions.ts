@@ -1,23 +1,32 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth } from "@/integrations/auth/middleware";
 import type { Triage, MatchedPractitioner, SpecialtyRow } from "./health-core.server";
 
 export type { Triage, MatchedPractitioner, SpecialtyRow };
 
+const SPECIALTY_SELECT = {
+  code: true,
+  label_fr: true,
+  label_en: true,
+  label_ar: true,
+  practitioner_type: true,
+  keywords: true,
+} as const;
+
 export const listSpecialties = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<SpecialtyRow[]> => {
-    const { data, error } = await context.supabase
-      .from("practitioner_specialties")
-      .select("code, label_fr, label_en, label_ar, practitioner_type, keywords")
-      .order("label_fr");
-    if (error) throw new Error(error.message);
-    return (data ?? []) as SpecialtyRow[];
+  .middleware([requireAuth])
+  .handler(async (): Promise<SpecialtyRow[]> => {
+    const { prisma } = await import("@/server/db.server");
+    const data = await prisma.practitioner_specialties.findMany({
+      select: SPECIALTY_SELECT,
+      orderBy: { label_fr: "asc" },
+    });
+    return data as SpecialtyRow[];
   });
 
 export const triageAndMatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -29,47 +38,36 @@ export const triageAndMatch = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(
-    async ({
-      data,
-      context,
-    }): Promise<{ triage: Triage; practitioners: MatchedPractitioner[] }> => {
-      const { triageSymptoms, findPractitionersCore } = await import("./health-core.server");
+  .handler(async ({ data }): Promise<{ triage: Triage; practitioners: MatchedPractitioner[] }> => {
+    const { triageSymptoms, findPractitionersCore } = await import("./health-core.server");
 
-      const { data: specs, error } = await context.supabase
-        .from("practitioner_specialties")
-        .select("code, label_fr, label_en, label_ar, practitioner_type, keywords");
-      if (error) throw new Error(error.message);
+    const { prisma } = await import("@/server/db.server");
+    const specs = await prisma.practitioner_specialties.findMany({ select: SPECIALTY_SELECT });
 
-      const triage = await triageSymptoms(
-        (specs ?? []) as SpecialtyRow[],
-        data.symptoms,
-        data.language,
-      );
+    const triage = await triageSymptoms(specs as SpecialtyRow[], data.symptoms, data.language);
 
-      let practitioners = await findPractitionersCore(context.supabase, {
-        specialtyCode: triage.specialty_code,
+    let practitioners = await findPractitionersCore({
+      specialtyCode: triage.specialty_code,
+      lat: data.lat ?? null,
+      lng: data.lng ?? null,
+      homeVisitOnly: data.homeVisitOnly ?? false,
+    });
+
+    // Fallback: nothing in this specialty => widen to the practitioner type.
+    if (practitioners.length === 0) {
+      practitioners = await findPractitionersCore({
+        type: triage.practitioner_type,
         lat: data.lat ?? null,
         lng: data.lng ?? null,
         homeVisitOnly: data.homeVisitOnly ?? false,
       });
+    }
 
-      // Fallback: nothing in this specialty => widen to the practitioner type.
-      if (practitioners.length === 0) {
-        practitioners = await findPractitionersCore(context.supabase, {
-          type: triage.practitioner_type,
-          lat: data.lat ?? null,
-          lng: data.lng ?? null,
-          homeVisitOnly: data.homeVisitOnly ?? false,
-        });
-      }
-
-      return { triage, practitioners };
-    },
-  );
+    return { triage, practitioners };
+  });
 
 export const searchPractitioners = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -81,9 +79,9 @@ export const searchPractitioners = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }): Promise<MatchedPractitioner[]> => {
+  .handler(async ({ data }): Promise<MatchedPractitioner[]> => {
     const { findPractitionersCore } = await import("./health-core.server");
-    return findPractitionersCore(context.supabase, {
+    return findPractitionersCore({
       specialtyCode: data.specialtyCode ?? null,
       type: data.type ?? null,
       lat: data.lat ?? null,
@@ -93,7 +91,7 @@ export const searchPractitioners = createServerFn({ method: "POST" })
   });
 
 export const requestAppointment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -111,12 +109,13 @@ export const requestAppointment = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }): Promise<{ appointmentId: string }> => {
-    const { data: prac, error: pErr } = await context.supabase
-      .from("practitioners")
-      .select("id, status, home_visits, is_available")
-      .eq("id", data.practitionerId)
-      .maybeSingle();
-    if (pErr) throw new Error(pErr.message);
+    const { prisma, Prisma } = await import("@/server/db.server");
+    const prac = await prisma.practitioners.findUnique({
+      where: { id: data.practitionerId },
+      select: { id: true, status: true, home_visits: true, is_available: true, user_id: true },
+    });
+    // RLS : seuls les praticiens approuvés (ou soi-même / admin) étaient visibles ;
+    // un praticien non approuvé est de toute façon refusé ci-dessous.
     if (!prac || prac.status !== "approved" || !prac.is_available) {
       throw new Error("Ce praticien n'est pas disponible actuellement.");
     }
@@ -124,9 +123,8 @@ export const requestAppointment = createServerFn({ method: "POST" })
       throw new Error("Ce praticien ne fait pas de visite à domicile.");
     }
 
-    const { data: inserted, error } = await context.supabase
-      .from("appointments")
-      .insert({
+    const inserted = await prisma.appointments.create({
+      data: {
         patient_id: context.userId,
         practitioner_id: data.practitionerId,
         symptoms: data.symptoms ?? null,
@@ -136,13 +134,12 @@ export const requestAppointment = createServerFn({ method: "POST" })
         patient_phone: data.patientPhone ?? null,
         patient_lat: data.patientLat ?? null,
         patient_lng: data.patientLng ?? null,
-        ...(data.preferredAt ? { proposed_at: data.preferredAt } : {}),
-        triage: (data.triage ?? null) as never,
+        ...(data.preferredAt ? { proposed_at: new Date(data.preferredAt) } : {}),
+        triage: (data.triage ?? Prisma.DbNull) as never,
         status: "requested",
-      })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
+      },
+      select: { id: true },
+    });
 
     return { appointmentId: inserted.id };
   });

@@ -10,15 +10,14 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { reportClientError } from "../lib/error-reporting";
 import { Toaster } from "@/components/ui/sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { auth } from "@/integrations/auth/client";
+import { getMyLanguage } from "@/lib/account.functions";
 import { applyLanguage } from "@/i18n";
 import { applyTheme, getStoredTheme, useTheme } from "@/hooks/useTheme";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
-
-
 
 function NotFoundComponent() {
   return (
@@ -47,7 +46,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportClientError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
   return (
@@ -139,7 +138,6 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
@@ -156,35 +154,31 @@ function RootComponent() {
       applyLanguage("fr");
     }
 
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return;
-      const { data: profile } = await supabase.from("profiles").select("language").eq("id", data.user.id).maybeSingle();
-      if (profile?.language) applyLanguage(profile.language);
+    auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const language = await getMyLanguage().catch(() => null);
+      if (language) applyLanguage(language);
     });
 
     let lastUserId: string | null | undefined;
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data } = auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       const userId = session?.user?.id ?? null;
-      // Supabase re-emits SIGNED_IN on tab focus / token refresh. Only react when
-      // the identity actually changed, otherwise the whole tree remounts on a timer.
+      // Only react when the identity actually changed, otherwise the whole tree
+      // remounts needlessly.
       if (lastUserId !== undefined && userId === lastUserId && event !== "USER_UPDATED") return;
       lastUserId = userId;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
     return () => data.subscription.unsubscribe();
-
   }, [router, queryClient]);
-
 
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <WhatsAppFab />
       <Toaster richColors position="top-right" theme={theme} />
-
     </QueryClientProvider>
   );
 }
-

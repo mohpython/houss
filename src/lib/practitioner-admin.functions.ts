@@ -1,16 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toPlain } from "@/server/serialize";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-async function assertCallerIsAdmin(supabase: any, userId: string) {
-  const { data: row } = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!row) throw new Error("Accès réservé aux administrateurs");
+async function assertCallerIsAdmin(userId: string) {
+  const { assertAdmin } = await import("@/server/authz.server");
+  await assertAdmin(userId, "Accès réservé aux administrateurs");
 }
 
 export type AdminPractitionerRow = {
@@ -35,34 +30,41 @@ export type AdminPractitionerRow = {
 };
 
 export const listPractitionersAdmin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminPractitionerRow[]> => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertCallerIsAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
 
-    const { data, error } = await supabaseAdmin
-      .from("practitioners")
-      .select(
-        "id, full_name, type, specialty_code, license_number, phone, address, city, lat, lng, home_visits, consultation_fee, is_available, status, bio, user_id, claim_email",
-      )
-      .order("full_name");
-    if (error) throw new Error(error.message);
+    const rows = await prisma.practitioners.findMany({
+      select: {
+        id: true,
+        full_name: true,
+        type: true,
+        specialty_code: true,
+        license_number: true,
+        phone: true,
+        address: true,
+        city: true,
+        lat: true,
+        lng: true,
+        home_visits: true,
+        consultation_fee: true,
+        is_available: true,
+        status: true,
+        bio: true,
+        user_id: true,
+        claim_email: true,
+        user: { select: { email: true } },
+      },
+      orderBy: { full_name: "asc" },
+    });
 
-    const rows = data ?? [];
-    const emails = new Map<string, string>();
-    await Promise.all(
-      Array.from(new Set(rows.map((r) => r.user_id).filter((v): v is string => !!v))).map(
-        async (id) => {
-          const { data: u } = await supabaseAdmin.auth.admin.getUserById(id);
-          if (u?.user?.email) emails.set(id, u.user.email);
-        },
-      ),
-    );
-
-    return rows.map((r) => ({
-      ...r,
-      owner_email: r.user_id ? (emails.get(r.user_id) ?? null) : null,
-    })) as AdminPractitionerRow[];
+    return toPlain(
+      rows.map(({ user, ...r }) => ({
+        ...r,
+        owner_email: r.user_id ? (user?.email ?? null) : null,
+      })),
+    ) as AdminPractitionerRow[];
   });
 
 const PractitionerInput = z.object({
@@ -85,11 +87,11 @@ const PractitionerInput = z.object({
 });
 
 export const upsertPractitioner = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => PractitionerInput.parse(input))
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertCallerIsAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
 
     const payload = {
       full_name: data.full_name,
@@ -110,52 +112,44 @@ export const upsertPractitioner = createServerFn({ method: "POST" })
     };
 
     if (data.id) {
-      const { error } = await supabaseAdmin.from("practitioners").update(payload).eq("id", data.id);
-      if (error) throw new Error(error.message);
-      await linkExistingUser(supabaseAdmin, data.id, payload.claim_email, data.type);
+      await prisma.practitioners.update({ where: { id: data.id }, data: payload });
+      await linkExistingUser(data.id, payload.claim_email, data.type);
       return { id: data.id };
     }
 
-    const { data: inserted, error } = await supabaseAdmin
-      .from("practitioners")
-      .insert(payload)
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    await linkExistingUser(supabaseAdmin, inserted.id, payload.claim_email, data.type);
+    const inserted = await prisma.practitioners.create({ data: payload, select: { id: true } });
+    await linkExistingUser(inserted.id, payload.claim_email, data.type);
     return { id: inserted.id };
   });
 
 /** If the invited e-mail already has an account, link it immediately. */
 async function linkExistingUser(
-  supabaseAdmin: any,
   practitionerId: string,
   email: string | null,
   type: "doctor" | "nurse",
 ) {
   if (!email) return;
-  for (let page = 1; page <= 20; page++) {
-    const { data: list, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) return;
-    const match = list.users.find((u: any) => (u.email ?? "").toLowerCase() === email);
-    if (match) {
-      await supabaseAdmin
-        .from("practitioners")
-        .update({ user_id: match.id, claim_email: null })
-        .eq("id", practitionerId);
-      await supabaseAdmin
-        .from("user_roles")
-        .insert({ user_id: match.id, role: type })
-        .select("id")
-        .maybeSingle();
-      return;
-    }
-    if (list.users.length < 200) return;
+  const { prisma } = await import("@/server/db.server");
+  const match = await prisma.users.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (!match) return;
+  try {
+    await prisma.practitioners.update({
+      where: { id: practitionerId },
+      data: { user_id: match.id, claim_email: null },
+    });
+  } catch {
+    // Comme avant : un échec de rattachement (compte déjà lié / autre rôle pro) est ignoré.
+    return;
   }
+  const { addRole } = await import("@/server/auth.server");
+  await addRole(match.id, type);
 }
 
 export const setPractitionerStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -165,24 +159,22 @@ export const setPractitionerStatus = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("practitioners")
-      .update({ status: data.status })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    await assertCallerIsAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
+    await prisma.practitioners.updateMany({
+      where: { id: data.id },
+      data: { status: data.status },
+    });
     return { ok: true };
   });
 
 export const deletePractitioner = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("practitioners").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    await assertCallerIsAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
+    await prisma.practitioners.deleteMany({ where: { id: data.id } });
     return { ok: true };
   });
 
@@ -200,7 +192,12 @@ export type AdminAppointmentRow = {
   patient_lat: number | null;
   patient_lng: number | null;
   practitioner_notes: string | null;
-  triage: { urgency?: string; summary?: string; advice?: string; possible_conditions?: string[] } | null;
+  triage: {
+    urgency?: string;
+    summary?: string;
+    advice?: string;
+    possible_conditions?: string[];
+  } | null;
   patient_name: string | null;
   patient_email: string | null;
   patient_profile_phone: string | null;
@@ -212,70 +209,69 @@ export type AdminAppointmentRow = {
 };
 
 export const listAppointmentsAdmin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminAppointmentRow[]> => {
-    await assertCallerIsAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertCallerIsAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
 
-    const { data, error } = await supabaseAdmin
-      .from("appointments")
-      .select(
-        "id, status, reason, symptoms, at_home, requested_at, scheduled_at, proposed_at, patient_address, patient_phone, patient_lat, patient_lng, practitioner_notes, triage, patient_id, practitioner_id",
-      )
-      .order("requested_at", { ascending: false })
-      .limit(200);
-    if (error) throw new Error(error.message);
-    const rows = data ?? [];
+    const rows = await prisma.appointments.findMany({
+      select: {
+        id: true,
+        status: true,
+        reason: true,
+        symptoms: true,
+        at_home: true,
+        requested_at: true,
+        scheduled_at: true,
+        proposed_at: true,
+        patient_address: true,
+        patient_phone: true,
+        patient_lat: true,
+        patient_lng: true,
+        practitioner_notes: true,
+        triage: true,
+        patient_id: true,
+        practitioner_id: true,
+        patient: {
+          select: { email: true, profile: { select: { full_name: true, phone: true } } },
+        },
+        practitioners: {
+          select: { full_name: true, type: true, specialty_code: true, phone: true, city: true },
+        },
+      },
+      orderBy: { requested_at: "desc" },
+      take: 200,
+    });
     if (rows.length === 0) return [];
 
-    const patientIds = Array.from(new Set(rows.map((r: any) => r.patient_id)));
-    const practIds = Array.from(new Set(rows.map((r: any) => r.practitioner_id)));
-
-    const [{ data: profiles }, { data: pracs }] = await Promise.all([
-      supabaseAdmin.from("profiles").select("id, full_name, phone").in("id", patientIds),
-      supabaseAdmin
-        .from("practitioners")
-        .select("id, full_name, type, specialty_code, phone, city")
-        .in("id", practIds),
-    ]);
-
-    const emails = new Map<string, string>();
-    await Promise.all(
-      patientIds.map(async (id) => {
-        const { data: u } = await supabaseAdmin.auth.admin.getUserById(id as string);
-        if (u?.user?.email) emails.set(id as string, u.user.email);
+    return toPlain(
+      rows.map((r) => {
+        const prof = r.patient?.profile;
+        const pr = r.practitioners;
+        return {
+          id: r.id,
+          status: r.status,
+          reason: r.reason,
+          symptoms: r.symptoms,
+          at_home: r.at_home,
+          requested_at: r.requested_at,
+          scheduled_at: r.scheduled_at,
+          proposed_at: r.proposed_at,
+          patient_address: r.patient_address,
+          patient_phone: r.patient_phone,
+          patient_lat: r.patient_lat,
+          patient_lng: r.patient_lng,
+          practitioner_notes: r.practitioner_notes,
+          triage: (r.triage ?? null) as AdminAppointmentRow["triage"],
+          patient_name: prof?.full_name ?? null,
+          patient_email: r.patient?.email ?? null,
+          patient_profile_phone: prof?.phone ?? null,
+          practitioner_name: pr?.full_name ?? null,
+          practitioner_type: pr?.type ?? null,
+          practitioner_specialty: pr?.specialty_code ?? null,
+          practitioner_phone: pr?.phone ?? null,
+          practitioner_city: pr?.city ?? null,
+        };
       }),
-    );
-
-    const pMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
-    const prMap = new Map((pracs ?? []).map((p: any) => [p.id, p]));
-
-    return rows.map((r: any) => {
-      const prof = pMap.get(r.patient_id);
-      const pr = prMap.get(r.practitioner_id);
-      return {
-        id: r.id,
-        status: r.status,
-        reason: r.reason,
-        symptoms: r.symptoms,
-        at_home: r.at_home,
-        requested_at: r.requested_at,
-        scheduled_at: r.scheduled_at,
-        proposed_at: r.proposed_at,
-        patient_address: r.patient_address,
-        patient_phone: r.patient_phone,
-        patient_lat: r.patient_lat,
-        patient_lng: r.patient_lng,
-        practitioner_notes: r.practitioner_notes,
-        triage: (r.triage ?? null) as AdminAppointmentRow["triage"],
-        patient_name: prof?.full_name ?? null,
-        patient_email: emails.get(r.patient_id) ?? null,
-        patient_profile_phone: prof?.phone ?? null,
-        practitioner_name: pr?.full_name ?? null,
-        practitioner_type: pr?.type ?? null,
-        practitioner_specialty: pr?.specialty_code ?? null,
-        practitioner_phone: pr?.phone ?? null,
-        practitioner_city: pr?.city ?? null,
-      };
-    });
+    ) as AdminAppointmentRow[];
   });

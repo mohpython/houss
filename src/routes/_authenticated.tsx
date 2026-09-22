@@ -1,9 +1,22 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { auth, type AuthUser } from "@/integrations/auth/client";
+import { getMyRoles } from "@/lib/account.functions";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { User } from "@supabase/supabase-js";
-import { LayoutGrid, Camera, ListChecks, Store, ShieldCheck, LogOut, Menu, Bike, Package, MoreHorizontal, Users, Stethoscope } from "lucide-react";
+import {
+  LayoutGrid,
+  Camera,
+  ListChecks,
+  Store,
+  ShieldCheck,
+  LogOut,
+  Menu,
+  Bike,
+  Package,
+  MoreHorizontal,
+  Users,
+  Stethoscope,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -16,12 +29,10 @@ import { attachNativeTapHandler, refreshPushRegistration } from "@/lib/push-clie
 import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 import { ensurePractitionerAccess } from "@/lib/practitioner.functions";
 
-
-
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
+    const { data, error } = await auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
     return { user: data.user };
   },
@@ -40,11 +51,9 @@ function AuthedLayout() {
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .then(({ data }) => setRoles((data ?? []).map((r) => r.role)));
+    void getMyRoles()
+      .then((r) => setRoles(r))
+      .catch(() => setRoles([]));
     void ensurePractitionerAccess()
       .then((r) => setPractitionerLinked(r.isPractitioner))
       .catch(() => setPractitionerLinked(false));
@@ -56,7 +65,7 @@ function AuthedLayout() {
   }, [i18n.language, router]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await auth.signOut();
     router.navigate({ to: "/" });
   };
 
@@ -68,29 +77,79 @@ function AuthedLayout() {
   const primary: NavEntry[] = [
     { to: "/app", icon: <LayoutGrid className="h-5 w-5" />, label: t("nav.home") },
     { to: "/app/scan", icon: <Camera className="h-5 w-5" />, label: t("nav.scan") },
-    { to: "/app/prescriptions", icon: <ListChecks className="h-5 w-5" />, label: t("nav.prescriptions") },
+    {
+      to: "/app/prescriptions",
+      icon: <ListChecks className="h-5 w-5" />,
+      label: t("nav.prescriptions"),
+    },
     { to: "/app/reservations", icon: <Store className="h-5 w-5" />, label: t("nav.reservations") },
   ];
   const extras: NavEntry[] = [];
   if (!isPharmacy && !isCourier) {
-    extras.push({ to: "/app/pharmacy/onboarding", icon: <Store className="h-5 w-5" />, label: t("nav.registerPharmacy") });
-    extras.push({ to: "/app/courier/onboarding", icon: <Bike className="h-5 w-5" />, label: t("nav.becomeCourier") });
+    extras.push({
+      to: "/app/pharmacy/onboarding",
+      icon: <Store className="h-5 w-5" />,
+      label: t("nav.registerPharmacy"),
+    });
+    extras.push({
+      to: "/app/courier/onboarding",
+      icon: <Bike className="h-5 w-5" />,
+      label: t("nav.becomeCourier"),
+    });
   }
   if (isAdmin) {
-    extras.push({ to: "/app/admin", icon: <ShieldCheck className="h-5 w-5" />, label: t("nav.admin") });
-    extras.push({ to: "/app/admin/pharmacies", icon: <Store className="h-5 w-5" />, label: "Gérants" });
-    extras.push({ to: "/app/admin/inventory", icon: <Package className="h-5 w-5" />, label: t("nav.stocks") });
-    extras.push({ to: "/app/admin/couriers", icon: <Bike className="h-5 w-5" />, label: t("nav.couriers") });
-    extras.push({ to: "/app/admin/patients", icon: <Users className="h-5 w-5" />, label: "Patients" });
+    extras.push({
+      to: "/app/admin",
+      icon: <ShieldCheck className="h-5 w-5" />,
+      label: t("nav.admin"),
+    });
+    extras.push({
+      to: "/app/admin/pharmacies",
+      icon: <Store className="h-5 w-5" />,
+      label: "Gérants",
+    });
+    extras.push({
+      to: "/app/admin/inventory",
+      icon: <Package className="h-5 w-5" />,
+      label: t("nav.stocks"),
+    });
+    extras.push({
+      to: "/app/admin/couriers",
+      icon: <Bike className="h-5 w-5" />,
+      label: t("nav.couriers"),
+    });
+    extras.push({
+      to: "/app/admin/patients",
+      icon: <Users className="h-5 w-5" />,
+      label: "Patients",
+    });
   }
 
-
   const roleTabs: NavEntry[] = [];
-  if (isPharmacy) roleTabs.push({ to: "/app/pharmacy", icon: <Store className="h-5 w-5" />, label: t("nav.pharmacy") });
-  if (isCourier) roleTabs.push({ to: "/app/courier", icon: <Bike className="h-5 w-5" />, label: t("nav.courier") });
-  if (isPractitioner) roleTabs.push({ to: "/app/praticien", icon: <Stethoscope className="h-5 w-5" />, label: t("nav.practitioner") });
-  if (isAdmin && roleTabs.length === 0) roleTabs.push({ to: "/app/admin", icon: <ShieldCheck className="h-5 w-5" />, label: t("nav.admin") });
-
+  if (isPharmacy)
+    roleTabs.push({
+      to: "/app/pharmacy",
+      icon: <Store className="h-5 w-5" />,
+      label: t("nav.pharmacy"),
+    });
+  if (isCourier)
+    roleTabs.push({
+      to: "/app/courier",
+      icon: <Bike className="h-5 w-5" />,
+      label: t("nav.courier"),
+    });
+  if (isPractitioner)
+    roleTabs.push({
+      to: "/app/praticien",
+      icon: <Stethoscope className="h-5 w-5" />,
+      label: t("nav.practitioner"),
+    });
+  if (isAdmin && roleTabs.length === 0)
+    roleTabs.push({
+      to: "/app/admin",
+      icon: <ShieldCheck className="h-5 w-5" />,
+      label: t("nav.admin"),
+    });
 
   const bottomBar: NavEntry[] = roleTabs.length > 0 ? [...primary, roleTabs[0]] : [...primary];
   const showBottomMore = roleTabs.length === 0;
@@ -122,7 +181,11 @@ function AuthedLayout() {
         {/* Mobile header */}
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/5 bg-background/60 px-4 backdrop-blur-xl md:hidden">
           <Link to="/app" className="flex items-center gap-2">
-            <img src={sahaLogo.url} alt="SAHA Santé" className="h-8 w-8 rounded-xl object-cover ring-1 ring-white/15" />
+            <img
+              src={sahaLogo.url}
+              alt="SAHA Santé"
+              className="h-8 w-8 rounded-xl object-cover ring-1 ring-white/15"
+            />
             <span className="font-display text-lg">SAHA</span>
           </Link>
           <div className="flex items-center gap-1">
@@ -137,8 +200,16 @@ function AuthedLayout() {
                     <MoreHorizontal className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="bottom" className="rounded-t-3xl border-white/10 bg-background/95 p-0 backdrop-blur-xl">
-                  <MoreMenu extras={extras} user={user} onClose={() => setMoreOpen(false)} onSignOut={signOut} />
+                <SheetContent
+                  side="bottom"
+                  className="rounded-t-3xl border-white/10 bg-background/95 p-0 backdrop-blur-xl"
+                >
+                  <MoreMenu
+                    extras={extras}
+                    user={user}
+                    onClose={() => setMoreOpen(false)}
+                    onSignOut={signOut}
+                  />
                 </SheetContent>
               </Sheet>
             )}
@@ -148,7 +219,10 @@ function AuthedLayout() {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-72 border-white/10 bg-background/95 p-0 backdrop-blur-xl">
+              <SheetContent
+                side="left"
+                className="w-72 border-white/10 bg-background/95 p-0 backdrop-blur-xl"
+              >
                 <SidebarHeader />
                 <nav className="flex-1 space-y-1 px-3 py-4">{nav}</nav>
                 <SidebarFooter user={user} onSignOut={signOut} />
@@ -163,7 +237,6 @@ function AuthedLayout() {
           <LanguageSwitcher />
           <NotificationsBell userId={user.id} />
         </div>
-
 
         <main className="min-w-0 flex-1 overflow-x-hidden pb-28 md:pb-6">
           <div className="mx-auto max-w-6xl px-4 pt-4 md:px-6">
@@ -200,10 +273,17 @@ function AuthedLayout() {
                   >
                     <MoreHorizontal className="h-5 w-5" />
                   </button>
-
                 </SheetTrigger>
-                <SheetContent side="bottom" className="rounded-t-3xl border-white/10 bg-background/95 p-0 backdrop-blur-xl">
-                  <MoreMenu extras={extras} user={user} onClose={() => setMoreOpen(false)} onSignOut={signOut} />
+                <SheetContent
+                  side="bottom"
+                  className="rounded-t-3xl border-white/10 bg-background/95 p-0 backdrop-blur-xl"
+                >
+                  <MoreMenu
+                    extras={extras}
+                    user={user}
+                    onClose={() => setMoreOpen(false)}
+                    onSignOut={signOut}
+                  />
                 </SheetContent>
               </Sheet>
             )}
@@ -221,7 +301,7 @@ function MoreMenu({
   onSignOut,
 }: {
   extras: NavEntry[];
-  user: User;
+  user: AuthUser;
   onClose: () => void;
   onSignOut: () => void;
 }) {
@@ -230,7 +310,9 @@ function MoreMenu({
     <>
       <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-white/20" />
       <div className="px-5 pb-8 pt-4">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-foreground/60">{t("nav.menu")}</div>
+        <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-foreground/60">
+          {t("nav.menu")}
+        </div>
         {extras.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             {extras.map((item) => (
@@ -247,7 +329,9 @@ function MoreMenu({
           </div>
         )}
         <div className="mt-5 border-t border-white/10 pt-4">
-          <div className="mb-2 truncate px-1 text-xs text-foreground/60">{user.email}</div>
+          <div className="mb-2 truncate px-1 text-xs text-foreground/60">
+            {user.email ?? user.phone}
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -266,31 +350,40 @@ function MoreMenu({
   );
 }
 
-
 function SidebarHeader() {
   return (
     <div className="flex h-16 items-center border-b border-white/10 px-5">
       <Link to="/app" className="flex items-center gap-3">
-        <img src={sahaLogo.url} alt="SAHA Santé" className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/15" />
+        <img
+          src={sahaLogo.url}
+          alt="SAHA Santé"
+          className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/15"
+        />
         <span className="font-display text-xl">SAHA Santé</span>
       </Link>
     </div>
   );
 }
 
-function SidebarFooter({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+function SidebarFooter({ user, onSignOut }: { user: AuthUser; onSignOut: () => void }) {
   const { t } = useTranslation();
   return (
     <div className="border-t border-white/10 p-3">
-      <div className="mb-2 truncate px-2 text-xs text-foreground/60">{user.email}</div>
-      <Button variant="ghost" size="sm" className="w-full justify-start gap-2 hover:bg-white/10" onClick={onSignOut}>
+      <div className="mb-2 truncate px-2 text-xs text-foreground/60">
+        {user.email ?? user.phone}
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full justify-start gap-2 hover:bg-white/10"
+        onClick={onSignOut}
+      >
         <LogOut className="h-4 w-4" />
         {t("common.signOut")}
       </Button>
     </div>
   );
 }
-
 
 function NavList({
   isPharmacy,
@@ -308,54 +401,127 @@ function NavList({
   const { t } = useTranslation();
   return (
     <>
-      <NavItem to="/app" icon={<LayoutGrid className="h-4 w-4" />} label={t("nav.home")} onNavigate={onNavigate} />
-      <NavItem to="/app/scan" icon={<Camera className="h-4 w-4" />} label={t("nav.scan")} onNavigate={onNavigate} />
-      <NavItem to="/app/prescriptions" icon={<ListChecks className="h-4 w-4" />} label={t("nav.prescriptions")} onNavigate={onNavigate} />
-      <NavItem to="/app/reservations" icon={<Store className="h-4 w-4" />} label={t("nav.reservations")} onNavigate={onNavigate} />
+      <NavItem
+        to="/app"
+        icon={<LayoutGrid className="h-4 w-4" />}
+        label={t("nav.home")}
+        onNavigate={onNavigate}
+      />
+      <NavItem
+        to="/app/scan"
+        icon={<Camera className="h-4 w-4" />}
+        label={t("nav.scan")}
+        onNavigate={onNavigate}
+      />
+      <NavItem
+        to="/app/prescriptions"
+        icon={<ListChecks className="h-4 w-4" />}
+        label={t("nav.prescriptions")}
+        onNavigate={onNavigate}
+      />
+      <NavItem
+        to="/app/reservations"
+        icon={<Store className="h-4 w-4" />}
+        label={t("nav.reservations")}
+        onNavigate={onNavigate}
+      />
       {isPharmacy && (
         <>
           <SectionLabel>{t("nav.pharmacy")}</SectionLabel>
-          <NavItem to="/app/pharmacy" icon={<Store className="h-4 w-4" />} label={t("nav.pharmacy")} onNavigate={onNavigate} />
+          <NavItem
+            to="/app/pharmacy"
+            icon={<Store className="h-4 w-4" />}
+            label={t("nav.pharmacy")}
+            onNavigate={onNavigate}
+          />
         </>
       )}
       {isPractitioner && (
         <>
           <SectionLabel>{t("nav.practitioner")}</SectionLabel>
-          <NavItem to="/app/praticien" icon={<Stethoscope className="h-4 w-4" />} label={t("nav.practitioner")} onNavigate={onNavigate} />
+          <NavItem
+            to="/app/praticien"
+            icon={<Stethoscope className="h-4 w-4" />}
+            label={t("nav.practitioner")}
+            onNavigate={onNavigate}
+          />
         </>
       )}
       {isCourier ? (
         <>
           <SectionLabel>{t("nav.courier")}</SectionLabel>
-          <NavItem to="/app/courier" icon={<Bike className="h-4 w-4" />} label={t("nav.courier")} onNavigate={onNavigate} />
+          <NavItem
+            to="/app/courier"
+            icon={<Bike className="h-4 w-4" />}
+            label={t("nav.courier")}
+            onNavigate={onNavigate}
+          />
         </>
       ) : (
         <>
           <SectionLabel>Pro</SectionLabel>
           {!isPharmacy && (
-            <NavItem to="/app/pharmacy/onboarding" icon={<Store className="h-4 w-4" />} label={t("nav.registerPharmacy")} onNavigate={onNavigate} />
+            <NavItem
+              to="/app/pharmacy/onboarding"
+              icon={<Store className="h-4 w-4" />}
+              label={t("nav.registerPharmacy")}
+              onNavigate={onNavigate}
+            />
           )}
-          <NavItem to="/app/courier/onboarding" icon={<Bike className="h-4 w-4" />} label={t("nav.becomeCourier")} onNavigate={onNavigate} />
+          <NavItem
+            to="/app/courier/onboarding"
+            icon={<Bike className="h-4 w-4" />}
+            label={t("nav.becomeCourier")}
+            onNavigate={onNavigate}
+          />
         </>
       )}
       {isAdmin && (
         <>
           <SectionLabel>{t("nav.admin")}</SectionLabel>
-          <NavItem to="/app/admin" icon={<ShieldCheck className="h-4 w-4" />} label={t("nav.pharmacy")} onNavigate={onNavigate} />
-          <NavItem to="/app/admin/pharmacies" icon={<Store className="h-4 w-4" />} label="Gérants pharmacies" onNavigate={onNavigate} />
-          <NavItem to="/app/admin/inventory" icon={<Package className="h-4 w-4" />} label={t("nav.stocks")} onNavigate={onNavigate} />
-          <NavItem to="/app/admin/couriers" icon={<Bike className="h-4 w-4" />} label={t("nav.couriers")} onNavigate={onNavigate} />
+          <NavItem
+            to="/app/admin"
+            icon={<ShieldCheck className="h-4 w-4" />}
+            label={t("nav.pharmacy")}
+            onNavigate={onNavigate}
+          />
+          <NavItem
+            to="/app/admin/pharmacies"
+            icon={<Store className="h-4 w-4" />}
+            label="Gérants pharmacies"
+            onNavigate={onNavigate}
+          />
+          <NavItem
+            to="/app/admin/inventory"
+            icon={<Package className="h-4 w-4" />}
+            label={t("nav.stocks")}
+            onNavigate={onNavigate}
+          />
+          <NavItem
+            to="/app/admin/couriers"
+            icon={<Bike className="h-4 w-4" />}
+            label={t("nav.couriers")}
+            onNavigate={onNavigate}
+          />
 
-          <NavItem to="/app/admin/patients" icon={<Users className="h-4 w-4" />} label="Patients" onNavigate={onNavigate} />
+          <NavItem
+            to="/app/admin/patients"
+            icon={<Users className="h-4 w-4" />}
+            label="Patients"
+            onNavigate={onNavigate}
+          />
         </>
       )}
     </>
   );
 }
 
-
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="mt-5 px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-foreground/50">{children}</div>;
+  return (
+    <div className="mt-5 px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-foreground/50">
+      {children}
+    </div>
+  );
 }
 
 function NavItem({

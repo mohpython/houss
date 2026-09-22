@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { auth } from "@/integrations/auth/client";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { Loader2 } from "lucide-react";
@@ -42,40 +42,46 @@ function AuthCallback() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let done = false;
+    let cancelled = false;
 
-    const finish = () => {
-      if (done) return;
-      done = true;
-      let target = "/app";
-      try {
-        target = safePath(sessionStorage.getItem(REDIRECT_KEY));
-        sessionStorage.removeItem(REDIRECT_KEY);
-      } catch {
-        target = "/app";
-      }
-      navigate({ to: target, replace: true });
-    };
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) finish();
-    });
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) finish();
-    });
-
-    const timeout = setTimeout(() => {
-      if (done) return;
-      done = true;
+    const fail = () => {
+      if (cancelled) return;
       setFailed(true);
       toast.error(t("auth.googleError"));
       navigate({ to: "/auth", replace: true });
-    }, 10000);
+    };
+
+    // Le serveur renvoie le jeton dans le fragment (#access_token=...&expires_at=...&redirect=...)
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const token = params.get("access_token");
+    const expiresAt = Number(params.get("expires_at") ?? 0);
+    // Efface le jeton de la barre d'adresse et de l'historique.
+    window.history.replaceState(null, "", window.location.pathname);
+
+    if (!token) {
+      // Pas de jeton : session déjà ouverte ? sinon échec.
+      auth
+        .getSession()
+        .then(({ data }) => (data.session ? navigate({ to: "/app", replace: true }) : fail()));
+      return;
+    }
+
+    auth.setSessionFromToken(token, expiresAt).then(({ error }) => {
+      if (cancelled) return;
+      if (error) return fail();
+      let target = safePath(params.get("redirect"));
+      try {
+        const stored = sessionStorage.getItem(REDIRECT_KEY);
+        if (stored) target = safePath(stored);
+        sessionStorage.removeItem(REDIRECT_KEY);
+      } catch {
+        /* sessionStorage indisponible */
+      }
+      navigate({ to: target, replace: true });
+    });
 
     return () => {
-      sub.subscription.unsubscribe();
-      clearTimeout(timeout);
+      cancelled = true;
     };
   }, [navigate, t]);
 

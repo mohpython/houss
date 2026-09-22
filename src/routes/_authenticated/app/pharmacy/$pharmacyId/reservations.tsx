@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
 import { respondToReservation } from "@/lib/pharmacy.functions";
+import { listPharmacyReservations } from "@/lib/pharmacy-portal.functions";
 import { assignCourier } from "@/lib/delivery.functions";
 import { confirmPaymentReceived } from "@/lib/payment.functions";
 import { verifyPickupCode } from "@/lib/fulfillment.functions";
+import { subscribeRealtime } from "@/integrations/realtime/client";
 import { Input } from "@/components/ui/input";
 import { formatAmount } from "@/lib/payment-config";
 
@@ -98,31 +99,26 @@ function Reservations() {
     }
   };
 
+  const fetchReservations = useServerFn(listPharmacyReservations);
+
   const load = async () => {
-    const { data } = await supabase
-      .from("reservations")
-      .select(
-        "id, status, delivery_status, created_at, notes, prescription_id, payment_status, payment_method, payment_reference, total_amount, fulfillment_method, patient_name, patient_phone, pickup_code_verified_at, prescriptions(file_path, file_mime, patient_name, doctor_name, hospital, prescription_date, ai_confidence), reservation_items(id, available, price, unit_price, prescription_items(medicine_name_raw, strength, quantity, dosage, duration, instructions))",
-      )
-      .eq("pharmacy_id", pharmacyId)
-      .order("created_at", { ascending: false });
-    const list = (data as unknown as R[]) ?? [];
-    setRows(list);
-    const urls: Record<string, string> = {};
-    await Promise.all(
-      list.map(async (r) => {
-        const path = r.prescriptions?.file_path;
-        if (!path) return;
-        const { data: s } = await supabase.storage
-          .from("prescriptions")
-          .createSignedUrl(path, 3600);
-        if (s?.signedUrl) urls[r.id] = s.signedUrl;
-      }),
-    );
-    setRxUrls(urls);
+    try {
+      const { rows: list, rxUrls: urls } = await fetchReservations({ data: { pharmacyId } });
+      setRows((list as unknown as R[]) ?? []);
+      setRxUrls(urls);
+    } catch {
+      setRows([]);
+      setRxUrls({});
+    }
   };
   useEffect(() => {
     load();
+    // Nouvelles commandes / changements de statut en direct.
+    return subscribeRealtime(
+      [{ table: "reservations", event: "*", filter: { pharmacy_id: pharmacyId } }],
+      () => load(),
+      { onResync: () => load() },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pharmacyId]);
 

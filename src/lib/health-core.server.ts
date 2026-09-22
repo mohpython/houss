@@ -2,10 +2,10 @@
  * Health / practitioners core — server only.
  * AI triage of symptoms + proximity matching of doctors and nurses.
  */
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
 import { z } from "zod";
-import type { AnySupabase } from "./rx-core.server";
+import { prisma } from "@/server/db.server";
+import { textModel } from "@/server/ai.server";
 import { haversineKm } from "./routing-core.server";
 
 export const TriageSchema = z.object({
@@ -34,15 +34,6 @@ export async function triageSymptoms(
   symptoms: string,
   language: string,
 ): Promise<Triage> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY manquant");
-
-  const provider = createOpenAICompatible({
-    name: "lovable",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-  });
-
   const catalogue = specialties
     .map((s) => `- ${s.code} (${s.practitioner_type}): ${s.label_fr} | ${s.label_en}`)
     .join("\n");
@@ -63,7 +54,7 @@ Rules:
 Return JSON only.`;
 
   const { text } = await generateText({
-    model: provider("google/gemini-3.6-flash"),
+    model: textModel(),
     system: `${system}
 
 Respond with a single raw JSON object, no markdown fences, with exactly these keys:
@@ -71,7 +62,11 @@ Respond with a single raw JSON object, no markdown fences, with exactly these ke
     messages: [{ role: "user", content: symptoms.slice(0, 2000) }],
   });
 
-  const raw = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const raw = text
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
   let parsed: Record<string, unknown> = {};
@@ -82,9 +77,7 @@ Respond with a single raw JSON object, no markdown fences, with exactly these ke
   }
 
   const urgencyRaw = String(parsed["urgency"] ?? "medium").toLowerCase();
-  const urgency = (["low", "medium", "high", "emergency"] as const).includes(
-    urgencyRaw as "low",
-  )
+  const urgency = (["low", "medium", "high", "emergency"] as const).includes(urgencyRaw as "low")
     ? (urgencyRaw as Triage["urgency"])
     : urgencyRaw === "urgent"
       ? "high"
@@ -124,31 +117,37 @@ export type MatchedPractitioner = {
   distanceKm: number | null;
 };
 
-export async function findPractitionersCore(
-  supabase: AnySupabase,
-  opts: {
-    specialtyCode?: string | null;
-    type?: "doctor" | "nurse" | null;
-    lat?: number | null;
-    lng?: number | null;
-    homeVisitOnly?: boolean;
-    limit?: number;
-  },
-): Promise<MatchedPractitioner[]> {
-  let q = supabase
-    .from("practitioners")
-    .select(
-      "id, full_name, type, specialty_code, city, address, phone, home_visits, consultation_fee, bio, lat, lng",
-    )
-    .eq("status", "approved")
-    .eq("is_available", true);
-
-  if (opts.specialtyCode) q = q.eq("specialty_code", opts.specialtyCode);
-  if (opts.type) q = q.eq("type", opts.type);
-  if (opts.homeVisitOnly) q = q.eq("home_visits", true);
-
-  const { data, error } = await q;
-  if (error) throw new Error(error.message);
+export async function findPractitionersCore(opts: {
+  specialtyCode?: string | null;
+  type?: "doctor" | "nurse" | null;
+  lat?: number | null;
+  lng?: number | null;
+  homeVisitOnly?: boolean;
+  limit?: number;
+}): Promise<MatchedPractitioner[]> {
+  const data = await prisma.practitioners.findMany({
+    where: {
+      status: "approved",
+      is_available: true,
+      ...(opts.specialtyCode ? { specialty_code: opts.specialtyCode } : {}),
+      ...(opts.type ? { type: opts.type } : {}),
+      ...(opts.homeVisitOnly ? { home_visits: true } : {}),
+    },
+    select: {
+      id: true,
+      full_name: true,
+      type: true,
+      specialty_code: true,
+      city: true,
+      address: true,
+      phone: true,
+      home_visits: true,
+      consultation_fee: true,
+      bio: true,
+      lat: true,
+      lng: true,
+    },
+  });
 
   const rows = (data ?? []).map((p) => ({
     id: p.id,

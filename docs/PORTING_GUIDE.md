@@ -23,7 +23,7 @@ chaque fichier qui utilise encore `supabase`.
 | Auth navigateur | `src/integrations/auth/client.ts` → `auth.getUser()`, `auth.getSession()`, `auth.signOut()`, `auth.onAuthStateChange()` |
 
 Le schéma est dans `prisma/schema.prisma`. L'ancien SQL complet (RLS, triggers)
-est dans `supabase/migrations/` — s'y référer pour connaître les règles d'accès.
+est dans `docs/legacy-supabase/migrations/` — s'y référer pour connaître les règles d'accès.
 
 ## Règles de portage
 

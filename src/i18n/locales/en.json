@@ -125,7 +125,16 @@
     "phoneError": "Failed to send SMS",
     "changeNumber": "Change number",
     "codeSent": "Code sent via SMS",
-    "invalidPhone": "Invalid number (international format required, e.g. +22370000000)"
+    "invalidPhone": "Invalid number (international format required, e.g. +22370000000)",
+    "forgotPassword": "Forgot password?",
+    "resetTitle": "Forgot password",
+    "resetSub": "Enter your email and we will send you a link to choose a new password.",
+    "resetSend": "Send link",
+    "resetSent": "If an account exists for this email, a link has just been sent.",
+    "newPassword": "New password",
+    "resetSave": "Save password",
+    "resetDone": "Password changed. You are signed in.",
+    "resetInvalid": "Invalid or expired link."
   },
   "home": {
     "greeting": "Hello",

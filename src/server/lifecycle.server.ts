@@ -194,7 +194,8 @@ export function prescriptionExpiry(date: Date | string | null | undefined): bool
   const d = date instanceof Date ? date : new Date(String(date));
   if (Number.isNaN(d.getTime())) return false;
   const now = new Date();
-  const limit = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 90 * 86400_000;
+  const limit =
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 90 * 86400_000;
   return d.getTime() < limit;
 }
 
@@ -325,11 +326,8 @@ async function appointmentContext(a: Row) {
     select: { full_name: true },
   });
   const pracName = prac?.full_name ?? null;
-  const displayName =
-    prac?.type === "doctor" ? `Dr ${pracName ?? ""}` : (pracName ?? "Praticien");
-  const whenTxt = formatBamako(
-    (a.scheduled_at as Date | null) ?? (a.proposed_at as Date | null),
-  );
+  const displayName = prac?.type === "doctor" ? `Dr ${pracName ?? ""}` : (pracName ?? "Praticien");
+  const whenTxt = formatBamako((a.scheduled_at as Date | null) ?? (a.proposed_at as Date | null));
   const patientName = profile?.full_name?.trim() ? profile.full_name : "Un patient";
   return { pracUser: prac?.user_id ?? null, displayName, whenTxt, patientName };
 }
@@ -371,11 +369,17 @@ async function appointmentNotify(before: Row | null, a: Row) {
         : a.status === "rescheduled"
           ? `${displayName} attend votre réponse pour la date proposée${whenTxt ? ` (${whenTxt})` : ""}.`
           : `${displayName} vous rappelle votre rendez-vous${whenTxt ? ` du ${whenTxt}` : ""}.`;
-    await insertNotification(a.patient_id as string, "appointment_reminder", `Rappel de ${displayName}`, body, {
-      appointment_id: id,
-      for: "patient",
-      reminder: "manual",
-    });
+    await insertNotification(
+      a.patient_id as string,
+      "appointment_reminder",
+      `Rappel de ${displayName}`,
+      body,
+      {
+        appointment_id: id,
+        for: "patient",
+        reminder: "manual",
+      },
+    );
   }
 
   // Présence confirmée par le patient (historique)

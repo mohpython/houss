@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toPlain } from "@/server/serialize";
 
 /** Keeps the last 8 significant digits so +223 / 00223 / spaces all match. */
 function phoneKey(raw: string): string {
@@ -15,68 +16,80 @@ const ratingSchema = z.object({
 
 /** A signed-in patient rates one of their own completed orders. */
 export const submitReservationFeedback = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     ratingSchema.extend({ reservationId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
 
-    const { data: res, error } = await supabase
-      .from("reservations")
-      .select("id, patient_id, pharmacy_id, status, patient_phone")
-      .eq("id", data.reservationId)
-      .single();
-    if (error || !res) throw new Error("Commande introuvable");
-    if (res.patient_id !== userId) throw new Error("Non autorisé");
+    const res = await prisma.reservations.findUnique({
+      where: { id: data.reservationId },
+      select: {
+        id: true,
+        patient_id: true,
+        pharmacy_id: true,
+        courier_id: true,
+        payment_status: true,
+        status: true,
+        patient_phone: true,
+      },
+    });
+    if (!res) throw new Error("Commande introuvable");
+    if (res.patient_id !== userId) {
+      const { reservationAccess } = await import("@/server/authz.server");
+      const access = await reservationAccess(userId, res);
+      if (!access.canRead) throw new Error("Commande introuvable");
+      throw new Error("Non autorisé");
+    }
     if (res.status !== "completed") {
       throw new Error("Vous pourrez laisser un avis une fois la commande terminée.");
     }
 
-    const { data: existing } = await supabase
-      .from("feedback")
-      .select("id")
-      .eq("reservation_id", data.reservationId)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const existing = await prisma.feedback.findFirst({
+      where: { reservation_id: data.reservationId, user_id: userId },
+      select: { id: true },
+    });
     if (existing) throw new Error("Vous avez déjà laissé un avis pour cette commande.");
 
-    const { error: insErr } = await supabase.from("feedback").insert({
-      user_id: userId,
-      reservation_id: res.id,
-      pharmacy_id: res.pharmacy_id,
-      phone: res.patient_phone ?? "",
-      rating: data.rating,
-      comment: data.comment ?? null,
+    await prisma.feedback.create({
+      data: {
+        user_id: userId,
+        reservation_id: res.id,
+        pharmacy_id: res.pharmacy_id,
+        phone: res.patient_phone ?? "",
+        rating: data.rating,
+        comment: data.comment ?? null,
+      },
     });
-    if (insErr) throw new Error(insErr.message);
 
     return { ok: true };
   });
 
 /** A signed-in patient sends a general remark (must have at least one order). */
 export const submitGeneralFeedback = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) => ratingSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: last } = await supabase
-      .from("reservations")
-      .select("id, pharmacy_id, patient_phone")
-      .eq("patient_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const last = await prisma.reservations.findFirst({
+      where: { patient_id: userId },
+      select: { id: true, pharmacy_id: true, patient_phone: true },
+      orderBy: { created_at: "desc" },
+    });
     if (!last) throw new Error("Seuls les clients ayant déjà commandé peuvent laisser un avis.");
 
-    const { error } = await supabase.from("feedback").insert({
-      user_id: userId,
-      pharmacy_id: last.pharmacy_id,
-      phone: last.patient_phone ?? "",
-      rating: data.rating,
-      comment: data.comment ?? null,
+    await prisma.feedback.create({
+      data: {
+        user_id: userId,
+        pharmacy_id: last.pharmacy_id,
+        phone: last.patient_phone ?? "",
+        rating: data.rating,
+        comment: data.comment ?? null,
+      },
     });
-    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
@@ -89,23 +102,17 @@ export const checkFeedbackEligibility = createServerFn({ method: "POST" })
     const key = phoneKey(data.phone);
     if (key.length < 6) return { eligible: false as const };
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await supabaseAdmin
-      .from("reservations")
-      .select("id, created_at, pharmacies(name)")
-      .like("patient_phone", `%${key}`)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (error) throw new Error(error.message);
-    if (!rows || rows.length === 0) return { eligible: false as const };
+    const { prisma } = await import("@/server/db.server");
+    const last = await prisma.reservations.findFirst({
+      where: { patient_phone: { endsWith: key } },
+      select: { id: true, created_at: true, pharmacies: { select: { name: true } } },
+      orderBy: { created_at: "desc" },
+    });
+    if (!last) return { eligible: false as const };
 
-    const last = rows[0] as unknown as {
-      created_at: string;
-      pharmacies: { name: string } | null;
-    };
     return {
       eligible: true as const,
-      lastOrderAt: last.created_at,
+      lastOrderAt: last.created_at.toISOString(),
       pharmacyName: last.pharmacies?.name ?? null,
     };
   });
@@ -119,53 +126,56 @@ export const submitPhoneFeedback = createServerFn({ method: "POST" })
     const key = phoneKey(data.phone);
     if (key.length < 6) throw new Error("Numéro invalide");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await supabaseAdmin
-      .from("reservations")
-      .select("id, patient_id, pharmacy_id")
-      .like("patient_phone", `%${key}`)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (error) throw new Error(error.message);
-    if (!rows || rows.length === 0) {
+    const { prisma } = await import("@/server/db.server");
+    const last = await prisma.reservations.findFirst({
+      where: { patient_phone: { endsWith: key } },
+      select: { id: true, patient_id: true, pharmacy_id: true },
+      orderBy: { created_at: "desc" },
+    });
+    if (!last) {
       throw new Error("Aucune commande trouvée pour ce numéro.");
     }
 
-    const last = rows[0]!;
-    const { error: insErr } = await supabaseAdmin.from("feedback").insert({
-      user_id: last.patient_id,
-      reservation_id: last.id,
-      pharmacy_id: last.pharmacy_id,
-      phone: data.phone.trim(),
-      rating: data.rating,
-      comment: data.comment ?? null,
+    await prisma.feedback.create({
+      data: {
+        user_id: last.patient_id,
+        reservation_id: last.id,
+        pharmacy_id: last.pharmacy_id,
+        phone: data.phone.trim(),
+        rating: data.rating,
+        comment: data.comment ?? null,
+      },
     });
-    if (insErr) throw new Error(insErr.message);
     return { ok: true };
   });
 
 /** Admin-only: lists every review with pharmacy name and average per pharmacy. */
 export const listFeedback = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    const { data: role } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!role) throw new Error("Accès réservé aux administrateurs");
+    const { userId } = context;
+    const { isAdmin } = await import("@/server/authz.server");
+    if (!(await isAdmin(userId))) throw new Error("Accès réservé aux administrateurs");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin
-      .from("feedback")
-      .select("id, rating, comment, phone, created_at, reservation_id, pharmacy_id, pharmacies(name)")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) throw new Error(error.message);
+    const { prisma } = await import("@/server/db.server");
+    const data = toPlain(
+      await prisma.feedback.findMany({
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          phone: true,
+          created_at: true,
+          reservation_id: true,
+          pharmacy_id: true,
+          pharmacies: { select: { name: true } },
+        },
+        orderBy: { created_at: "desc" },
+        take: 200,
+      }),
+    );
 
-    const rows = (data ?? []).map((r) => {
+    const rows = data.map((r) => {
       const row = r as unknown as {
         id: string;
         rating: number;

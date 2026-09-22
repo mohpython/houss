@@ -3,19 +3,28 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Camera, Upload, RotateCcw, ScanLine, ShieldAlert, ShieldCheck, Store, Truck, Calendar, Check, Pill } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  Camera,
+  Upload,
+  RotateCcw,
+  ScanLine,
+  ShieldAlert,
+  ShieldCheck,
+  Store,
+  Truck,
+  Calendar,
+  Check,
+  Pill,
+} from "lucide-react";
+import { uploadPrescriptionFile } from "@/integrations/storage/client";
 import { useServerFn } from "@tanstack/react-start";
 import { extractPrescription } from "@/lib/pharmacy.functions";
+import { createPrescriptionFromUpload, setPrescriptionDate } from "@/lib/prescriptions.functions";
 import { autoRouteReservation } from "@/lib/delivery.functions";
 import { flagPrescriptionForReview } from "@/lib/review.functions";
 import { toast } from "sonner";
 import { Capacitor } from "@capacitor/core";
-import {
-  Camera as NativeCamera,
-  CameraResultType,
-  CameraSource,
-} from "@capacitor/camera";
+import { Camera as NativeCamera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { useTranslation } from "react-i18next";
 import { AutoFlowProgress, type StepState } from "@/components/AutoFlowProgress";
 import { parseFlexibleDate, rxDateStatus } from "@/lib/date-utils";
@@ -51,7 +60,6 @@ type CorrectionState = {
 
 function Scan() {
   const { t } = useTranslation();
-  const { user } = Route.useRouteContext();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -70,6 +78,8 @@ function Scan() {
   const extract = useServerFn(extractPrescription);
   const autoRoute = useServerFn(autoRouteReservation);
   const flagForReview = useServerFn(flagPrescriptionForReview);
+  const createFromUpload = useServerFn(createPrescriptionFromUpload);
+  const saveRxDate = useServerFn(setPrescriptionDate);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
@@ -152,7 +162,10 @@ function Scan() {
       });
       setPhase(4);
       setPendingRx(null);
-      router.navigate({ to: "/app/reservations/$id/checkout", params: { id: routed.reservationId } });
+      router.navigate({
+        to: "/app/reservations/$id/checkout",
+        params: { id: routed.reservationId },
+      });
     } catch (err) {
       setPhase(2);
       toast.error(err instanceof Error ? err.message : t("scan.error"));
@@ -178,16 +191,12 @@ function Scan() {
       return;
     }
 
-    const { error } = await supabase
-      .from("prescriptions")
-      .update({
-        prescription_date: iso,
-        prescription_date_raw: manualDate,
-        date_source: "manual",
-      })
-      .eq("id", correction.rxId);
-    if (error) {
-      toast.error(error.message);
+    try {
+      await saveRxDate({
+        data: { prescriptionId: correction.rxId, date: iso, raw: manualDate },
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("scan.error"));
       return;
     }
 
@@ -207,24 +216,10 @@ function Scan() {
 
     let rxId: string | null = null;
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("prescriptions")
-        .upload(path, file, { contentType: file.type });
-      if (upErr) throw upErr;
-
-      const { data: inserted, error: insErr } = await supabase
-        .from("prescriptions")
-        .insert({
-          patient_id: user.id,
-          file_path: path,
-          file_mime: file.type || "image/jpeg",
-          status: "uploaded",
-        })
-        .select("id")
-        .single();
-      if (insErr || !inserted) throw insErr;
+      const uploaded = await uploadPrescriptionFile(file);
+      const inserted = await createFromUpload({
+        data: { path: uploaded.path, mime: uploaded.mime || file.type || "image/jpeg" },
+      });
       rxId = inserted.id;
 
       const res = (await extract({ data: { prescriptionId: rxId } })) as ExtractionResult;
@@ -444,7 +439,11 @@ function Scan() {
                 </div>
                 <p className="mt-1 text-sm text-foreground/70">{t("delivery.whereHint")}</p>
               </div>
-              <DeliveryLocationPicker value={deliveryLoc} onChange={setDeliveryLoc} disabled={routing} />
+              <DeliveryLocationPicker
+                value={deliveryLoc}
+                onChange={setDeliveryLoc}
+                disabled={routing}
+              />
               <Button
                 onClick={confirmDelivery}
                 disabled={routing || !deliveryLoc}

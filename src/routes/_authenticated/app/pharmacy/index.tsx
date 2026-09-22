@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { listMyPharmacies, listPharmacyReservationStatuses } from "@/lib/pharmacy-portal.functions";
+import { subscribeRealtime } from "@/integrations/realtime/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,22 +40,26 @@ function Layout() {
   const [pharms, setPharms] = useState<Ph[] | null>(null);
   const [statsByPharm, setStatsByPharm] = useState<Record<string, Stats>>({});
 
+  const fetchPharms = useServerFn(listMyPharmacies);
+  const fetchStatuses = useServerFn(listPharmacyReservationStatuses);
+
   useEffect(() => {
-    supabase
-      .from("pharmacies")
-      .select("id, name, status")
-      .eq("owner_user_id", user.id)
-      .then(({ data }) => setPharms((data as Ph[]) ?? []));
+    fetchPharms()
+      .then((data) => setPharms((data as Ph[]) ?? []))
+      .catch(() => setPharms([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   useEffect(() => {
     if (!pharms || pharms.length === 0) return;
     const ids = pharms.map((p) => p.id);
     const load = async () => {
-      const { data } = await supabase
-        .from("reservations")
-        .select("pharmacy_id, status")
-        .in("pharmacy_id", ids);
+      let data: { pharmacy_id: string; status: string }[] = [];
+      try {
+        data = await fetchStatuses({ data: { pharmacyIds: ids } });
+      } catch {
+        data = [];
+      }
       const map: Record<string, Stats> = {};
       for (const id of ids) map[id] = { pending: 0, accepted: 0, ready: 0, completed: 0 };
       for (const r of data ?? []) {
@@ -67,13 +73,10 @@ function Layout() {
       setStatsByPharm(map);
     };
     load();
-    const ch = supabase
-      .channel(`pharm-owner-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, load)
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    return subscribeRealtime([{ table: "reservations", event: "*" }], () => load(), {
+      onResync: () => load(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pharms, user.id]);
 
   const statusLabel = (s: string) =>
@@ -95,7 +98,10 @@ function Layout() {
       {pharms?.length === 0 && (
         <Card className="mt-6 p-6 text-sm text-muted-foreground">
           {t("pharm.none")}{" "}
-          <Link className="text-primary underline-offset-2 hover:underline" to="/app/pharmacy/onboarding">
+          <Link
+            className="text-primary underline-offset-2 hover:underline"
+            to="/app/pharmacy/onboarding"
+          >
             {t("pharm.register")}
           </Link>
         </Card>
@@ -124,10 +130,14 @@ function Layout() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning/5 p-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Clock className="h-4 w-4 text-warning" aria-hidden="true" />
-                      {s.pending} nouvelle{s.pending > 1 ? "s" : ""} commande{s.pending > 1 ? "s" : ""} à traiter
+                      {s.pending} nouvelle{s.pending > 1 ? "s" : ""} commande
+                      {s.pending > 1 ? "s" : ""} à traiter
                     </div>
                     <Button asChild size="sm" className="min-h-11">
-                      <Link to="/app/pharmacy/$pharmacyId/reservations" params={{ pharmacyId: p.id }}>
+                      <Link
+                        to="/app/pharmacy/$pharmacyId/reservations"
+                        params={{ pharmacyId: p.id }}
+                      >
                         Traiter maintenant
                       </Link>
                     </Button>
@@ -155,17 +165,37 @@ function Layout() {
                   Aujourd'hui en chiffres
                 </h3>
                 <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <Kpi icon={<Clock className="h-4 w-4" />} label={t("pharm.new")} value={s.pending} tone="warning" />
-                  <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("pharm.accepted")} value={s.accepted} />
-                  <Kpi icon={<Package className="h-4 w-4" />} label={t("pharm.ready")} value={s.ready} tone="primary" />
-                  <Kpi icon={<Truck className="h-4 w-4" />} label={t("pharm.delivered")} value={s.completed} tone="success" />
+                  <Kpi
+                    icon={<Clock className="h-4 w-4" />}
+                    label={t("pharm.new")}
+                    value={s.pending}
+                    tone="warning"
+                  />
+                  <Kpi
+                    icon={<CheckCircle2 className="h-4 w-4" />}
+                    label={t("pharm.accepted")}
+                    value={s.accepted}
+                  />
+                  <Kpi
+                    icon={<Package className="h-4 w-4" />}
+                    label={t("pharm.ready")}
+                    value={s.ready}
+                    tone="primary"
+                  />
+                  <Kpi
+                    icon={<Truck className="h-4 w-4" />}
+                    label={t("pharm.delivered")}
+                    value={s.completed}
+                    tone="success"
+                  />
                 </div>
               </>
             )}
 
             {!approved && (
               <p className="mt-3 text-sm text-muted-foreground">
-                Votre pharmacie sera visible par les patients dès sa validation par un administrateur.
+                Votre pharmacie sera visible par les patients dès sa validation par un
+                administrateur.
               </p>
             )}
           </Card>
@@ -234,7 +264,10 @@ function Kpi({
           : "bg-secondary text-foreground";
   return (
     <div className="rounded-lg border p-3">
-      <div className={`inline-flex h-7 w-7 items-center justify-center rounded-md ${t}`} aria-hidden="true">
+      <div
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-md ${t}`}
+        aria-hidden="true"
+      >
         {icon}
       </div>
       <div className="mt-2 text-xl font-bold">{value}</div>

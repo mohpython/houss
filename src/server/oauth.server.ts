@@ -24,9 +24,9 @@ export function googleRedirectUri() {
 export function buildGoogleAuthUrl(redirectPath: string) {
   const nonce = randomBytes(16).toString("base64url");
   const exp = Math.floor(Date.now() / 1000) + 600;
-  const payload = Buffer.from(JSON.stringify({ r: safeRedirectPath(redirectPath), n: nonce, e: exp })).toString(
-    "base64url",
-  );
+  const payload = Buffer.from(
+    JSON.stringify({ r: safeRedirectPath(redirectPath), n: nonce, e: exp }),
+  ).toString("base64url");
   const state = `${payload}.${hmac(payload)}`;
   const params = new URLSearchParams({
     client_id: env.googleClientId,

@@ -122,7 +122,10 @@ export const auth = {
     }
   },
 
-  async verifyOtp(params: { phone: string; token: string }): Promise<Result<{ session: Session | null }>> {
+  async verifyOtp(params: {
+    phone: string;
+    token: string;
+  }): Promise<Result<{ session: Session | null }>> {
     try {
       const session = await verifyPhoneOtp({ data: { phone: params.phone, code: params.token } });
       applySession(session);
@@ -139,7 +142,10 @@ export const auth = {
   },
 
   /** Enregistre une session reçue par redirection (connexion Google). */
-  async setSessionFromToken(accessToken: string, expiresAt: number): Promise<Result<{ session: Session | null }>> {
+  async setSessionFromToken(
+    accessToken: string,
+    expiresAt: number,
+  ): Promise<Result<{ session: Session | null }>> {
     writeSession({
       access_token: accessToken,
       expires_at: expiresAt,
@@ -165,7 +171,10 @@ export const auth = {
     }
   },
 
-  async resetPassword(token: string, password: string): Promise<Result<{ session: Session | null }>> {
+  async resetPassword(
+    token: string,
+    password: string,
+  ): Promise<Result<{ session: Session | null }>> {
     try {
       const session = await resetPassword({ data: { token, password } });
       applySession(session);

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toDateOnly, toPlain } from "@/server/serialize";
 import type { ReviewSeverity } from "@/lib/rx-core.server";
 
 export type ReviewDetails = {
@@ -14,15 +15,11 @@ export type ReviewDetails = {
   qualityNotes?: string | null;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function assertAdmin(supabase: any, userId: string) {
-  const { data: row } = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!row) throw new Error("Accès réservé aux administrateurs");
+async function loadAdmin(userId: string) {
+  const { prisma } = await import("@/server/db.server");
+  const { assertAdmin } = await import("@/server/authz.server");
+  await assertAdmin(userId);
+  return prisma;
 }
 
 /**
@@ -31,7 +28,7 @@ async function assertAdmin(supabase: any, userId: string) {
  * a self-correction screen (minor) or goes straight to admin (critical/moderate).
  */
 export const flagPrescriptionForReview = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -55,69 +52,69 @@ export const flagPrescriptionForReview = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
 
-    const { data: rx } = await supabase
-      .from("prescriptions")
-      .select("id, patient_id")
-      .eq("id", data.prescriptionId)
-      .single();
+    const rx = await prisma.prescriptions.findUnique({
+      where: { id: data.prescriptionId },
+      select: { id: true, patient_id: true },
+    });
     if (!rx || rx.patient_id !== userId) throw new Error("Ordonnance introuvable");
 
     const severity: ReviewSeverity = data.severity ?? "moderate";
     const reasons = data.reasons?.length ? data.reasons : [data.reason];
     const summary = reasons.join(" · ").slice(0, 300);
 
-    await supabase
-      .from("prescriptions")
-      .update({
+    await prisma.prescriptions.update({
+      where: { id: rx.id },
+      data: {
         review_severity: severity,
         review_status: "pending",
         review_reasons: reasons,
-      })
-      .eq("id", rx.id);
-
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: "prescription_flagged",
-      entity: "prescription",
-      entity_id: rx.id,
-      meta: {
-        reason: data.reason,
-        reasons,
-        severity,
-        details: data.details ?? null,
       },
     });
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: "prescription_flagged",
+        entity: "prescription",
+        entity_id: rx.id,
+        meta: {
+          reason: data.reason,
+          reasons,
+          severity,
+          details: data.details ?? null,
+        },
+      },
+    });
 
-    const { data: admins } = await supabaseAdmin
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "admin");
-    if (admins?.length) {
-      await supabaseAdmin.from("notifications").insert(
-        admins.map((a) => ({
+    const admins = await prisma.user_roles.findMany({
+      where: { role: "admin" },
+      select: { user_id: true },
+    });
+    if (admins.length) {
+      await prisma.notifications.createMany({
+        data: admins.map((a) => ({
           user_id: a.user_id,
           type: "prescription_review",
           title:
-            severity === "critical"
-              ? "Ordonnance urgente à vérifier"
-              : "Ordonnance à vérifier",
+            severity === "critical" ? "Ordonnance urgente à vérifier" : "Ordonnance à vérifier",
           body: summary,
           data: { prescription_id: rx.id, reasons, severity },
         })),
-      );
+      });
     }
 
     // The patient is told exactly what is missing / suspicious.
-    await supabaseAdmin.from("notifications").insert({
-      user_id: rx.patient_id,
-      type: "prescription_review",
-      title: "Ordonnance en cours de vérification",
-      body: `Votre ordonnance a été transmise à notre équipe. Motif : ${summary}`,
-      data: { prescription_id: rx.id, reasons, severity },
+    await prisma.notifications.create({
+      data: {
+        user_id: rx.patient_id,
+        type: "prescription_review",
+        title: "Ordonnance en cours de vérification",
+        body: `Votre ordonnance a été transmise à notre équipe. Motif : ${summary}`,
+        data: { prescription_id: rx.id, reasons, severity },
+      },
     });
 
     return { ok: true, severity };
@@ -130,18 +127,22 @@ const SEVERITY_ORDER: Record<ReviewSeverity, number> = {
 };
 
 export const listPrescriptionReviews = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const prisma = await loadAdmin(context.userId);
+    const { createSignedUrl } = await import("@/server/storage.server");
 
-    const { data: logs } = await supabaseAdmin
-      .from("audit_logs")
-      .select("entity_id, meta, created_at, action")
-      .eq("entity", "prescription")
-      .in("action", ["prescription_flagged", "prescription_review_resolved"])
-      .order("created_at", { ascending: false })
-      .limit(400);
+    const logs = toPlain(
+      await prisma.audit_logs.findMany({
+        where: {
+          entity: "prescription",
+          action: { in: ["prescription_flagged", "prescription_review_resolved"] },
+        },
+        select: { entity_id: true, meta: true, created_at: true, action: true },
+        orderBy: { created_at: "desc" },
+        take: 400,
+      }),
+    );
 
     const resolved = new Set(
       (logs ?? [])
@@ -155,19 +156,49 @@ export const listPrescriptionReviews = createServerFn({ method: "POST" })
     if (unique.length === 0) return [];
 
     const ids = unique.map((l) => l.entity_id as string);
-    const { data: rxs } = await supabaseAdmin
-      .from("prescriptions")
-      .select(
-        "id, patient_id, file_path, file_mime, ai_confidence, ai_raw, prescription_date, prescription_date_raw, doctor_name, hospital, patient_name, status, created_at, review_severity, review_reasons, prescription_items(id, medicine_name_raw, strength, dosage, quantity, duration, instructions)",
-      )
-      .in("id", ids);
+    const rxs = toPlain(
+      await prisma.prescriptions.findMany({
+        where: { id: { in: ids } },
+        select: {
+          id: true,
+          patient_id: true,
+          file_path: true,
+          file_mime: true,
+          ai_confidence: true,
+          ai_raw: true,
+          prescription_date: true,
+          prescription_date_raw: true,
+          doctor_name: true,
+          hospital: true,
+          patient_name: true,
+          status: true,
+          created_at: true,
+          review_severity: true,
+          review_reasons: true,
+          patient: { select: { email: true, phone: true } },
+          prescription_items: {
+            select: {
+              id: true,
+              medicine_name_raw: true,
+              strength: true,
+              dosage: true,
+              quantity: true,
+              duration: true,
+              instructions: true,
+            },
+          },
+        },
+      }),
+    );
 
     const rows = await Promise.all(
       (rxs ?? []).map(async (rx) => {
-        const { data: signed } = await supabaseAdmin.storage
-          .from("prescriptions")
-          .createSignedUrl(rx.file_path, 600);
-        const { data: u } = await supabaseAdmin.auth.admin.getUserById(rx.patient_id);
+        let signedUrl: string | null = null;
+        try {
+          signedUrl = createSignedUrl("prescriptions", rx.file_path, 600);
+        } catch {
+          signedUrl = null;
+        }
         const log = unique.find((l) => l.entity_id === rx.id);
         const meta = (log?.meta ?? null) as {
           reason?: string;
@@ -176,10 +207,11 @@ export const listPrescriptionReviews = createServerFn({ method: "POST" })
           details?: ReviewDetails | null;
         } | null;
         const severity: ReviewSeverity =
-          (rx.review_severity as ReviewSeverity) ??
-          meta?.severity ??
-          "moderate";
-        const reasons: string[] = (Array.isArray(rx.review_reasons) ? (rx.review_reasons as unknown[]).map(String) : null) ?? meta?.reasons ?? [meta?.reason ?? "Document suspect"];
+          (rx.review_severity as ReviewSeverity) ?? meta?.severity ?? "moderate";
+        const reasons: string[] = (Array.isArray(rx.review_reasons)
+          ? (rx.review_reasons as unknown[]).map(String)
+          : null) ??
+          meta?.reasons ?? [meta?.reason ?? "Document suspect"];
         return {
           id: rx.id,
           reason: meta?.reason ?? "Document suspect",
@@ -187,7 +219,7 @@ export const listPrescriptionReviews = createServerFn({ method: "POST" })
           details: meta?.details ?? null,
           severity,
           flaggedAt: log?.created_at ?? rx.created_at,
-          imageUrl: signed?.signedUrl ?? null,
+          imageUrl: signedUrl,
           fileMime: rx.file_mime,
           confidence: rx.ai_confidence,
           aiRaw: rx.ai_raw ? (JSON.stringify(rx.ai_raw, null, 2) as string) : null,
@@ -196,8 +228,8 @@ export const listPrescriptionReviews = createServerFn({ method: "POST" })
           doctor: rx.doctor_name,
           hospital: rx.hospital,
           patientName: rx.patient_name,
-          patientEmail: u?.user?.email ?? null,
-          patientPhone: u?.user?.phone ?? null,
+          patientEmail: rx.patient?.email ?? null,
+          patientPhone: rx.patient?.phone ?? null,
           items: rx.prescription_items ?? [],
         };
       }),
@@ -207,16 +239,14 @@ export const listPrescriptionReviews = createServerFn({ method: "POST" })
     rows.sort((a, b) => {
       const sv = SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity];
       if (sv !== 0) return sv;
-      return (
-        new Date(a.flaggedAt).getTime() - new Date(b.flaggedAt).getTime()
-      );
+      return new Date(a.flaggedAt).getTime() - new Date(b.flaggedAt).getTime();
     });
 
     return rows;
   });
 
 export const resolvePrescriptionReview = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -227,44 +257,44 @@ export const resolvePrescriptionReview = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const prisma = await loadAdmin(context.userId);
 
-    const { data: rx } = await supabaseAdmin
-      .from("prescriptions")
-      .select("id, patient_id")
-      .eq("id", data.prescriptionId)
-      .single();
+    const rx = await prisma.prescriptions.findUnique({
+      where: { id: data.prescriptionId },
+      select: { id: true, patient_id: true },
+    });
     if (!rx) throw new Error("Ordonnance introuvable");
 
-    await supabaseAdmin
-      .from("prescriptions")
-      .update({
+    await prisma.prescriptions.update({
+      where: { id: rx.id },
+      data: {
         status: data.decision === "approved" ? "verified" : "failed",
         review_status: "resolved",
-      })
-      .eq("id", rx.id);
-
-    await supabaseAdmin.from("audit_logs").insert({
-      actor_user_id: context.userId,
-      action: "prescription_review_resolved",
-      entity: "prescription",
-      entity_id: rx.id,
-      meta: { decision: data.decision, note: data.note ?? null },
+      },
     });
 
-    await supabaseAdmin.from("notifications").insert({
-      user_id: rx.patient_id,
-      type: "prescription_review",
-      title:
-        data.decision === "approved" ? "Ordonnance validée" : "Ordonnance refusée",
-      body:
-        data.note ??
-        (data.decision === "approved"
-          ? "Votre ordonnance a été validée, vous pouvez continuer votre commande."
-          : "Votre ordonnance n'a pas été validée par notre équipe."),
-      data: { prescription_id: rx.id, decision: data.decision },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "prescription_review_resolved",
+        entity: "prescription",
+        entity_id: rx.id,
+        meta: { decision: data.decision, note: data.note ?? null },
+      },
+    });
 
+    await prisma.notifications.create({
+      data: {
+        user_id: rx.patient_id,
+        type: "prescription_review",
+        title: data.decision === "approved" ? "Ordonnance validée" : "Ordonnance refusée",
+        body:
+          data.note ??
+          (data.decision === "approved"
+            ? "Votre ordonnance a été validée, vous pouvez continuer votre commande."
+            : "Votre ordonnance n'a pas été validée par notre équipe."),
+        data: { prescription_id: rx.id, decision: data.decision },
+      },
     });
 
     return { ok: true };
@@ -275,7 +305,7 @@ export const resolvePrescriptionReview = createServerFn({ method: "POST" })
  * notifies the patient, and sets review_status to 'retake_requested'.
  */
 export const requestRetake = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -285,37 +315,39 @@ export const requestRetake = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const prisma = await loadAdmin(context.userId);
 
-    const { data: rx } = await supabaseAdmin
-      .from("prescriptions")
-      .select("id, patient_id")
-      .eq("id", data.prescriptionId)
-      .single();
+    const rx = await prisma.prescriptions.findUnique({
+      where: { id: data.prescriptionId },
+      select: { id: true, patient_id: true },
+    });
     if (!rx) throw new Error("Ordonnance introuvable");
 
-    await supabaseAdmin
-      .from("prescriptions")
-      .update({ review_status: "retake_requested" })
-      .eq("id", rx.id);
-
-    await supabaseAdmin.from("audit_logs").insert({
-      actor_user_id: context.userId,
-      action: "prescription_review_resolved",
-      entity: "prescription",
-      entity_id: rx.id,
-      meta: { decision: "retake_requested", note: data.note ?? null },
+    await prisma.prescriptions.update({
+      where: { id: rx.id },
+      data: { review_status: "retake_requested" },
     });
 
-    await supabaseAdmin.from("notifications").insert({
-      user_id: rx.patient_id,
-      type: "prescription_review",
-      title: "Nouvelle photo requise",
-      body:
-        data.note ??
-        "Notre équipe vous demande de reprendre la photo de votre ordonnance. Ouvrez l'application et scannez à nouveau.",
-      data: { prescription_id: rx.id, action: "retake" },
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "prescription_review_resolved",
+        entity: "prescription",
+        entity_id: rx.id,
+        meta: { decision: "retake_requested", note: data.note ?? null },
+      },
+    });
+
+    await prisma.notifications.create({
+      data: {
+        user_id: rx.patient_id,
+        type: "prescription_review",
+        title: "Nouvelle photo requise",
+        body:
+          data.note ??
+          "Notre équipe vous demande de reprendre la photo de votre ordonnance. Ouvrez l'application et scannez à nouveau.",
+        data: { prescription_id: rx.id, action: "retake" },
+      },
     });
 
     return { ok: true };
@@ -325,7 +357,7 @@ export const requestRetake = createServerFn({ method: "POST" })
  * Admin corrects the extraction (date, doctor, or a medicine) then validates.
  */
 export const editExtraction = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -350,28 +382,23 @@ export const editExtraction = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const prisma = await loadAdmin(context.userId);
 
-    const { data: rx } = await supabaseAdmin
-      .from("prescriptions")
-      .select("id, patient_id")
-      .eq("id", data.prescriptionId)
-      .single();
+    const rx = await prisma.prescriptions.findUnique({
+      where: { id: data.prescriptionId },
+      select: { id: true, patient_id: true },
+    });
     if (!rx) throw new Error("Ordonnance introuvable");
 
     const patch = {
       review_status: "corrected",
       status: "verified" as const,
-      ...(data.prescriptionDate ? { prescription_date: data.prescriptionDate } : {}),
+      ...(data.prescriptionDate ? { prescription_date: toDateOnly(data.prescriptionDate) } : {}),
       ...(data.doctorName !== undefined ? { doctor_name: data.doctorName } : {}),
       ...(data.hospital !== undefined ? { hospital: data.hospital } : {}),
     };
 
-    await supabaseAdmin
-      .from("prescriptions")
-      .update(patch)
-      .eq("id", rx.id);
+    await prisma.prescriptions.update({ where: { id: rx.id }, data: patch });
 
     if (data.items?.length) {
       for (const item of data.items) {
@@ -385,32 +412,36 @@ export const editExtraction = createServerFn({ method: "POST" })
           ...(item.duration !== undefined ? { duration: item.duration } : {}),
         };
         if (Object.keys(itemPatch).length > 0) {
-          await supabaseAdmin
-            .from("prescription_items")
-            .update(itemPatch)
-            .eq("id", item.id);
+          await prisma.prescription_items.updateMany({
+            where: { id: item.id },
+            data: itemPatch,
+          });
         }
       }
     }
 
-    await supabaseAdmin.from("audit_logs").insert({
-      actor_user_id: context.userId,
-      action: "prescription_review_resolved",
-      entity: "prescription",
-      entity_id: rx.id,
-      meta: {
-        decision: "corrected",
-        editedFields: Object.keys(patch).filter((k) => k !== "review_status" && k !== "status"),
-        itemsEdited: data.items?.length ?? 0,
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "prescription_review_resolved",
+        entity: "prescription",
+        entity_id: rx.id,
+        meta: {
+          decision: "corrected",
+          editedFields: Object.keys(patch).filter((k) => k !== "review_status" && k !== "status"),
+          itemsEdited: data.items?.length ?? 0,
+        },
       },
     });
 
-    await supabaseAdmin.from("notifications").insert({
-      user_id: rx.patient_id,
-      type: "prescription_review",
-      title: "Ordonnance validée",
-      body: "Notre équipe a corrigé et validé votre ordonnance. Vous pouvez continuer votre commande.",
-      data: { prescription_id: rx.id },
+    await prisma.notifications.create({
+      data: {
+        user_id: rx.patient_id,
+        type: "prescription_review",
+        title: "Ordonnance validée",
+        body: "Notre équipe a corrigé et validé votre ordonnance. Vous pouvez continuer votre commande.",
+        data: { prescription_id: rx.id },
+      },
     });
 
     return { ok: true };

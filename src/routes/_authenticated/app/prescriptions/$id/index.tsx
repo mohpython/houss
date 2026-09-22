@@ -1,8 +1,14 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { autoRouteReservation } from "@/lib/delivery.functions";
+import {
+  deletePrescriptionItem,
+  getPrescriptionDetail,
+  markPrescriptionVerified,
+  setPrescriptionDate,
+  updatePrescriptionItem,
+} from "@/lib/prescriptions.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +24,6 @@ import { rxDateStatus } from "@/lib/date-utils";
 export const Route = createFileRoute("/_authenticated/app/prescriptions/$id/")({
   component: Detail,
 });
-
 
 type Item = {
   id: string;
@@ -36,6 +41,11 @@ function Detail() {
   const { id } = Route.useParams();
   const router = useRouter();
   const autoRoute = useServerFn(autoRouteReservation);
+  const getDetail = useServerFn(getPrescriptionDetail);
+  const updateItemFn = useServerFn(updatePrescriptionItem);
+  const deleteItemFn = useServerFn(deletePrescriptionItem);
+  const saveDateFn = useServerFn(setPrescriptionDate);
+  const markVerifiedFn = useServerFn(markPrescriptionVerified);
   const [autoBusy, setAutoBusy] = useState(false);
   const [rx, setRx] = useState<{
     patient_name: string | null;
@@ -49,53 +59,47 @@ function Detail() {
   } | null>(null);
   const [items, setItems] = useState<Item[] | null>(null);
 
-
   useEffect(() => {
     const load = async () => {
-      const { data: rxData } = await supabase
-        .from("prescriptions")
-        .select("patient_name, doctor_name, hospital, prescription_date, ai_confidence, status, prescription_date_raw, date_source")
-        .eq("id", id)
-        .single();
-      setRx(rxData);
-      const { data: it } = await supabase
-        .from("prescription_items")
-        .select("id, medicine_name_raw, strength, quantity, dosage, duration, instructions, patient_verified")
-        .eq("prescription_id", id)
-        .order("created_at");
-      setItems((it as Item[]) ?? []);
+      try {
+        const detail = await getDetail({ data: { prescriptionId: id } });
+        setRx(detail.rx);
+        setItems((detail.items as Item[]) ?? []);
+      } catch {
+        setRx(null);
+        setItems([]);
+      }
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const updateItem = async (itemId: string, patch: Partial<Item>) => {
     setItems((cur) => cur?.map((i) => (i.id === itemId ? { ...i, ...patch } : i)) ?? null);
-    // A renamed medicine must be re-linked to the catalog on the next search.
-    const dbPatch = "medicine_name_raw" in patch ? { ...patch, normalized_medicine_id: null } : patch;
-    await supabase.from("prescription_items").update(dbPatch).eq("id", itemId);
+    // A renamed medicine must be re-linked to the catalog on the next search
+    // (done server side by updatePrescriptionItem).
+    await updateItemFn({ data: { itemId, patch } }).catch(() => undefined);
   };
 
   const deleteItem = async (itemId: string) => {
     setItems((cur) => cur?.filter((i) => i.id !== itemId) ?? null);
-    await supabase.from("prescription_items").delete().eq("id", itemId);
+    await deleteItemFn({ data: { itemId } }).catch(() => undefined);
   };
 
   const saveDate = async (value: string) => {
     const next = value || null;
     setRx((r) => (r ? { ...r, prescription_date: next, date_source: "manual" } : r));
-    const { error } = await supabase
-      .from("prescriptions")
-      .update({ prescription_date: next, date_source: "manual" })
-      .eq("id", id);
-    if (error) {
-      toast.error(error.message);
+    try {
+      await saveDateFn({ data: { prescriptionId: id, date: next } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
       return;
     }
     toast.success(t("rxDate.saved"));
   };
 
   const markVerified = async () => {
-    await supabase.from("prescriptions").update({ status: "verified" }).eq("id", id);
+    await markVerifiedFn({ data: { prescriptionId: id } }).catch(() => undefined);
     setRx((r) => (r ? { ...r, status: "verified" } : r));
     toast.success(t("rxDetail.rxVerified"));
   };
@@ -137,7 +141,6 @@ function Detail() {
     }
   };
 
-
   const lowConfidence = rx && rx.ai_confidence !== null && rx.ai_confidence < 85;
   const dateStatus = rxDateStatus(rx?.prescription_date);
   const dateBlocked = dateStatus === "expired" || dateStatus === "future";
@@ -159,7 +162,9 @@ function Detail() {
             {rx.ai_confidence !== null && (
               <Badge
                 variant="secondary"
-                className={lowConfidence ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}
+                className={
+                  lowConfidence ? "bg-warning/10 text-warning" : "bg-success/10 text-success"
+                }
               >
                 {t("rxDetail.confidence")} {rx.ai_confidence}%
               </Badge>
@@ -171,9 +176,7 @@ function Detail() {
               <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />
               <div className="text-sm">
                 <div className="font-medium text-warning">{t("rxDetail.verifyWarning")}</div>
-                <div className="text-muted-foreground">
-                  {t("rxDetail.verifyWarningText")}
-                </div>
+                <div className="text-muted-foreground">{t("rxDetail.verifyWarningText")}</div>
               </div>
             </Card>
           )}
@@ -295,7 +298,6 @@ function Detail() {
               </Button>
             )}
           </div>
-
         </>
       )}
     </div>

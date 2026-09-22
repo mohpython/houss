@@ -32,9 +32,8 @@ export const Route = createFileRoute("/api/auth/google/callback")({
         try {
           const profile = await oauth.exchangeGoogleCode(code);
           const { basePrisma } = await import("@/server/prisma-base.server");
-          const { createAccount, createSession, requestMeta, normalizeEmail } = await import(
-            "@/server/auth.server"
-          );
+          const { createAccount, createSession, requestMeta, normalizeEmail } =
+            await import("@/server/auth.server");
 
           let user = await basePrisma.users.findUnique({
             where: { google_sub: profile.sub },

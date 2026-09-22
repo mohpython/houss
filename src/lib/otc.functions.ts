@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth } from "@/integrations/auth/middleware";
+import { toDateOnly, toPlain } from "@/server/serialize";
 
 /**
  * Over-the-counter order: the patient types medicine names (paracétamol,
@@ -8,7 +9,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * reusing the same reservation / delivery / payment pipeline.
  */
 export const createOtcOrder = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -21,41 +22,44 @@ export const createOtcOrder = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
     const today = new Date().toISOString().slice(0, 10);
+    const { prisma } = await import("@/server/db.server");
     const { autoRouteCore, resolveDeliveryTarget } = await import("./routing-core.server");
-    const target = await resolveDeliveryTarget(supabase, {
+    const target = await resolveDeliveryTarget({
       lat: data.lat,
       lng: data.lng,
       address: data.address,
       neighborhoodId: data.neighborhoodId,
     });
 
-    const { data: rx, error } = await supabase
-      .from("prescriptions")
-      .insert({
-        patient_id: userId,
-        file_path: "otc",
-        file_mime: "text/plain",
-        source: "otc",
-        status: "verified",
-        prescription_date: today,
-        date_source: "manual",
-      })
-      .select("id")
-      .single();
-    if (error || !rx) throw new Error(error?.message ?? "Impossible de créer la commande");
+    let rx: { id: string };
+    try {
+      rx = await prisma.prescriptions.create({
+        data: {
+          patient_id: userId,
+          file_path: "otc",
+          file_mime: "text/plain",
+          source: "otc",
+          status: "verified",
+          prescription_date: toDateOnly(today),
+          date_source: "manual",
+        },
+        select: { id: true },
+      });
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Impossible de créer la commande");
+    }
 
-    const { error: itemsError } = await supabase.from("prescription_items").insert(
-      data.medicines.map((name) => ({
+    await prisma.prescription_items.createMany({
+      data: data.medicines.map((name) => ({
         prescription_id: rx.id,
         medicine_name_raw: name,
         patient_verified: true,
       })),
-    );
-    if (itemsError) throw new Error(itemsError.message);
+    });
 
-    const result = await autoRouteCore(supabase, {
+    const result = await autoRouteCore({
       prescriptionId: rx.id,
       patientId: userId,
       patientLat: target.lat,
@@ -66,12 +70,12 @@ export const createOtcOrder = createServerFn({ method: "POST" })
       source: "otc",
     });
 
-    return result;
+    return toPlain(result);
   });
 
 /** Identify medicine names from a photo of the box / blister (AI vision). */
 export const extractOtcPhoto = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z.object({ image: z.string().min(50).max(12_000_000) }).parse(input),
   )

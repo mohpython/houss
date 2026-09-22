@@ -1,11 +1,11 @@
 /**
  * OTC photo recognition — server only.
- * The patient photographs a medicine box / blister and Gemini returns the
+ * The patient photographs a medicine box / blister and the vision model returns the
  * medicine names so we can search partner pharmacies.
  */
 import { z } from "zod";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
+import { visionModel } from "@/server/ai.server";
 
 const OtcSchema = z.object({
   is_medicine: z.boolean(),
@@ -31,17 +31,7 @@ Règles:
 - Tous les champs sont obligatoires: is_medicine (booléen), medicines (tableau, vide si rien), et pour chaque entrée name (chaîne), dosage (chaîne, "" si inconnu), confidence (nombre 0-100).`;
 
 export async function extractOtcFromImage(dataUrl: string) {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY manquant");
-
-  const provider = createOpenAICompatible({
-    name: "lovable",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    headers: {
-      "Lovable-API-Key": apiKey,
-      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-    },
-  });
+  const model = visionModel();
 
   const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s.exec(dataUrl);
   if (!match) throw new Error("Image invalide");
@@ -57,7 +47,7 @@ export async function extractOtcFromImage(dataUrl: string) {
   try {
     ({ output } = await generateText({
       maxRetries: 2,
-      model: provider("google/gemini-3-flash-preview"),
+      model,
       system: SYSTEM_PROMPT,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messages: [{ role: "user", content: userContent as any }],
@@ -67,7 +57,7 @@ export async function extractOtcFromImage(dataUrl: string) {
     if (!NoObjectGeneratedError.isInstance(err)) throw err;
     // Fallback: plain text generation + tolerant JSON parsing.
     const { text } = await generateText({
-      model: provider("google/gemini-3-flash-preview"),
+      model,
       system: SYSTEM_PROMPT,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messages: [{ role: "user", content: userContent as any }],

@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getReservationDetail } from "@/lib/reservations.functions";
+import { subscribeRealtime } from "@/integrations/realtime/client";
 import { respondToReservation } from "@/lib/pharmacy.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,11 @@ type Detail = {
   pharmacies: { name: string; address: string; phone: string | null } | null;
   reservation_items: Array<{
     id: string;
-    prescription_items: { medicine_name_raw: string; strength: string | null; quantity: string | null } | null;
+    prescription_items: {
+      medicine_name_raw: string;
+      strength: string | null;
+      quantity: string | null;
+    } | null;
   }>;
 };
 
@@ -51,25 +56,17 @@ function Detail() {
   const [fbSending, setFbSending] = useState(false);
 
   const load = async () => {
-    const { data } = await supabase
-      .from("reservations")
-      .select(
-        "id, status, notes, patient_id, created_at, accepted_at, ready_at, assigned_at, picked_up_at, delivered_at, delivery_status, fulfillment_method, courier_id, pharmacies(name, address, phone), reservation_items(id, prescription_items(medicine_name_raw, strength, quantity))",
-      )
-      .eq("id", id)
-      .single();
+    const data = await getReservationDetail({ data: { id } }).catch(() => null);
     setRow(data as unknown as Detail);
   };
 
   useEffect(() => {
     load();
-    const ch = supabase
-      .channel(`reservation-${id}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "reservations", filter: `id=eq.${id}` }, load)
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    return subscribeRealtime(
+      [{ table: "reservations", event: "UPDATE", filter: { id } }],
+      () => load(),
+      { onResync: () => load() },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -83,10 +80,18 @@ function Detail() {
     }
   };
 
-  if (!row) return <div className="mx-auto max-w-3xl px-4 py-8"><Skeleton className="h-40 w-full" /></div>;
+  if (!row)
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
 
   const isPickup = row.fulfillment_method === "pickup";
-  const showTracking = !isPickup && row.courier_id && ["assigned", "picked_up", "en_route"].includes(row.delivery_status ?? "");
+  const showTracking =
+    !isPickup &&
+    row.courier_id &&
+    ["assigned", "picked_up", "en_route"].includes(row.delivery_status ?? "");
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -98,10 +103,16 @@ function Detail() {
             <div className="text-lg font-semibold">{row.pharmacies?.name}</div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               {row.pharmacies?.address && (
-                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{row.pharmacies.address}</span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {row.pharmacies.address}
+                </span>
               )}
               {row.pharmacies?.phone && (
-                <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{row.pharmacies.phone}</span>
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  {row.pharmacies.phone}
+                </span>
               )}
             </div>
           </div>
@@ -119,7 +130,9 @@ function Detail() {
       </Card>
 
       <Card className="mt-4 p-5">
-        <h3 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">{t("resDetail.progress")}</h3>
+        <h3 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
+          {t("resDetail.progress")}
+        </h3>
         <ReservationTimeline r={row} />
       </Card>
 
@@ -142,7 +155,9 @@ function Detail() {
             {row.status === "ready" && isPickup && !row.courier_id && (
               <Button onClick={() => act("completed")}>{t("resDetail.markPickedUp")}</Button>
             )}
-            <Button variant="outline" onClick={() => act("cancelled")}>{t("resDetail.cancel")}</Button>
+            <Button variant="outline" onClick={() => act("cancelled")}>
+              {t("resDetail.cancel")}
+            </Button>
           </div>
         )}
       </Card>

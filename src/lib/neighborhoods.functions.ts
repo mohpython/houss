@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth } from "@/integrations/auth/middleware";
 
 export type Neighborhood = {
   id: string;
@@ -11,37 +11,30 @@ export type Neighborhood = {
   is_active: boolean;
 };
 
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function assertAdmin(supabase: any, userId: string) {
-  const { data: row } = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!row) throw new Error("Accès réservé aux administrateurs");
-}
-
 /** Active neighborhoods (quartiers) available as delivery destinations. */
 export const listNeighborhoods = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
-    z.object({ includeInactive: z.boolean().optional() }).optional().parse(input ?? {}),
+    z
+      .object({ includeInactive: z.boolean().optional() })
+      .optional()
+      .parse(input ?? {}),
   )
   .handler(async ({ data, context }) => {
-    let q = context.supabase
-      .from("neighborhoods")
-      .select("id, name, city, lat, lng, is_active")
-      .order("name");
-    if (!data?.includeInactive) q = q.eq("is_active", true);
-    const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
-    return (rows ?? []) as Neighborhood[];
+    const { prisma } = await import("@/server/db.server");
+    const { isAdmin } = await import("@/server/authz.server");
+    // Ancienne RLS : seuls les admins voient les quartiers inactifs.
+    const all = !!data?.includeInactive && (await isAdmin(context.userId));
+    const rows = await prisma.neighborhoods.findMany({
+      where: all ? {} : { is_active: true },
+      select: { id: true, name: true, city: true, lat: true, lng: true, is_active: true },
+      orderBy: { name: "asc" },
+    });
+    return rows as Neighborhood[];
   });
 
 export const upsertNeighborhood = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -55,8 +48,10 @@ export const upsertNeighborhood = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    const { userId } = context;
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(userId);
 
     const payload = {
       name: data.name,
@@ -65,34 +60,45 @@ export const upsertNeighborhood = createServerFn({ method: "POST" })
       lng: data.lng,
       is_active: data.is_active,
     };
-    const q = data.id
-      ? supabase.from("neighborhoods").update(payload).eq("id", data.id).select("id").single()
-      : supabase.from("neighborhoods").insert(payload).select("id").single();
-    const { data: row, error } = await q;
-    if (error || !row) throw new Error(error?.message ?? "Enregistrement impossible");
+    let row: { id: string };
+    try {
+      row = data.id
+        ? await prisma.neighborhoods.update({
+            where: { id: data.id },
+            data: payload,
+            select: { id: true },
+          })
+        : await prisma.neighborhoods.create({ data: payload, select: { id: true } });
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code === "P2002") throw new Error("Ce quartier existe déjà dans cette ville");
+      throw new Error("Enregistrement impossible");
+    }
 
-    await supabase.from("audit_logs").insert({
-      actor_user_id: userId,
-      action: data.id ? "neighborhood_updated" : "neighborhood_created",
-      entity: "neighborhood",
-      entity_id: row.id,
-      meta: payload,
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: data.id ? "neighborhood_updated" : "neighborhood_created",
+        entity: "neighborhood",
+        entity_id: row.id,
+        meta: payload,
+      },
     });
     return { id: row.id };
   });
 
 export const toggleNeighborhood = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAuth])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
-    const { error } = await supabase
-      .from("neighborhoods")
-      .update({ is_active: data.is_active })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
+    await prisma.neighborhoods.updateMany({
+      where: { id: data.id },
+      data: { is_active: data.is_active },
+    });
     return { ok: true };
   });

@@ -6,9 +6,9 @@ const config: CapacitorConfig = {
   webDir: "dist",
   server: {
     androidScheme: "https",
-    // Hot-reload from the Lovable preview while developing on a real device.
-    // Comment out this `url` before producing the signed AAB for the Play Store.
-    url: "https://sahapharm.lovable.app",
+    // L'application mobile affiche le site hébergé sur le VPS (rendu serveur +
+    // API) : cette URL doit rester active, y compris pour la version Play Store.
+    url: "https://sahasantemali.com",
     cleartext: false,
   },
   android: {

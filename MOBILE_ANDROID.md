@@ -1,31 +1,31 @@
 # SAHA Santé — Build & publier l'app Android
 
-L'app web actuelle est emballée avec **Capacitor**. Le code React ne change pas — Capacitor crée un projet Android natif qui charge SAHA Santé.
+L'app web est emballée avec **Capacitor** : le projet Android natif ouvre le site hébergé sur votre VPS (`server.url` dans `capacitor.config.ts`). Le site doit donc être en ligne (voir `DEPLOIEMENT.md`) avant de tester l'app mobile.
 
 ## Prérequis (sur votre ordinateur)
 
-- **Node.js 20+** et **bun** (ou npm).
+- **Node.js 22+** et npm.
 - **Android Studio** (dernière version stable) — https://developer.android.com/studio.
 - **JDK 17** (installé automatiquement par Android Studio).
 - **Compte Google Play Console** — 25 USD une fois — https://play.google.com/console.
 
 ## 1. Récupérer le code en local
 
-Cliquez **GitHub → Connect to GitHub** dans Lovable, puis :
-
 ```bash
 git clone <votre-repo>
 cd <votre-repo>
-bun install
+npm install
 ```
 
 ## 2. Générer le projet Android (une seule fois)
 
 ```bash
-bun run build
+npm run cap:prepare
 npx cap add android
 npx cap sync android
 ```
+
+(`cap:prepare` crée le dossier `dist/` minimal exigé par Capacitor : le contenu réel vient du serveur.)
 
 Cela crée un dossier `android/` — ne pas le supprimer.
 
@@ -37,26 +37,18 @@ Branchez un téléphone Android (mode développeur + débogage USB activés) ou 
 npx cap run android
 ```
 
-Pendant le dev, l'app charge directement depuis `https://sahapharm.lovable.app` (voir `server.url` dans `capacitor.config.ts`) — chaque modif Lovable est visible **sans rebuild natif**.
+L'app charge directement `https://sahasantemali.com` (voir `server.url` dans `capacitor.config.ts`) : chaque mise à jour déployée sur le VPS est visible **sans rebuild natif**. Pour tester un autre serveur, changez temporairement cette URL.
 
 ## 4. Préparer la version Play Store
 
-Avant de builder pour production, **commentez la ligne `url`** dans `capacitor.config.ts` :
-
-```ts
-server: {
-  androidScheme: "https",
-  // url: "https://sahapharm.lovable.app",  // ← commenté pour la build store
-  cleartext: false,
-},
-```
-
-Puis :
+Vérifiez que `server.url` dans `capacitor.config.ts` pointe bien vers votre domaine de production (HTTPS), puis :
 
 ```bash
-bun run build
+npm run cap:prepare
 npx cap sync android
 ```
+
+⚠️ Ne commentez pas `url` : l'application a besoin du serveur (rendu, API, connexion). Sans lui, elle afficherait une page vide.
 
 ## 5. Générer la clé de signature (une seule fois, à SAUVEGARDER)
 
@@ -89,32 +81,24 @@ Google refusera l'app sans URL publique de politique de confidentialité, car SA
 - **Localisation** (pharmacies proches, livraison)
 - **Données de santé** (ordonnances)
 
-Options : héberger une page sur votre site, ou demander à Lovable d'ajouter `/privacy` dans l'app.
+La page existe déjà : `https://sahasantemali.com/privacy` (fichier `src/routes/privacy.tsx`).
 
-## 9. Google Sign-In dans l'app Android
+## 9. Connexion Google dans l'app Android
 
-Google Sign-In depuis une WebView Android nécessite d'enregistrer l'empreinte SHA-1 de votre keystore côté Supabase (Lovable Cloud) et Google Cloud Console.
+Google interdit sa page de connexion dans une WebView intégrée (erreur `disallowed_useragent`). Dans l'app Android, les utilisateurs se connectent donc par **email / mot de passe** ou **téléphone** (si `OTP_CHANNEL` est configuré sur le serveur). La connexion Google reste disponible dans le navigateur (site web).
 
-Récupérer la SHA-1 :
-
-```bash
-keytool -list -v -keystore <votre-keystore>.jks -alias <votre-alias>
-```
-
-Copiez la ligne `SHA1:` et ajoutez-la dans :
-- **Google Cloud Console** → APIs & Services → Credentials → votre OAuth client Android.
-- **Lovable Cloud** (backend) → Auth → Providers → Google → URIs autorisées.
-
-Si Google Sign-In échoue au premier lancement natif, c'est presque toujours cette étape qui manque.
+Pour l'activer aussi dans l'app, il faudra ajouter un plugin natif (ex. `@capgo/capacitor-social-login`) qui renvoie un jeton Google au serveur — non inclus pour l'instant.
 
 ## 10. Mises à jour futures
 
-À chaque changement web dans Lovable :
+Les changements du site sont visibles dans l'app dès leur déploiement sur le VPS (`bash deploy/deploy.sh`), sans nouvelle version Play Store.
+
+Une nouvelle version Play Store n'est nécessaire que si vous modifiez la partie native (plugins Capacitor, icône, permissions, `capacitor.config.ts`) :
 
 ```bash
 git pull
-bun install
-bun run build
+npm install
+npm run cap:prepare
 npx cap sync android
 # rebuild AAB signé dans Android Studio, upload nouvelle version sur Play Console
 ```

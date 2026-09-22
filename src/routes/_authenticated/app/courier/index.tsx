@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getMyCourier, listMyDeliveries } from "@/lib/courier.functions";
+import { subscribeRealtime } from "@/integrations/realtime/client";
 import { setCourierOnline, updateCourierPosition } from "@/lib/delivery.functions";
 import { Card } from "@/components/ui/card";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -33,7 +34,6 @@ export const Route = createFileRoute("/_authenticated/app/courier/")({
   }),
 });
 
-
 type Courier = { id: string; status: string; is_online: boolean; full_name: string };
 type Delivery = {
   id: string;
@@ -59,40 +59,25 @@ function CourierDashboard() {
   const watchId = useRef<number | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("couriers")
-      .select("id, status, is_online, full_name")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setCourier(data));
+    getMyCourier()
+      .then((data) => setCourier(data))
+      .catch(() => setCourier(null));
   }, [user.id]);
 
   useEffect(() => {
     if (!courier) return;
     const load = async () => {
-      const [act, done] = await Promise.all([
-        supabase
-          .from("reservations")
-          .select("id, delivery_status, patient_address, patient_lat, patient_lng, created_at, assigned_at, pharmacies(name, address, lat, lng)")
-          .eq("courier_id", courier.id)
-          .in("delivery_status", ["assigned", "picked_up", "en_route"])
-          .order("assigned_at", { ascending: false }),
-        supabase
-          .from("reservations")
-          .select("id", { count: "exact", head: true })
-          .eq("courier_id", courier.id)
-          .eq("delivery_status", "delivered"),
-      ]);
-      const list = (act.data as unknown as Delivery[]) ?? [];
+      const res = await listMyDeliveries().catch(() => null);
+      const list = (res?.deliveries as unknown as Delivery[]) ?? [];
       setDeliveries(list);
-      setStats({ active: list.length, done: done.count ?? 0 });
+      setStats({ active: list.length, done: res?.done ?? 0 });
     };
     load();
-    const ch = supabase
-      .channel(`courier-${courier.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservations", filter: `courier_id=eq.${courier.id}` }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return subscribeRealtime(
+      [{ table: "reservations", event: "*", filter: { courier_id: courier.id } }],
+      () => load(),
+      { onResync: () => load() },
+    );
   }, [courier]);
 
   useEffect(() => {
@@ -109,13 +94,23 @@ function CourierDashboard() {
         const now = Date.now();
         if (now - last < 10000) return;
         last = now;
-        const active = deliveries.find((d) => ["assigned", "picked_up", "en_route"].includes(d.delivery_status));
-        updatePos({ data: { lat: p.coords.latitude, lng: p.coords.longitude, reservationId: active?.id ?? null } }).catch(() => {});
+        const active = deliveries.find((d) =>
+          ["assigned", "picked_up", "en_route"].includes(d.delivery_status),
+        );
+        updatePos({
+          data: {
+            lat: p.coords.latitude,
+            lng: p.coords.longitude,
+            reservationId: active?.id ?? null,
+          },
+        }).catch(() => {});
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 5000 },
     );
-    return () => { if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current); };
+    return () => {
+      if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+    };
   }, [courier?.is_online, deliveries, updatePos]);
 
   const toggle = async (online: boolean) => {
@@ -147,14 +142,21 @@ function CourierDashboard() {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="text-xl font-semibold">{t("courier.notRegistered")}</h1>
-        <Link to="/app/courier/onboarding" className="mt-4 inline-block text-primary hover:underline">{t("courier.signup")}</Link>
+        <Link
+          to="/app/courier/onboarding"
+          className="mt-4 inline-block text-primary hover:underline"
+        >
+          {t("courier.signup")}
+        </Link>
       </div>
     );
   }
   if (courier.status !== "approved") {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">{t("courier.accountStatus", { status: courier.status })}</h1>
+        <h1 className="text-xl font-semibold">
+          {t("courier.accountStatus", { status: courier.status })}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">{t("courier.waitApproval")}</p>
       </div>
     );
@@ -215,7 +217,12 @@ function CourierDashboard() {
           />
         </div>
         {!courier.is_online && (
-          <LoadingButton onClick={() => toggle(true)} loading={toggling} className="mt-4 min-h-12 w-full" size="lg">
+          <LoadingButton
+            onClick={() => toggle(true)}
+            loading={toggling}
+            className="mt-4 min-h-12 w-full"
+            size="lg"
+          >
             <MapPin className="mr-2 h-4 w-4" aria-hidden="true" />
             {t("courier.activateLocation", "Activer ma localisation")}
           </LoadingButton>
@@ -223,13 +230,26 @@ function CourierDashboard() {
       </Card>
 
       <section aria-label="Mes chiffres" className="mt-4 grid grid-cols-2 gap-3">
-        <Kpi icon={<Package className="h-4 w-4" />} label={t("courier.activeDeliveries")} value={stats.active} tone="primary" />
-        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label={t("courier.done")} value={stats.done} tone="success" />
+        <Kpi
+          icon={<Package className="h-4 w-4" />}
+          label={t("courier.activeDeliveries")}
+          value={stats.active}
+          tone="primary"
+        />
+        <Kpi
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label={t("courier.done")}
+          value={stats.done}
+          tone="success"
+        />
       </section>
 
       {nextAction && (
         <section aria-labelledby="next-action" className="mt-6">
-          <h2 id="next-action" className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2
+            id="next-action"
+            className="text-sm font-semibold uppercase tracking-wide text-muted-foreground"
+          >
             {t("courier.nextAction")}
           </h2>
           <Link
@@ -246,7 +266,9 @@ function CourierDashboard() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Navigation className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{nextAction.patient_address ?? t("courier.clientAddress")}</span>
+                  <span className="truncate">
+                    {nextAction.patient_address ?? t("courier.clientAddress")}
+                  </span>
                 </div>
               </div>
               <div className="mt-4 flex min-h-12 w-full items-center justify-center rounded-md bg-background font-semibold text-foreground">
@@ -264,7 +286,9 @@ function CourierDashboard() {
         <ul className="mt-3 space-y-3">
           {deliveries.length === 0 && (
             <li>
-              <Card className="p-6 text-center text-sm text-muted-foreground">{t("courier.noActive")}</Card>
+              <Card className="p-6 text-center text-sm text-muted-foreground">
+                {t("courier.noActive")}
+              </Card>
             </li>
           )}
           {deliveries.map((d) => (
@@ -312,10 +336,19 @@ function deliveryLabel(status: string) {
         : status === "delivered"
           ? "Livrée"
           : status;
-
 }
 
-function Kpi({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone?: "primary" | "success" }) {
+function Kpi({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone?: "primary" | "success";
+}) {
   const t = tone === "success" ? "bg-success/10 text-success" : "bg-primary/10 text-primary";
   return (
     <Card className="p-3">

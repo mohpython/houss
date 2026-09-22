@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { listMyPrescriptions } from "@/lib/prescriptions.functions";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, ChevronRight } from "lucide-react";
@@ -26,14 +27,13 @@ function List() {
   const { t } = useTranslation();
   const { user } = Route.useRouteContext();
   const [rows, setRows] = useState<Rx[] | null>(null);
+  const listFn = useServerFn(listMyPrescriptions);
 
   useEffect(() => {
-    supabase
-      .from("prescriptions")
-      .select("id, patient_name, doctor_name, prescription_date, status, ai_confidence, created_at")
-      .eq("patient_id", user.id)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => setRows((data as Rx[]) ?? []));
+    listFn()
+      .then((data) => setRows((data as Rx[]) ?? []))
+      .catch(() => setRows([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   return (
@@ -47,7 +47,10 @@ function List() {
           <Card className="p-8 text-center">
             <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-2 text-sm text-muted-foreground">{t("rxList.empty")}</p>
-            <Link to="/app/scan" className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
+            <Link
+              to="/app/scan"
+              className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+            >
               {t("rxList.scanFirst")}
             </Link>
           </Card>
@@ -82,7 +85,10 @@ function StatusBadge({ status, confidence }: { status: string; confidence: numbe
     uploaded: { label: t("rxList.status.uploaded"), className: "bg-muted text-muted-foreground" },
     processing: { label: t("rxList.status.processing"), className: "bg-primary/10 text-primary" },
     extracted: {
-      label: confidence != null && confidence < 85 ? `${t("rxList.status.toVerify")} (${confidence}%)` : `${t("rxList.status.extracted")} (${confidence ?? 0}%)`,
+      label:
+        confidence != null && confidence < 85
+          ? `${t("rxList.status.toVerify")} (${confidence}%)`
+          : `${t("rxList.status.extracted")} (${confidence ?? 0}%)`,
       className:
         confidence != null && confidence < 85
           ? "bg-warning/10 text-warning"
@@ -92,5 +98,9 @@ function StatusBadge({ status, confidence }: { status: string; confidence: numbe
     failed: { label: t("rxList.status.failed"), className: "bg-destructive/10 text-destructive" },
   };
   const s = map[status] ?? map.uploaded;
-  return <Badge className={s.className} variant="secondary">{s.label}</Badge>;
+  return (
+    <Badge className={s.className} variant="secondary">
+      {s.label}
+    </Badge>
+  );
 }

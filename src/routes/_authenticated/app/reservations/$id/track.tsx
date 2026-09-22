@@ -3,7 +3,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getReservationTracking } from "@/lib/reservations.functions";
+import { subscribeRealtime } from "@/integrations/realtime/client";
 import { getDeliveryRoute } from "@/lib/delivery.functions";
 import { loadGoogleMaps, decodePolyline } from "@/lib/gmaps";
 import { Card } from "@/components/ui/card";
@@ -67,13 +68,7 @@ function TrackPage() {
 
   // Load reservation
   const load = async () => {
-    const { data } = await supabase
-      .from("reservations")
-      .select(
-        "id, status, delivery_status, is_partial, missing_items, prescription_id, neighborhood_id, patient_address, patient_lat, patient_lng, courier_id, fulfillment_method, pickup_code, receipt_code, pharmacies(name, lat, lng, address, phone), couriers(id, full_name, phone, current_lat, current_lng, vehicle_type)",
-      )
-      .eq("id", id)
-      .single();
+    const data = await getReservationTracking({ data: { id } }).catch(() => null);
     if (data) setRes(data as unknown as Reservation);
     setLoading(false);
   };
@@ -81,32 +76,23 @@ function TrackPage() {
   useEffect(() => {
     load();
     // Realtime updates
-    const ch = supabase
-      .channel(`res-${id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "reservations", filter: `id=eq.${id}` },
-        () => load(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "courier_positions",
-          filter: `reservation_id=eq.${id}`,
-        },
-        (payload) => {
-          const p = payload.new as { lat: number; lng: number };
-          if (markers.current.courier && mapInstance.current) {
-            markers.current.courier.setPosition({ lat: p.lat, lng: p.lng });
-          }
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    return subscribeRealtime(
+      [
+        { table: "reservations", event: "UPDATE", filter: { id } },
+        { table: "courier_positions", event: "INSERT", filter: { reservation_id: id } },
+      ],
+      (payload) => {
+        if (payload.table === "reservations") {
+          load();
+          return;
+        }
+        const p = payload.new as { lat: number; lng: number };
+        if (markers.current.courier && mapInstance.current) {
+          markers.current.courier.setPosition({ lat: p.lat, lng: p.lng });
+        }
+      },
+      { onResync: () => load() },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -251,7 +237,6 @@ function TrackPage() {
         )}
       </div>
 
-
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Card className="p-4">
           <div className="flex items-center justify-between">
@@ -261,7 +246,9 @@ function TrackPage() {
             <Badge>
               {isPickup
                 ? t("track.pickupStatus")
-                : (t(`track.s.${res.delivery_status}`, { defaultValue: res.delivery_status }) as string)}
+                : (t(`track.s.${res.delivery_status}`, {
+                    defaultValue: res.delivery_status,
+                  }) as string)}
             </Badge>
           </div>
           {res.pharmacies && (
