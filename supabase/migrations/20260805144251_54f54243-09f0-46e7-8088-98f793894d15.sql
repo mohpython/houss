@@ -1,0 +1,12 @@
+INSERT INTO public.practitioners (type, full_name, specialty_code, license_number, phone, address, city, lat, lng, home_visits, consultation_fee, is_available, status, bio) VALUES
+('doctor','Dr Aminata Traoré','general','ML-MED-1001','+22370112233','Hamdallaye ACI 2000','Bamako',12.6392,-8.0029,true,10000,true,'approved','Médecine générale, suivi du paludisme et des maladies courantes.'),
+('doctor','Dr Moussa Diarra','cardiology','ML-MED-1002','+22370112244','Badalabougou, Rue 24','Bamako',12.6270,-7.9880,false,20000,true,'approved','Cardiologue, hypertension artérielle et suivi cardiaque.'),
+('doctor','Dr Fatoumata Keïta','pediatrics','ML-MED-1003','+22370112255','Magnambougou, Route de Sogoniko','Bamako',12.6032,-7.9539,true,15000,true,'approved','Pédiatre, fièvre et vaccination de l''enfant.'),
+('doctor','Dr Ibrahim Coulibaly','infectious','ML-MED-1004','+22370112266','Point G, près du CHU','Bamako',12.6570,-8.0075,false,18000,true,'approved','Maladies infectieuses : paludisme, typhoïde, dengue.'),
+('doctor','Dr Awa Sangaré','gynecology','ML-MED-1005','+22370112277','Kalaban Coura ACI','Bamako',12.5940,-8.0100,false,17000,true,'approved','Gynécologie et suivi de grossesse.'),
+('doctor','Dr Seydou Camara','dermatology','ML-MED-1006','+22370112288','Faladié, Avenue de l''OUA','Bamako',12.5981,-7.9411,false,15000,true,'approved','Dermatologie générale, allergies cutanées.'),
+('doctor','Dr Kadiatou Sissoko','diabetology','ML-MED-1007','+22370112299','Djélibougou, Rue 300','Bamako',12.6689,-7.9962,true,16000,true,'approved','Diabète et maladies métaboliques.'),
+('nurse','Mariam Dembélé','injection','ML-INF-2001','+22376334455','Sébénicoro','Bamako',12.6180,-8.0450,true,3000,true,'approved','Injections et perfusions à domicile.'),
+('nurse','Oumar Konaté','wound_care','ML-INF-2002','+22376334466','Missira, Rue 12','Bamako',12.6480,-7.9820,true,4000,true,'approved','Soins de plaies et pansements.'),
+('nurse','Salimata Touré','vaccination','ML-INF-2003','+22376334477','Lafiabougou','Bamako',12.6355,-8.0301,true,3500,true,'approved','Vaccination et suivi nourrisson.'),
+('nurse','Bakary Sidibé','nursing','ML-INF-2004','+22376334488','Yirimadio','Bamako',12.6110,-7.9200,true,3000,true,'approved','Soins infirmiers généraux, tension et glycémie à domicile.');

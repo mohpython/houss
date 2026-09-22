@@ -1,0 +1,279 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * SAHA Santé — Glass Aurora design system
+ * Deep night background, aurora violet/mint/sky accents, serif display, glassmorphism.
+ * All color tokens use HSL space (kept compatible with shadcn's hsl(var(--*)) references).
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --font-display: "DM Serif Display", "Times New Roman", serif;
+  --font-sans: "Fira Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-aurora-violet: hsl(202 100% 35%);
+  --color-aurora-mint: hsl(174 62% 47%);
+  --color-aurora-sky: hsl(191 100% 42%);
+
+}
+
+:root {
+  --radius: 1.25rem;
+
+  /* SAHA night canvas — Deep Navy Blue #0A1931 */
+  --background: 219 66% 12%;
+  --foreground: 180 26% 97%;
+
+  /* Glass surfaces on navy */
+  --card: 219 55% 16%;
+  --card-foreground: 180 26% 97%;
+  --popover: 219 60% 14%;
+  --popover-foreground: 180 26% 97%;
+
+  /* Vibrant Blue #0072B5 as primary */
+  --primary: 202 100% 35%;
+  --primary-foreground: 180 26% 97%;
+
+  --secondary: 219 45% 20%;
+  --secondary-foreground: 180 26% 97%;
+
+  --muted: 219 40% 18%;
+  --muted-foreground: 202 20% 75%;
+
+  /* Cyan Teal #00B4D8 accent */
+  --accent: 191 100% 42%;
+  --accent-foreground: 219 66% 10%;
+
+  --destructive: 350 85% 62%;
+  --destructive-foreground: 0 0% 100%;
+  /* Mint Green #2EC4B6 success */
+  --success: 174 62% 47%;
+  --success-foreground: 219 66% 10%;
+  --warning: 38 95% 60%;
+  --warning-foreground: 219 66% 10%;
+
+  --border: 202 30% 30%;
+  --input: 219 40% 22%;
+  --ring: 191 100% 42%;
+
+  --sidebar: 219 60% 14%;
+  --sidebar-foreground: 180 26% 97%;
+  --sidebar-primary: 202 100% 35%;
+  --sidebar-primary-foreground: 180 26% 97%;
+  --sidebar-accent: 219 45% 20%;
+  --sidebar-accent-foreground: 180 26% 97%;
+  --sidebar-border: 202 30% 30%;
+  --sidebar-ring: 191 100% 42%;
+
+  --aurora-gradient: linear-gradient(135deg, hsl(202 100% 35%) 0%, hsl(191 100% 42%) 50%, hsl(174 62% 47%) 100%);
+  --aurora-soft: radial-gradient(60% 60% at 20% 10%, hsl(202 100% 35% / 0.35), transparent 60%),
+                 radial-gradient(50% 50% at 90% 20%, hsl(191 100% 42% / 0.28), transparent 60%),
+                 radial-gradient(50% 50% at 60% 100%, hsl(174 62% 47% / 0.22), transparent 60%);
+  --shadow-glass: 0 20px 60px -20px hsl(202 100% 25% / 0.45), 0 8px 30px -12px hsl(219 66% 4% / 0.6);
+  --shadow-glow: 0 0 40px hsl(191 100% 45% / 0.4);
+}
+
+
+/* Dark aurora is the default; .light overrides below flip to a bright palette. */
+html {
+  color-scheme: dark;
+}
+html.light {
+  color-scheme: light;
+}
+html, body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.light {
+  /* Soft Ice White #F4F9F9 canvas */
+  --background: 180 26% 97%;
+  --foreground: 219 66% 12%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 219 66% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 219 66% 12%;
+
+  /* Vibrant Blue #0072B5 */
+  --primary: 202 100% 35%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 180 26% 94%;
+  --secondary-foreground: 219 66% 12%;
+
+  --muted: 180 26% 94%;
+  --muted-foreground: 219 30% 35%;
+
+  /* Cyan Teal #00B4D8 accent */
+  --accent: 191 100% 42%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 350 80% 52%;
+  --destructive-foreground: 0 0% 100%;
+  /* Mint Green #2EC4B6 */
+  --success: 174 62% 47%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 219 66% 12%;
+
+  --border: 202 25% 85%;
+  --input: 202 25% 90%;
+  --ring: 202 100% 35%;
+
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 219 66% 12%;
+  --sidebar-primary: 202 100% 35%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 180 26% 94%;
+  --sidebar-accent-foreground: 219 66% 12%;
+  --sidebar-border: 202 25% 85%;
+  --sidebar-ring: 202 100% 35%;
+
+  --aurora-soft: radial-gradient(60% 60% at 20% 10%, hsl(202 100% 45% / 0.14), transparent 60%),
+                 radial-gradient(50% 50% at 90% 20%, hsl(191 100% 50% / 0.12), transparent 60%),
+                 radial-gradient(50% 50% at 60% 100%, hsl(174 62% 55% / 0.10), transparent 60%);
+  --shadow-glass: 0 20px 60px -20px hsl(202 60% 30% / 0.18), 0 8px 30px -12px hsl(219 30% 30% / 0.12);
+}
+
+
+.light .glass {
+  background: hsl(0 0% 100% / 0.7);
+  border: 1px solid hsl(230 30% 20% / 0.08);
+  box-shadow: 0 10px 40px -20px hsl(230 30% 30% / 0.2);
+}
+
+.light .glass-soft {
+  background: hsl(0 0% 100% / 0.5);
+  border: 1px solid hsl(230 30% 20% / 0.06);
+}
+
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    background-image: var(--aurora-soft);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+/* --- Utilities --- */
+
+@utility glass {
+  background: hsl(226 36% 14% / 0.55);
+  backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid hsl(220 40% 90% / 0.08);
+  box-shadow: var(--shadow-glass);
+}
+
+@utility glass-soft {
+  background: hsl(226 36% 18% / 0.35);
+  backdrop-filter: blur(18px) saturate(130%);
+  border: 1px solid hsl(220 40% 90% / 0.06);
+}
+
+@utility aurora-bg {
+  background-image: var(--aurora-gradient);
+}
+
+@utility aurora-text {
+  background-image: var(--aurora-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility glow {
+  box-shadow: var(--shadow-glow);
+}
+
+@utility grain {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.7'/></svg>");
+  }
+}
+
+@keyframes aurora-drift {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  50% { transform: translate3d(4%, -3%, 0) scale(1.08); }
+}
+@keyframes aurora-drift-2 {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  50% { transform: translate3d(-5%, 4%, 0) scale(1.12); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(258 90% 70% / 0.5); }
+  50% { box-shadow: 0 0 0 12px hsl(258 90% 70% / 0); }
+}
+
+@utility animate-aurora {
+  animation: aurora-drift 18s ease-in-out infinite;
+}
+@utility animate-aurora-2 {
+  animation: aurora-drift-2 22s ease-in-out infinite;
+}
+@utility animate-pulse-glow {
+  animation: pulse-glow 2.4s ease-out infinite;
+}

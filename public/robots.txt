@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /auth
+Disallow: /auth-callback
+Disallow: /api/
+
+Sitemap: https://sahasantemali.com/sitemap.xml

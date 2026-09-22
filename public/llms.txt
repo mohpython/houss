@@ -1,0 +1,10 @@
+# SAHA Santé
+
+> Service malien de santé numérique : prenez votre ordonnance en photo, l'IA extrait vos médicaments, trouve la pharmacie la plus proche qui les a en stock et organise la livraison à domicile.
+
+SAHA Santé relie patients, pharmacies, praticiens (médecins, infirmiers) et livreurs. Le patient envoie une photo d'ordonnance depuis l'application web, l'application mobile ou le bot WhatsApp ; le reste du parcours (extraction, vérification, réservation, paiement, livraison) est automatisé.
+
+## Pages
+
+- [Accueil](/): Présentation du service, fonctionnement en trois étapes et accès à l'application.
+- [Politique de confidentialité](/privacy): Traitement des ordonnances, de la caméra, de la localisation et des notifications.
