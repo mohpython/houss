@@ -16,9 +16,13 @@ import { Route as AuthCallbackRouteImport } from './routes/auth-callback'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiRealtimeRouteImport } from './routes/api/realtime'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as ApiStorageUploadRouteImport } from './routes/api/storage/upload'
+import { Route as ApiStorageSplatRouteImport } from './routes/api/storage/$'
 import { Route as AuthenticatedAppScanRouteImport } from './routes/_authenticated/app/scan'
 import { Route as AuthenticatedAppOtcRouteImport } from './routes/_authenticated/app/otc'
+import { Route as ApiAuthGoogleIndexRouteImport } from './routes/api/auth/google/index'
 import { Route as AuthenticatedAppReservationsIndexRouteImport } from './routes/_authenticated/app/reservations/index'
 import { Route as AuthenticatedAppPrescriptionsIndexRouteImport } from './routes/_authenticated/app/prescriptions/index'
 import { Route as AuthenticatedAppPraticienIndexRouteImport } from './routes/_authenticated/app/praticien/index'
@@ -28,7 +32,7 @@ import { Route as AuthenticatedAppCourierIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppAppointmentsIndexRouteImport } from './routes/_authenticated/app/appointments/index'
 import { Route as AuthenticatedAppAdminIndexRouteImport } from './routes/_authenticated/app/admin/index'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp/webhook'
-import { Route as ApiPublicPushDispatchRouteImport } from './routes/api/public/push/dispatch'
+import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
 import { Route as AuthenticatedAppPharmacyOnboardingRouteImport } from './routes/_authenticated/app/pharmacy/onboarding'
 import { Route as AuthenticatedAppCourierOnboardingRouteImport } from './routes/_authenticated/app/courier/onboarding'
 import { Route as AuthenticatedAppAdminWhatsappRouteImport } from './routes/_authenticated/app/admin/whatsapp'
@@ -85,10 +89,25 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRealtimeRoute = ApiRealtimeRouteImport.update({
+  id: '/api/realtime',
+  path: '/api/realtime',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiStorageUploadRoute = ApiStorageUploadRouteImport.update({
+  id: '/api/storage/upload',
+  path: '/api/storage/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStorageSplatRoute = ApiStorageSplatRouteImport.update({
+  id: '/api/storage/$',
+  path: '/api/storage/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppScanRoute = AuthenticatedAppScanRouteImport.update({
   id: '/app/scan',
@@ -99,6 +118,11 @@ const AuthenticatedAppOtcRoute = AuthenticatedAppOtcRouteImport.update({
   id: '/app/otc',
   path: '/app/otc',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiAuthGoogleIndexRoute = ApiAuthGoogleIndexRouteImport.update({
+  id: '/api/auth/google/',
+  path: '/api/auth/google/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppReservationsIndexRoute =
   AuthenticatedAppReservationsIndexRouteImport.update({
@@ -154,9 +178,9 @@ const ApiPublicWhatsappWebhookRoute =
     path: '/api/public/whatsapp/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicPushDispatchRoute = ApiPublicPushDispatchRouteImport.update({
-  id: '/api/public/push/dispatch',
-  path: '/api/public/push/dispatch',
+const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
+  id: '/api/auth/google/callback',
+  path: '/api/auth/google/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppPharmacyOnboardingRoute =
@@ -293,8 +317,11 @@ export interface FileRoutesByFullPath {
   '/feedback': typeof FeedbackRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/realtime': typeof ApiRealtimeRoute
   '/app/otc': typeof AuthenticatedAppOtcRoute
   '/app/scan': typeof AuthenticatedAppScanRoute
+  '/api/storage/$': typeof ApiStorageSplatRoute
+  '/api/storage/upload': typeof ApiStorageUploadRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -308,7 +335,7 @@ export interface FileRoutesByFullPath {
   '/app/admin/whatsapp': typeof AuthenticatedAppAdminWhatsappRoute
   '/app/courier/onboarding': typeof AuthenticatedAppCourierOnboardingRoute
   '/app/pharmacy/onboarding': typeof AuthenticatedAppPharmacyOnboardingRoute
-  '/api/public/push/dispatch': typeof ApiPublicPushDispatchRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
   '/app/admin/': typeof AuthenticatedAppAdminIndexRoute
   '/app/appointments/': typeof AuthenticatedAppAppointmentsIndexRoute
@@ -318,6 +345,7 @@ export interface FileRoutesByFullPath {
   '/app/praticien/': typeof AuthenticatedAppPraticienIndexRoute
   '/app/prescriptions/': typeof AuthenticatedAppPrescriptionsIndexRoute
   '/app/reservations/': typeof AuthenticatedAppReservationsIndexRoute
+  '/api/auth/google/': typeof ApiAuthGoogleIndexRoute
   '/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
@@ -335,8 +363,11 @@ export interface FileRoutesByTo {
   '/feedback': typeof FeedbackRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/realtime': typeof ApiRealtimeRoute
   '/app/otc': typeof AuthenticatedAppOtcRoute
   '/app/scan': typeof AuthenticatedAppScanRoute
+  '/api/storage/$': typeof ApiStorageSplatRoute
+  '/api/storage/upload': typeof ApiStorageUploadRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -350,7 +381,7 @@ export interface FileRoutesByTo {
   '/app/admin/whatsapp': typeof AuthenticatedAppAdminWhatsappRoute
   '/app/courier/onboarding': typeof AuthenticatedAppCourierOnboardingRoute
   '/app/pharmacy/onboarding': typeof AuthenticatedAppPharmacyOnboardingRoute
-  '/api/public/push/dispatch': typeof ApiPublicPushDispatchRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
   '/app/admin': typeof AuthenticatedAppAdminIndexRoute
   '/app/appointments': typeof AuthenticatedAppAppointmentsIndexRoute
@@ -360,6 +391,7 @@ export interface FileRoutesByTo {
   '/app/praticien': typeof AuthenticatedAppPraticienIndexRoute
   '/app/prescriptions': typeof AuthenticatedAppPrescriptionsIndexRoute
   '/app/reservations': typeof AuthenticatedAppReservationsIndexRoute
+  '/api/auth/google': typeof ApiAuthGoogleIndexRoute
   '/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
@@ -379,8 +411,11 @@ export interface FileRoutesById {
   '/feedback': typeof FeedbackRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/realtime': typeof ApiRealtimeRoute
   '/_authenticated/app/otc': typeof AuthenticatedAppOtcRoute
   '/_authenticated/app/scan': typeof AuthenticatedAppScanRoute
+  '/api/storage/$': typeof ApiStorageSplatRoute
+  '/api/storage/upload': typeof ApiStorageUploadRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/_authenticated/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -394,7 +429,7 @@ export interface FileRoutesById {
   '/_authenticated/app/admin/whatsapp': typeof AuthenticatedAppAdminWhatsappRoute
   '/_authenticated/app/courier/onboarding': typeof AuthenticatedAppCourierOnboardingRoute
   '/_authenticated/app/pharmacy/onboarding': typeof AuthenticatedAppPharmacyOnboardingRoute
-  '/api/public/push/dispatch': typeof ApiPublicPushDispatchRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
   '/_authenticated/app/admin/': typeof AuthenticatedAppAdminIndexRoute
   '/_authenticated/app/appointments/': typeof AuthenticatedAppAppointmentsIndexRoute
@@ -404,6 +439,7 @@ export interface FileRoutesById {
   '/_authenticated/app/praticien/': typeof AuthenticatedAppPraticienIndexRoute
   '/_authenticated/app/prescriptions/': typeof AuthenticatedAppPrescriptionsIndexRoute
   '/_authenticated/app/reservations/': typeof AuthenticatedAppReservationsIndexRoute
+  '/api/auth/google/': typeof ApiAuthGoogleIndexRoute
   '/_authenticated/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/_authenticated/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/_authenticated/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
@@ -423,8 +459,11 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/privacy'
     | '/sitemap.xml'
+    | '/api/realtime'
     | '/app/otc'
     | '/app/scan'
+    | '/api/storage/$'
+    | '/api/storage/upload'
     | '/app/'
     | '/app/admin/appointments'
     | '/app/admin/couriers'
@@ -438,7 +477,7 @@ export interface FileRouteTypes {
     | '/app/admin/whatsapp'
     | '/app/courier/onboarding'
     | '/app/pharmacy/onboarding'
-    | '/api/public/push/dispatch'
+    | '/api/auth/google/callback'
     | '/api/public/whatsapp/webhook'
     | '/app/admin/'
     | '/app/appointments/'
@@ -448,6 +487,7 @@ export interface FileRouteTypes {
     | '/app/praticien/'
     | '/app/prescriptions/'
     | '/app/reservations/'
+    | '/api/auth/google/'
     | '/app/courier/deliveries/$id'
     | '/app/pharmacy/$pharmacyId/inventory'
     | '/app/pharmacy/$pharmacyId/reservations'
@@ -465,8 +505,11 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/privacy'
     | '/sitemap.xml'
+    | '/api/realtime'
     | '/app/otc'
     | '/app/scan'
+    | '/api/storage/$'
+    | '/api/storage/upload'
     | '/app'
     | '/app/admin/appointments'
     | '/app/admin/couriers'
@@ -480,7 +523,7 @@ export interface FileRouteTypes {
     | '/app/admin/whatsapp'
     | '/app/courier/onboarding'
     | '/app/pharmacy/onboarding'
-    | '/api/public/push/dispatch'
+    | '/api/auth/google/callback'
     | '/api/public/whatsapp/webhook'
     | '/app/admin'
     | '/app/appointments'
@@ -490,6 +533,7 @@ export interface FileRouteTypes {
     | '/app/praticien'
     | '/app/prescriptions'
     | '/app/reservations'
+    | '/api/auth/google'
     | '/app/courier/deliveries/$id'
     | '/app/pharmacy/$pharmacyId/inventory'
     | '/app/pharmacy/$pharmacyId/reservations'
@@ -508,8 +552,11 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/privacy'
     | '/sitemap.xml'
+    | '/api/realtime'
     | '/_authenticated/app/otc'
     | '/_authenticated/app/scan'
+    | '/api/storage/$'
+    | '/api/storage/upload'
     | '/_authenticated/app/'
     | '/_authenticated/app/admin/appointments'
     | '/_authenticated/app/admin/couriers'
@@ -523,7 +570,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/admin/whatsapp'
     | '/_authenticated/app/courier/onboarding'
     | '/_authenticated/app/pharmacy/onboarding'
-    | '/api/public/push/dispatch'
+    | '/api/auth/google/callback'
     | '/api/public/whatsapp/webhook'
     | '/_authenticated/app/admin/'
     | '/_authenticated/app/appointments/'
@@ -533,6 +580,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/praticien/'
     | '/_authenticated/app/prescriptions/'
     | '/_authenticated/app/reservations/'
+    | '/api/auth/google/'
     | '/_authenticated/app/courier/deliveries/$id'
     | '/_authenticated/app/pharmacy/$pharmacyId/inventory'
     | '/_authenticated/app/pharmacy/$pharmacyId/reservations'
@@ -552,8 +600,12 @@ export interface RootRouteChildren {
   FeedbackRoute: typeof FeedbackRoute
   PrivacyRoute: typeof PrivacyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  ApiPublicPushDispatchRoute: typeof ApiPublicPushDispatchRoute
+  ApiRealtimeRoute: typeof ApiRealtimeRoute
+  ApiStorageSplatRoute: typeof ApiStorageSplatRoute
+  ApiStorageUploadRoute: typeof ApiStorageUploadRoute
+  ApiAuthGoogleCallbackRoute: typeof ApiAuthGoogleCallbackRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
+  ApiAuthGoogleIndexRoute: typeof ApiAuthGoogleIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -607,12 +659,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/realtime': {
+      id: '/api/realtime'
+      path: '/api/realtime'
+      fullPath: '/api/realtime'
+      preLoaderRoute: typeof ApiRealtimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/app/': {
       id: '/_authenticated/app/'
       path: '/app'
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/storage/upload': {
+      id: '/api/storage/upload'
+      path: '/api/storage/upload'
+      fullPath: '/api/storage/upload'
+      preLoaderRoute: typeof ApiStorageUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/storage/$': {
+      id: '/api/storage/$'
+      path: '/api/storage/$'
+      fullPath: '/api/storage/$'
+      preLoaderRoute: typeof ApiStorageSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/scan': {
       id: '/_authenticated/app/scan'
@@ -627,6 +700,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/otc'
       preLoaderRoute: typeof AuthenticatedAppOtcRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/auth/google/': {
+      id: '/api/auth/google/'
+      path: '/api/auth/google'
+      fullPath: '/api/auth/google/'
+      preLoaderRoute: typeof ApiAuthGoogleIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/reservations/': {
       id: '/_authenticated/app/reservations/'
@@ -691,11 +771,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/push/dispatch': {
-      id: '/api/public/push/dispatch'
-      path: '/api/public/push/dispatch'
-      fullPath: '/api/public/push/dispatch'
-      preLoaderRoute: typeof ApiPublicPushDispatchRouteImport
+    '/api/auth/google/callback': {
+      id: '/api/auth/google/callback'
+      path: '/api/auth/google/callback'
+      fullPath: '/api/auth/google/callback'
+      preLoaderRoute: typeof ApiAuthGoogleCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/pharmacy/onboarding': {
@@ -946,8 +1026,12 @@ const rootRouteChildren: RootRouteChildren = {
   FeedbackRoute: FeedbackRoute,
   PrivacyRoute: PrivacyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  ApiPublicPushDispatchRoute: ApiPublicPushDispatchRoute,
+  ApiRealtimeRoute: ApiRealtimeRoute,
+  ApiStorageSplatRoute: ApiStorageSplatRoute,
+  ApiStorageUploadRoute: ApiStorageUploadRoute,
+  ApiAuthGoogleCallbackRoute: ApiAuthGoogleCallbackRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
+  ApiAuthGoogleIndexRoute: ApiAuthGoogleIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

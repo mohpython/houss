@@ -124,3 +124,23 @@ export async function downloadMedia(mediaId: string): Promise<DownloadedMedia> {
     mimeType: meta.mime_type ?? "image/jpeg",
   };
 }
+
+/**
+ * Message basé sur un modèle approuvé (obligatoire hors fenêtre de 24 h).
+ * Utilisé pour les codes de connexion (modèle de catégorie « Authentification »).
+ */
+export async function sendAuthTemplate(to: string, template: string, lang: string, code: string) {
+  return post({
+    recipient_type: "individual",
+    to,
+    type: "template",
+    template: {
+      name: template,
+      language: { code: lang },
+      components: [
+        { type: "body", parameters: [{ type: "text", text: code }] },
+        { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: code }] },
+      ],
+    },
+  });
+}

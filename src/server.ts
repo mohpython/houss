@@ -11,6 +11,10 @@ let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
+    // Tâches planifiées (rappels de rendez-vous, purge) : démarrées une seule fois.
+    void import("./server/scheduler.server")
+      .then((m) => m.startScheduler())
+      .catch((err) => console.error("[scheduler]", err));
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(
       (m) => (m.default ?? m) as ServerEntry,
     );
