@@ -1,0 +1,4 @@
+
+ALTER TABLE public.reservations
+  ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS ready_at TIMESTAMPTZ;

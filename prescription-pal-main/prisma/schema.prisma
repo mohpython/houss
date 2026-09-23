@@ -1,0 +1,630 @@
+// SAHA Santé — schéma Prisma (PostgreSQL).
+//
+// Les noms de modèles et de champs reprennent volontairement les noms des
+// tables/colonnes de l'ancienne base Supabase (snake_case) : les données
+// existantes s'importent telles quelles et les objets renvoyés au front gardent
+// exactement la même forme qu'avant.
+//
+// Les noms des relations reprennent aussi les « embeds » PostgREST utilisés
+// auparavant (ex. reservations.pharmacies, inventory.medicines).
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pg_trgm]
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum app_role {
+  patient
+  pharmacy_staff
+  admin
+  courier
+  doctor
+  nurse
+}
+
+enum pharmacy_status {
+  pending
+  approved
+  rejected
+}
+
+enum prescription_status {
+  uploaded
+  processing
+  extracted
+  verified
+  failed
+}
+
+enum reservation_status {
+  pending
+  accepted
+  rejected
+  ready
+  completed
+  cancelled
+}
+
+enum delivery_status {
+  unassigned
+  assigned
+  picked_up
+  en_route
+  delivered
+  failed
+}
+
+enum courier_status {
+  pending
+  approved
+  rejected
+}
+
+enum practitioner_type {
+  doctor
+  nurse
+}
+
+enum practitioner_status {
+  pending
+  approved
+  rejected
+}
+
+enum appointment_status {
+  requested
+  accepted
+  rescheduled
+  rejected
+  completed
+  cancelled
+}
+
+// ============================================================================
+// AUTHENTIFICATION (remplace auth.users de Supabase)
+// ============================================================================
+
+model users {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email              String?   @unique
+  phone              String?   @unique
+  password_hash      String?
+  google_sub         String?   @unique
+  email_verified_at  DateTime? @db.Timestamptz(6)
+  phone_verified_at  DateTime? @db.Timestamptz(6)
+  raw_user_meta_data Json      @default("{}")
+  last_sign_in_at    DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  profile              profiles?
+  sessions             sessions[]
+  auth_tokens          auth_tokens[]
+  user_roles           user_roles[]
+  owned_pharmacies     pharmacies[]         @relation("pharmacy_owner")
+  pharmacy_staff       pharmacy_staff[]
+  prescriptions        prescriptions[]
+  reservations         reservations[]
+  audit_logs           audit_logs[]
+  courier              couriers?
+  notifications        notifications[]
+  device_tokens        device_tokens[]
+  whatsapp_sessions    whatsapp_sessions[]
+  practitioner         practitioners?
+  appointments         appointments[]
+  feedback             feedback[]
+  whatsapp_templates   whatsapp_templates[]
+}
+
+/// Sessions opaques (jeton Bearer). Seul le hash SHA-256 du jeton est stocké.
+model sessions {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @db.Uuid
+  token_hash   String   @unique
+  user_agent   String?
+  ip           String?
+  expires_at   DateTime @db.Timestamptz(6)
+  last_used_at DateTime @default(now()) @db.Timestamptz(6)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+/// Codes à usage unique : OTP téléphone, vérification d'email, reset mot de passe.
+model auth_tokens {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String?   @db.Uuid
+  kind        String // 'phone_otp' | 'email_verify' | 'password_reset'
+  target      String // téléphone ou email concerné
+  token_hash  String
+  meta        Json      @default("{}")
+  attempts    Int       @default(0)
+  expires_at  DateTime  @db.Timestamptz(6)
+  consumed_at DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  user users? @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([kind, target])
+}
+
+// ============================================================================
+// PROFILS & RÔLES
+// ============================================================================
+
+model profiles {
+  id         String   @id @db.Uuid
+  full_name  String?
+  phone      String?
+  language   String   @default("fr")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user users @relation(fields: [id], references: [id], onDelete: Cascade)
+}
+
+model user_roles {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  role       app_role
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, role])
+}
+
+// ============================================================================
+// PHARMACIES & STOCK
+// ============================================================================
+
+model pharmacies {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_user_id   String?         @unique @db.Uuid
+  claim_email     String?
+  name            String
+  license_number  String
+  address         String
+  city            String?
+  lat             Float?
+  lng             Float?
+  phone           String?
+  opening_hours   Json?
+  status          pharmacy_status @default(pending)
+  rating          Float?          @default(0)
+  google_place_id String?         @unique
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
+
+  owner          users?           @relation("pharmacy_owner", fields: [owner_user_id], references: [id], onDelete: Cascade)
+  pharmacy_staff pharmacy_staff[]
+  inventory      inventory[]
+  reservations   reservations[]
+  feedback       feedback[]
+
+  @@index([status])
+}
+
+model pharmacy_staff {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pharmacy_id String   @db.Uuid
+  user_id     String   @unique @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  pharmacies pharmacies @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade)
+  user       users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacy_id, user_id])
+}
+
+model medicines {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  normalized_name String
+  generic_name    String?
+  strength        String?
+  form            String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  inventory          inventory[]
+  prescription_items prescription_items[]
+
+  @@index([normalized_name(ops: raw("gin_trgm_ops"))], type: Gin, map: "medicines_name_trgm")
+  @@index([generic_name(ops: raw("gin_trgm_ops"))], type: Gin, map: "medicines_generic_trgm")
+}
+
+model inventory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pharmacy_id String   @db.Uuid
+  medicine_id String   @db.Uuid
+  stock_qty   Int      @default(0)
+  price       Float?
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  pharmacies pharmacies @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade)
+  medicines  medicines  @relation(fields: [medicine_id], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacy_id, medicine_id])
+}
+
+// ============================================================================
+// ORDONNANCES
+// ============================================================================
+
+model prescriptions {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id            String              @db.Uuid
+  file_path             String
+  file_mime             String
+  patient_name          String?
+  doctor_name           String?
+  hospital              String?
+  prescription_date     DateTime?           @db.Date
+  prescription_date_raw String?
+  date_source           String              @default("ai")
+  is_expired            Boolean             @default(false)
+  ai_confidence         Float?
+  ai_raw                Json?
+  status                prescription_status @default(uploaded)
+  source                String              @default("app")
+  review_severity       String?
+  review_status         String?
+  review_reasons        Json                @default("[]")
+  created_at            DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+
+  patient            users                @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  prescription_items prescription_items[]
+  reservations       reservations[]
+
+  @@index([patient_id, created_at(sort: Desc)])
+  @@index([review_severity])
+}
+
+model prescription_items {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  prescription_id        String   @db.Uuid
+  medicine_name_raw      String
+  normalized_medicine_id String?  @db.Uuid
+  strength               String?
+  quantity               String?
+  dosage                 String?
+  duration               String?
+  instructions           String?
+  patient_verified       Boolean  @default(false)
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  prescriptions     prescriptions       @relation(fields: [prescription_id], references: [id], onDelete: Cascade)
+  medicines         medicines?          @relation(fields: [normalized_medicine_id], references: [id], onDelete: SetNull)
+  reservation_items reservation_items[]
+
+  @@index([prescription_id])
+}
+
+// ============================================================================
+// COMMANDES / LIVRAISON
+// ============================================================================
+
+model neighborhoods {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  city       String   @default("Bamako")
+  lat        Float
+  lng        Float
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  reservations reservations[]
+
+  @@unique([city, name])
+}
+
+model couriers {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String         @unique @db.Uuid
+  full_name        String
+  phone            String
+  vehicle_type     String         @default("moto")
+  license_number   String?
+  status           courier_status @default(pending)
+  is_online        Boolean        @default(false)
+  current_lat      Float?
+  current_lng      Float?
+  last_position_at DateTime?      @db.Timestamptz(6)
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user              users               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  reservations      reservations[]
+  courier_positions courier_positions[]
+}
+
+model reservations {
+  id                       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  prescription_id          String             @db.Uuid
+  patient_id               String             @db.Uuid
+  pharmacy_id              String             @db.Uuid
+  status                   reservation_status @default(pending)
+  notes                    String?
+  source                   String             @default("app")
+  // Rupture partielle
+  is_partial               Boolean            @default(false)
+  missing_items            Json               @default("[]")
+  // Livraison
+  courier_id               String?            @db.Uuid
+  delivery_status          delivery_status    @default(unassigned)
+  fulfillment_method       String             @default("delivery") // 'delivery' | 'pickup'
+  delivery_mode            String             @default("gps") // 'gps' | 'neighborhood'
+  neighborhood_id          String?            @db.Uuid
+  patient_lat              Float?
+  patient_lng              Float?
+  patient_address          String?
+  patient_name             String?
+  patient_phone            String?
+  // Codes de retrait / réception
+  pickup_code              String?
+  receipt_code             String?
+  pickup_code_verified_at  DateTime?          @db.Timestamptz(6)
+  receipt_code_verified_at DateTime?          @db.Timestamptz(6)
+  code_attempts            Int                @default(0)
+  // Paiement
+  items_total              Float              @default(0)
+  delivery_fee             Float              @default(0)
+  total_amount             Float              @default(0)
+  payment_status           String             @default("unpaid") // 'unpaid' | 'pending_verification' | 'paid' | 'failed'
+  payment_method           String?
+  payment_reference        String?
+  paid_at                  DateTime?          @db.Timestamptz(6)
+  // Horodatages du cycle de vie
+  accepted_at              DateTime?          @db.Timestamptz(6)
+  ready_at                 DateTime?          @db.Timestamptz(6)
+  assigned_at              DateTime?          @db.Timestamptz(6)
+  picked_up_at             DateTime?          @db.Timestamptz(6)
+  delivered_at             DateTime?          @db.Timestamptz(6)
+  created_at               DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime           @default(now()) @updatedAt @db.Timestamptz(6)
+
+  prescriptions     prescriptions       @relation(fields: [prescription_id], references: [id], onDelete: Cascade)
+  patient           users               @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  pharmacies        pharmacies          @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade)
+  couriers          couriers?           @relation(fields: [courier_id], references: [id], onDelete: SetNull)
+  neighborhoods     neighborhoods?      @relation(fields: [neighborhood_id], references: [id], onDelete: SetNull)
+  reservation_items reservation_items[]
+  courier_positions courier_positions[]
+  feedback          feedback[]
+
+  @@index([patient_id])
+  @@index([pharmacy_id])
+  @@index([courier_id])
+  @@index([created_at(sort: Desc)])
+}
+
+model reservation_items {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reservation_id       String   @db.Uuid
+  prescription_item_id String   @db.Uuid
+  available            Boolean  @default(true)
+  price                Float?
+  unit_price           Float?
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  reservations       reservations       @relation(fields: [reservation_id], references: [id], onDelete: Cascade)
+  prescription_items prescription_items @relation(fields: [prescription_item_id], references: [id], onDelete: Cascade)
+
+  @@index([reservation_id])
+}
+
+model courier_positions {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courier_id     String   @db.Uuid
+  reservation_id String?  @db.Uuid
+  lat            Float
+  lng            Float
+  recorded_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  couriers     couriers      @relation(fields: [courier_id], references: [id], onDelete: Cascade)
+  reservations reservations? @relation(fields: [reservation_id], references: [id], onDelete: SetNull)
+
+  @@index([reservation_id, recorded_at(sort: Desc)], map: "courier_positions_res_time")
+}
+
+// ============================================================================
+// PRATICIENS & RENDEZ-VOUS
+// ============================================================================
+
+model practitioner_specialties {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code              String            @unique
+  label_fr          String
+  label_en          String
+  label_ar          String
+  practitioner_type practitioner_type @default(doctor)
+  keywords          String[]          @default([])
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+
+  practitioners practitioners[]
+}
+
+model practitioners {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String?             @unique @db.Uuid
+  claim_email      String?
+  type             practitioner_type
+  full_name        String
+  specialty_code   String
+  license_number   String?
+  phone            String?
+  address          String?
+  city             String?
+  lat              Float?
+  lng              Float?
+  opening_hours    Json?
+  home_visits      Boolean             @default(false)
+  consultation_fee Float?
+  is_available     Boolean             @default(true)
+  status           practitioner_status @default(pending)
+  bio              String?
+  created_at       DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user                     users?                   @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  practitioner_specialties practitioner_specialties @relation(fields: [specialty_code], references: [code])
+  appointments             appointments[]
+
+  @@index([status])
+}
+
+model appointments {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id           String             @db.Uuid
+  practitioner_id      String             @db.Uuid
+  reason               String
+  symptoms             String?
+  triage               Json?
+  at_home              Boolean            @default(false)
+  requested_at         DateTime           @default(now()) @db.Timestamptz(6)
+  scheduled_at         DateTime?          @db.Timestamptz(6)
+  proposed_at          DateTime?          @db.Timestamptz(6)
+  patient_address      String?
+  patient_lat          Float?
+  patient_lng          Float?
+  patient_phone        String?
+  status               appointment_status @default(requested)
+  practitioner_notes   String?
+  report               String?
+  rejection_reason     String?
+  completed_at         DateTime?          @db.Timestamptz(6)
+  prescribed_items     Json               @default("[]")
+  reminders_sent       Json               @default("{}")
+  patient_ack_at       DateTime?          @db.Timestamptz(6)
+  patient_completed_at DateTime?          @db.Timestamptz(6)
+  last_reminder_at     DateTime?          @db.Timestamptz(6)
+  reminder_count       Int                @default(0)
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz(6)
+
+  patient       users         @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  practitioners practitioners @relation(fields: [practitioner_id], references: [id], onDelete: Cascade)
+
+  @@index([patient_id])
+  @@index([practitioner_id])
+  @@index([status, scheduled_at])
+}
+
+// ============================================================================
+// NOTIFICATIONS, PUSH, AUDIT, AVIS
+// ============================================================================
+
+model notifications {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  type       String
+  title      String    @default("")
+  body       String    @default("")
+  data       Json      @default("{}")
+  read_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at(sort: Desc)])
+}
+
+model device_tokens {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  token      String   @unique
+  platform   String   @default("web")
+  language   String   @default("fr")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+model audit_logs {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_user_id String?  @db.Uuid
+  action        String
+  entity        String
+  entity_id     String?  @db.Uuid
+  meta          Json?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  actor users? @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
+
+  @@index([entity, entity_id])
+  @@index([action, created_at(sort: Desc)])
+}
+
+model feedback {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String?  @db.Uuid
+  reservation_id String?  @db.Uuid
+  pharmacy_id    String?  @db.Uuid
+  phone          String
+  rating         Int
+  comment        String?
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user         users?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  reservations reservations? @relation(fields: [reservation_id], references: [id], onDelete: SetNull)
+  pharmacies   pharmacies?   @relation(fields: [pharmacy_id], references: [id], onDelete: SetNull)
+
+  @@index([phone], map: "idx_feedback_phone")
+  @@index([pharmacy_id], map: "idx_feedback_pharmacy")
+}
+
+// ============================================================================
+// WHATSAPP
+// ============================================================================
+
+model whatsapp_sessions {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wa_phone        String    @unique
+  wa_name         String?
+  user_id         String?   @db.Uuid
+  language        String    @default("fr")
+  state           String    @default("idle")
+  context         Json      @default("{}")
+  last_message_at DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user users? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+}
+
+model whatsapp_events {
+  message_id String   @id
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model whatsapp_templates {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String
+  lang       String
+  body       String
+  updated_by String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  editor users? @relation(fields: [updated_by], references: [id], onDelete: SetNull)
+
+  @@unique([key, lang])
+}
