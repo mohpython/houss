@@ -1,0 +1,4 @@
+tags:
+  integration:
+    # Tests qui interrogent un vrai serveur SAHA Santé.
+    # Ils se contentent de s'ignorer si aucun serveur n'est joignable.
