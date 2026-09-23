@@ -14,12 +14,12 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "db:studio": "prisma studio",
-    "admin:create": "tsx scripts/create-admin.ts",
+    "admin:create": "tsx --env-file-if-exists=.env scripts/create-admin.ts",
     "postinstall": "prisma generate",
     "db:import-supabase": "bash scripts/migrate-from-supabase.sh",
-    "storage:import-supabase": "tsx scripts/migrate-storage-from-supabase.ts",
+    "storage:import-supabase": "tsx --env-file-if-exists=.env scripts/migrate-storage-from-supabase.ts",
     "cap:prepare": "node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').writeFileSync('dist/index.html','<!doctype html><meta charset=utf-8><title>SAHA Sant\u00e9</title>')\""
   },
   "dependencies": {
@@ -117,6 +117,6 @@
     "vite": "^8.0.16"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx --env-file-if-exists=.env prisma/seed.ts"
   }
 }

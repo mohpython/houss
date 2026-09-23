@@ -19,6 +19,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiRealtimeRouteImport } from './routes/api/realtime'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 import { Route as ApiStorageUploadRouteImport } from './routes/api/storage/upload'
 import { Route as ApiStorageSplatRouteImport } from './routes/api/storage/$'
 import { Route as AuthenticatedAppScanRouteImport } from './routes/_authenticated/app/scan'
@@ -104,6 +105,11 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
+  id: '/api/v1/$',
+  path: '/api/v1/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStorageUploadRoute = ApiStorageUploadRouteImport.update({
   id: '/api/storage/upload',
@@ -329,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -376,6 +383,7 @@ export interface FileRoutesByTo {
   '/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -425,6 +433,7 @@ export interface FileRoutesById {
   '/_authenticated/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/_authenticated/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -474,6 +483,7 @@ export interface FileRouteTypes {
     | '/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
+    | '/api/v1/$'
     | '/app/'
     | '/app/admin/appointments'
     | '/app/admin/couriers'
@@ -521,6 +531,7 @@ export interface FileRouteTypes {
     | '/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
+    | '/api/v1/$'
     | '/app'
     | '/app/admin/appointments'
     | '/app/admin/couriers'
@@ -569,6 +580,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
+    | '/api/v1/$'
     | '/_authenticated/app/'
     | '/_authenticated/app/admin/appointments'
     | '/_authenticated/app/admin/couriers'
@@ -616,6 +628,7 @@ export interface RootRouteChildren {
   ApiRealtimeRoute: typeof ApiRealtimeRoute
   ApiStorageSplatRoute: typeof ApiStorageSplatRoute
   ApiStorageUploadRoute: typeof ApiStorageUploadRoute
+  ApiV1SplatRoute: typeof ApiV1SplatRoute
   ApiAuthGoogleCallbackRoute: typeof ApiAuthGoogleCallbackRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
   ApiAuthGoogleIndexRoute: typeof ApiAuthGoogleIndexRoute
@@ -692,6 +705,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/v1/$': {
+      id: '/api/v1/$'
+      path: '/api/v1/$'
+      fullPath: '/api/v1/$'
+      preLoaderRoute: typeof ApiV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/storage/upload': {
       id: '/api/storage/upload'
@@ -1050,6 +1070,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRealtimeRoute: ApiRealtimeRoute,
   ApiStorageSplatRoute: ApiStorageSplatRoute,
   ApiStorageUploadRoute: ApiStorageUploadRoute,
+  ApiV1SplatRoute: ApiV1SplatRoute,
   ApiAuthGoogleCallbackRoute: ApiAuthGoogleCallbackRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
   ApiAuthGoogleIndexRoute: ApiAuthGoogleIndexRoute,

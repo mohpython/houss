@@ -91,3 +91,63 @@ export async function extractOtcFromImage(dataUrl: string) {
 
   return { isMedicine: output.is_medicine && medicines.length > 0, medicines };
 }
+
+/**
+ * Commande de médicaments sans ordonnance : on crée une « ordonnance » interne
+ * (source `otc`) puis on réutilise le routage / paiement / livraison habituel.
+ * Partagé par le site web et l'API mobile.
+ */
+export async function createOtcOrderCore(
+  userId: string,
+  input: {
+    medicines: string[];
+    lat?: number | null;
+    lng?: number | null;
+    address?: string | null;
+    neighborhoodId?: string | null;
+    source?: string;
+  },
+) {
+  const { prisma } = await import("@/server/db.server");
+  const { toDateOnly } = await import("@/server/serialize");
+  const { autoRouteCore, resolveDeliveryTarget } = await import("./routing-core.server");
+
+  const target = await resolveDeliveryTarget({
+    lat: input.lat ?? null,
+    lng: input.lng ?? null,
+    address: input.address ?? null,
+    neighborhoodId: input.neighborhoodId ?? null,
+  });
+
+  const rx = await prisma.prescriptions.create({
+    data: {
+      patient_id: userId,
+      file_path: "otc",
+      file_mime: "text/plain",
+      source: "otc",
+      status: "verified",
+      prescription_date: toDateOnly(new Date().toISOString().slice(0, 10)),
+      date_source: "manual",
+    },
+    select: { id: true },
+  });
+
+  await prisma.prescription_items.createMany({
+    data: input.medicines.map((name) => ({
+      prescription_id: rx.id,
+      medicine_name_raw: name,
+      patient_verified: true,
+    })),
+  });
+
+  return autoRouteCore({
+    prescriptionId: rx.id,
+    patientId: userId,
+    patientLat: target.lat,
+    patientLng: target.lng,
+    patientAddress: target.address,
+    neighborhoodId: target.neighborhoodId,
+    deliveryMode: target.deliveryMode,
+    source: input.source ?? "otc",
+  });
+}

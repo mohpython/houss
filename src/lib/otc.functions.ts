@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAuth } from "@/integrations/auth/middleware";
-import { toDateOnly, toPlain } from "@/server/serialize";
+import { toPlain } from "@/server/serialize";
 
 /**
  * Over-the-counter order: the patient types medicine names (paracétamol,
@@ -22,55 +22,16 @@ export const createOtcOrder = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context;
-    const today = new Date().toISOString().slice(0, 10);
-    const { prisma } = await import("@/server/db.server");
-    const { autoRouteCore, resolveDeliveryTarget } = await import("./routing-core.server");
-    const target = await resolveDeliveryTarget({
-      lat: data.lat,
-      lng: data.lng,
-      address: data.address,
-      neighborhoodId: data.neighborhoodId,
-    });
-
-    let rx: { id: string };
-    try {
-      rx = await prisma.prescriptions.create({
-        data: {
-          patient_id: userId,
-          file_path: "otc",
-          file_mime: "text/plain",
-          source: "otc",
-          status: "verified",
-          prescription_date: toDateOnly(today),
-          date_source: "manual",
-        },
-        select: { id: true },
-      });
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : "Impossible de créer la commande");
-    }
-
-    await prisma.prescription_items.createMany({
-      data: data.medicines.map((name) => ({
-        prescription_id: rx.id,
-        medicine_name_raw: name,
-        patient_verified: true,
-      })),
-    });
-
-    const result = await autoRouteCore({
-      prescriptionId: rx.id,
-      patientId: userId,
-      patientLat: target.lat,
-      patientLng: target.lng,
-      patientAddress: target.address,
-      neighborhoodId: target.neighborhoodId,
-      deliveryMode: target.deliveryMode,
-      source: "otc",
-    });
-
-    return toPlain(result);
+    const { createOtcOrderCore } = await import("./otc-core.server");
+    return toPlain(
+      await createOtcOrderCore(context.userId, {
+        medicines: data.medicines,
+        lat: data.lat,
+        lng: data.lng,
+        address: data.address,
+        neighborhoodId: data.neighborhoodId,
+      }),
+    );
   });
 
 /** Identify medicine names from a photo of the box / blister (AI vision). */

@@ -20,7 +20,7 @@ L'application comprend aussi :
 | Temps réel | Server-Sent Events (`/api/realtime`) |
 | Tâches planifiées | Dans le processus Node (`src/server/scheduler.server.ts`) |
 | IA | Toute API compatible OpenAI : OpenRouter, Google AI Studio… (`src/server/ai.server.ts`) |
-| Mobile | Capacitor (Android), qui affiche le site en ligne |
+| Mobile | Application Flutter (`../App-mobile`) branchée sur l'API REST `/api/v1`, et emballage Capacitor du site |
 
 Organisation du code :
 
@@ -28,7 +28,7 @@ Organisation du code :
 prisma/            schéma, migrations, seed (spécialités, quartiers)
 src/server/        modules serveur : Prisma, auth, droits d'accès, stockage, temps réel, hooks métier
 src/lib/           server functions (*.functions.ts) appelées par les pages
-src/routes/        pages et routes API (api/realtime, api/storage, api/auth/google, webhook WhatsApp)
+src/routes/        pages et routes API (api/v1 pour l'app mobile, api/realtime, api/storage, api/auth/google, webhook WhatsApp)
 src/integrations/  clients navigateur : auth, temps réel, upload
 deploy/            installation du VPS, déploiement, sauvegardes, Nginx
 scripts/           création d'un admin, import des données Supabase
@@ -66,6 +66,28 @@ Commandes utiles :
 | `npm run build && npm start` | Build de production et démarrage |
 | `npx prisma studio` | Explorer la base |
 | `npx prisma migrate dev --name xxx` | Créer une migration après avoir modifié `schema.prisma` |
+
+## API mobile (`/api/v1`)
+
+L'application Flutter utilise une API REST servie par le même serveur :
+`src/server/api-v1.server.ts` (routage) et `src/routes/api/v1/$.ts` (point d'entrée).
+Authentification par jeton : `Authorization: Bearer <access_token>` obtenu via
+`POST /api/v1/auth/login`. Les droits d'accès sont ceux du site (mêmes helpers).
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| POST | `/api/v1/auth/register`, `/auth/login`, `/auth/logout` | comptes (email + mot de passe) |
+| GET / PUT | `/api/v1/me` | profil de l'utilisateur connecté |
+| GET / POST | `/api/v1/prescriptions` | liste et envoi d'une photo d'ordonnance (lecture IA) |
+| GET | `/api/v1/prescriptions/:id` | détail + lien signé vers la photo |
+| GET | `/api/v1/reservations`, `/reservations/:id` | commandes |
+| POST | `/api/v1/reservations/route` | envoi à la pharmacie la plus proche |
+| POST | `/api/v1/reservations/:id/fulfillment`, `/pay`, `/cancel` | retrait ou livraison, paiement, annulation |
+| GET | `/api/v1/pharmacies`, `/practitioners`, `/neighborhoods` | annuaires |
+| POST | `/api/v1/health/triage` | triage IA des symptômes |
+| GET / POST | `/api/v1/appointments` | rendez-vous (+ `/:id/cancel`) |
+| GET / POST | `/api/v1/otc/suggestions`, `/otc/order` | médicaments sans ordonnance |
+| GET / POST | `/api/v1/notifications`, `/notifications/read`, `/devices` | notifications et jetons push |
 
 ## Mise en production
 

@@ -140,7 +140,21 @@ Connectez-vous ensuite sur `https://VOTRE_DOMAINE/auth`. Le menu **Admin** appar
    ```
 5. Relancez `pm2 reload saha`.
 
-## 8. Sauvegardes (à ne pas oublier)
+## 8. Application mobile
+
+L'application Flutter (`../App-mobile`) se connecte au même serveur via
+`https://VOTRE_DOMAINE/api/v1`. Après le déploiement, compilez-la avec l'adresse
+de production :
+
+```bash
+cd ../App-mobile
+flutter build apk --release --dart-define=API_BASE_URL=https://sahasantemali.com
+```
+
+Aucune configuration supplémentaire n'est nécessaire côté serveur : l'API est
+servie par le même processus Node et protégée par les mêmes règles d'accès.
+
+## 9. Sauvegardes (à ne pas oublier)
 
 ```bash
 crontab -e
@@ -150,7 +164,7 @@ crontab -e
 
 Chaque nuit, une copie de la base et des ordonnances est enregistrée dans `/var/backups/saha`, avec 14 jours d'historique. Copiez régulièrement ce dossier **hors du VPS**. Vous pouvez aussi activer les sauvegardes automatiques du VPS dans le hPanel.
 
-## 9. Mettre à jour le site
+## 10. Mettre à jour le site
 
 ```bash
 cd /var/www/saha
