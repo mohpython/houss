@@ -1,0 +1,25 @@
+# Règles communes aux deux projets.
+# Chaque dossier garde en plus son propre .gitignore.
+
+.DS_Store
+*.log
+
+# Secrets et configuration locale
+.env
+.env.*
+!.env.example
+
+# Dépendances et artefacts de build
+node_modules/
+.output/
+dist/
+build/
+.dart_tool/
+
+# Fichiers téléversés (ordonnances) — jamais dans le dépôt
+storage/
+
+# Éditeurs
+.idea/
+.vscode/
+*.iml
