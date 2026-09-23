@@ -182,6 +182,22 @@ async function updateProfile(ctx: Ctx) {
     }),
   );
   const profile = await prisma.profiles.update({ where: { id: userId }, data });
+  // Le téléphone et le nom vivent aussi sur le compte (utilisés à la connexion
+  // et dans les notifications) : on garde les deux synchronisés.
+  const userPatch: { phone?: string; raw_user_meta_data?: object } = {};
+  if (data.phone !== undefined && data.phone !== "") {
+    const taken = await basePrisma.users.findFirst({
+      where: { phone: data.phone, id: { not: userId } },
+      select: { id: true },
+    });
+    if (!taken) userPatch.phone = data.phone;
+  }
+  if (data.full_name !== undefined) {
+    userPatch.raw_user_meta_data = { full_name: data.full_name };
+  }
+  if (Object.keys(userPatch).length > 0) {
+    await basePrisma.users.update({ where: { id: userId }, data: userPatch });
+  }
   return json({ profile: toPlain(profile) });
 }
 
@@ -304,6 +320,7 @@ const RESERVATION_SELECT = {
   delivery_status: true,
   payment_status: true,
   payment_method: true,
+  payment_reference: true,
   fulfillment_method: true,
   is_partial: true,
   missing_items: true,
@@ -381,6 +398,12 @@ async function getReservation(ctx: Ctx) {
     }
   }
   const { patient_id, pharmacy_id, courier_id, ...rest } = row;
+  // Les codes de retrait / réception n'appartiennent qu'au patient : la
+  // pharmacie et le livreur ne doivent pas pouvoir les lire.
+  if (!access.isPatient && !access.isAdmin) {
+    rest.pickup_code = null;
+    rest.receipt_code = null;
+  }
   return json({ reservation: toPlain(rest), courier: toPlain(courier) });
 }
 
@@ -623,7 +646,19 @@ async function triage(ctx: Ctx) {
       homeVisitOnly: data.home_visits ?? false,
     });
   }
-  return json({ triage: result, practitioners: toPlain(practitioners) });
+  return json({
+    triage: result,
+    practitioners: toPlain(practitioners),
+    specialties: toPlain(
+      specs.map((s) => ({
+        code: s.code,
+        label_fr: s.label_fr,
+        label_en: s.label_en,
+        label_ar: s.label_ar,
+        practitioner_type: s.practitioner_type,
+      })),
+    ),
+  });
 }
 
 async function listAppointments(ctx: Ctx) {
