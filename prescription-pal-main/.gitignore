@@ -36,3 +36,6 @@ dist-ssr
 /storage
 .env.*
 !.env.example
+
+# Reference d'evaluation : contient des ordonnances de patients, jamais versionnee
+/eval/*.json

@@ -171,6 +171,65 @@ cd /var/www/saha
 bash deploy/deploy.sh     # git pull + build + migrations + redémarrage
 ```
 
+### 10.1 Règle absolue : ne jamais écraser `/var/www/saha/storage`
+
+`STORAGE_DIR` vaut `/var/www/saha/storage` : **les ordonnances des patients sont
+dans le dossier de l'application**. Un déploiement qui fait
+`find . -mindepth 1 -maxdepth 1 ! -name .env -exec rm -rf {} +` avant d'extraire
+la nouvelle version supprime ces fichiers, et le tar envoyé depuis le poste de
+développement n'en contient qu'une copie **partielle** (les uploads du serveur
+n'existent que là). Conséquence : perte silencieuse de photos d'ordonnances.
+
+Le script `deploy-saha.sh` évite ce piège :
+
+1. il construit la nouvelle version dans `/var/www/saha.stage-<horodatage>`
+   (dépendances, build et migrations y ont lieu) ;
+2. le stockage est recopié **depuis le serveur**, jamais depuis le tar ;
+3. la bascule se fait en une seule opération (`mv`), donc une coupure de
+   connexion ne peut plus laisser l'application à moitié déployée.
+
+Trois garde-fous supplémentaires (ajoutés après l'incident du 30/09) :
+
+- **`pipefail`** avant le build : un `npm run build 2>&1 | tail` précédent
+  masquait l'échec du build (`echo` sortait 0), `set -e` ne s'arrêtait pas et
+  la bascule installait un bundle cassé → 502 sur tout le site. En cas d'échec
+  le script **s'arrête avant la bascule** et l'ancienne version reste en place.
+- **contrôle du bundle** : pas de bascule si `.output/server/index.mjs` n'existe
+  pas.
+- **contrôles HTTP après bascule** : toute URL en 5xx est signalée avec les
+  dernières lignes du journal pm2 (le déploiement finit quand même, mais ne
+  renvoie pas un faux « OK »).
+
+Relancez-le **détaché** pour qu'une coupure SSH ne l'interrompe pas :
+
+```bash
+setsid nohup bash /tmp/deploy-saha.sh > /tmp/deploy.log 2>&1 < /dev/null &
+tail -f /tmp/deploy.log
+```
+
+### 10.2 Incident « fichiers d'ordonnance perdus » (30/09)
+
+Les déploiements antérieurs au script atomique effaçaient `storage/` avant
+d'extraire le tar : **12 ordonnances sur 20 pointaient vers un fichier absent**
+du disque. Récupération :
+
+- la sauvegarde nocturne (`/var/backups/saha/storage_*.tar.gz`, script
+  `deploy/backup.sh`) contenait les uploads des jours précédents → **8 fichiers
+  restaurés** (`cp` des seuls fichiers manquants, rien n'a été écrasé) ;
+- 1 ordonnance reste orpheline (`bb6e7fbd`, upload après la dernière
+  sauvegarde nocturne, statut `processing`) — **irrécupérable**, aucune
+  sauvegarde ne la contient.
+
+Procédure de restauration (si cela devait se reproduire) :
+`/tmp/restore-storage.sh` sur le serveur (extraction de la sauvegarde, copie
+des seuls fichiers manquants, vérification base ↔ disque). L'état précédant la
+restauration est conservé dans `/var/www/saha.storage.bak-<horodatage>`.
+
+> 💡 Amélioration recommandée : déplacer `STORAGE_DIR` **hors** du dossier de
+> l'application (`/var/www/saha-storage`), puis faire un lien symbolique
+> `storage -> /var/www/saha-storage`. Les données des patients deviennent alors
+> insensibles à toute opération sur `/var/www/saha`.
+
 ## Commandes utiles
 
 | Action | Commande |
@@ -189,4 +248,5 @@ bash deploy/deploy.sh     # git pull + build + migrations + redémarrage
 | Les notifications n'arrivent pas en direct | Nginx doit utiliser `deploy/nginx/saha.conf` (bloc `/api/realtime` avec `proxy_buffering off`). |
 | « AI_API_KEY manquant » lors d'un scan | `AI_API_KEY` n'est pas renseignée dans `.env`. Complétez-la puis lancez `pm2 reload saha --update-env`. |
 | Photo trop lourde refusée | La limite est de 15 Mo côté application et de 20 Mo dans Nginx (`client_max_body_size`). |
+| `500` sur toutes les URL après un déploiement interrompu | Le script a été tué entre l'effacement et l'extraction. Relancer `deploy-saha.sh` (atomique) : les ordonnances sont restaurées depuis la sauvegarde la plus récente. |
 | Connexion Google : `redirect_uri_mismatch` | L'URI déclarée chez Google doit être exactement `APP_URL` suivie de `/api/auth/google/callback`. |
