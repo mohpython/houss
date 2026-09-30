@@ -89,6 +89,85 @@ class AuthService extends ChangeNotifier {
     await _apply(data);
   }
 
+  /// Connexion avec un jeton d'identité Google (vérifié par le serveur).
+  Future<void> signInWithGoogle(String idToken) async {
+    final data = await api.post('/auth/google', {'id_token': idToken});
+    await _apply(data);
+  }
+
+  /// Connexion avec un access token Google : le serveur échange le jeton contre
+  /// le profil via userinfo (repli quand Google refuse l'ID token faute de
+  /// registration Android).
+  Future<void> signInWithGoogleAccessToken(String accessToken) async {
+    final data = await api.post('/auth/google', {'access_token': accessToken});
+    await _apply(data);
+  }
+
+  /// ID client OAuth Google fourni par le serveur ; `null` si non configuré.
+  Future<String?> googleClientId() async {
+    try {
+      final data = await api.get('/auth/google/client-config');
+      final id = data['client_id'] as String?;
+      return (id == null || id.isEmpty) ? null : id;
+    } on ApiException {
+      return null;
+    }
+  }
+
+  /// Termine une connexion Google initiée depuis le site web (lien profond
+  /// `sahasantemali://auth?access_token=…`). Le jeton a été émis par le site
+  /// (client web enregistré) ; on récupère le profil via `/me`.
+  Future<void> applySessionToken(String accessToken) async {
+    _token = accessToken;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, accessToken);
+    try {
+      final data = await api.get('/me');
+      _user = AppUser.fromJson(
+        data['user'] as Map<String, dynamic>,
+        roles: ((data['roles'] as List?) ?? const []).cast<String>(),
+      );
+    } on ApiException catch (e) {
+      if (e.isUnauthorized) {
+        _token = null;
+        await prefs.remove(_tokenKey);
+      }
+      rethrow;
+    }
+    _loading = false;
+    notifyListeners();
+  }
+
+  /// Traite un lien profond `sahasantemali://auth?access_token=…` renvoyé par
+  /// le site web après la connexion Google. Retourne `true` si la session a
+  /// été appliquée.
+  Future<bool> handleAuthUri(Uri uri) async {
+    if (uri.scheme != 'sahasantemali' || uri.host != 'auth') return false;
+    final token = uri.queryParameters['access_token'];
+    if (token == null || token.isEmpty) return false;
+    try {
+      await applySessionToken(token);
+      return true;
+    } on ApiException catch (e) {
+      debugPrint('auth-deeplink: session rejetée (${e.message})');
+      return false;
+    }
+  }
+
+  /// Envoie un code OTP SMS vers le téléphone (connexion ou création de compte).
+  Future<void> sendOtp(String phone) async {
+    await api.post('/auth/otp/send', {'phone': phone.trim()});
+  }
+
+  /// Vérifie le code OTP et ouvre (ou crée) la session.
+  Future<void> verifyOtp(String phone, String code) async {
+    final data = await api.post(
+      '/auth/otp/verify',
+      {'phone': phone.trim(), 'code': code.trim()},
+    );
+    await _apply(data);
+  }
+
   Future<void> register({
     required String email,
     required String password,

@@ -276,4 +276,201 @@ class ApiService {
     });
     await AuthService.instance.refreshUser();
   }
+
+  // --- Espace pharmacie -----------------------------------------------------
+
+  /// Tableau de bord : `{ pharmacy, stats: { stock, low_stock, orders } }`.
+  Future<Map<String, dynamic>> pharmacyMe() => _api.get('/pharmacy/me');
+
+  /// Commandes reçues : `{ rows, rxUrls }` (URL signées des ordonnances).
+  Future<Map<String, dynamic>> pharmacyOrders() => _api.get('/pharmacy/orders');
+
+  /// Décision sur une commande (accepted / rejected / ready / completed /
+  /// cancelled) et/ou vérification du paiement (verify / reject).
+  Future<void> pharmacyDecision(
+    String reservationId, {
+    String? decision,
+    String? payment,
+  }) async {
+    await _api.post('/pharmacy/orders/$reservationId', {
+      if (decision != null) 'decision': decision,
+      if (payment != null) 'payment': payment,
+    });
+  }
+
+  /// Assigne le livreur en ligne le plus proche à la commande.
+  Future<void> pharmacyAssignCourier(String reservationId) async {
+    await _api.post('/pharmacy/orders/$reservationId/assign');
+  }
+
+  /// Stock : `{ pharmacy, rows }`.
+  Future<Map<String, dynamic>> pharmacyInventory() => _api.get('/pharmacy/inventory');
+
+  /// Ajoute ou remplace une ligne de stock (le médicament doit exister dans
+  /// le catalogue, sauf pour un administrateur).
+  Future<void> pharmacyAddStock({
+    required String name,
+    required int stock,
+    double? price,
+    String? strength,
+    String? generic,
+  }) async {
+    await _api.post('/pharmacy/inventory', {
+      'name': name,
+      'stock': stock,
+      'price': price,
+      if (strength != null && strength.isNotEmpty) 'strength': strength,
+      if (generic != null && generic.isNotEmpty) 'generic': generic,
+    });
+  }
+
+  Future<void> pharmacyUpdateStock(
+    String inventoryId, {
+    int? stockQty,
+    double? price,
+  }) async {
+    await _api.put('/pharmacy/inventory/$inventoryId', {
+      if (stockQty != null) 'stock_qty': stockQty,
+      if (price != null) 'price': price,
+    });
+  }
+
+  Future<void> pharmacyDeleteStock(String inventoryId) async {
+    await _api.delete('/pharmacy/inventory/$inventoryId');
+  }
+
+  // --- Espace livreur -------------------------------------------------------
+
+  /// `{ courier, deliveries, done }` — `courier` null sans profil livreur.
+  Future<Map<String, dynamic>> courierMe() => _api.get('/courier/me');
+
+  Future<void> courierSetOnline(bool online, {double? lat, double? lng}) async {
+    await _api.post('/courier/online', {
+      'online': online,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+    });
+  }
+
+  Future<void> courierPosition({double? lat, double? lng, String? reservationId}) async {
+    if (lat == null || lng == null) return;
+    await _api.post('/courier/position', {
+      'lat': lat,
+      'lng': lng,
+      if (reservationId != null) 'reservation_id': reservationId,
+    });
+  }
+
+  Future<void> courierDeliveryStatus(String reservationId, String status) async {
+    await _api.post('/courier/deliveries/$reservationId/status', {'status': status});
+  }
+
+  // --- Espace praticien -----------------------------------------------------
+
+  /// `{ me, appointments, counts }`.
+  Future<Map<String, dynamic>> practitionerDashboard() => _api.get('/practitioner/dashboard');
+
+  Future<void> practitionerRespond(
+    String appointmentId, {
+    String? action,
+    String? at,
+    String? reason,
+    String? notes,
+    bool complete = false,
+  }) async {
+    await _api.post('/practitioner/appointments/$appointmentId', {
+      if (action != null) 'action': action,
+      if (at != null) 'at': at,
+      if (reason != null) 'reason': reason,
+      if (notes != null) 'notes': notes,
+      if (complete) 'complete': true,
+    });
+  }
+
+  // --- Administration -------------------------------------------------------
+
+  /// `{ pharmacies, counts }`.
+  Future<Map<String, dynamic>> adminOverview() => _api.get('/admin/overview');
+
+  Future<List<Map<String, dynamic>>> adminUsers() async {
+    final data = await _api.get('/admin/users');
+    return ((data['users'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> adminCouriers() async {
+    final data = await _api.get('/admin/couriers');
+    return ((data['couriers'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  /// Décision admin sur une pharmacie. Renvoie la réponse serveur, dont
+  /// `account: { email, password }` quand un compte vient d'être créé.
+  Future<Map<String, dynamic>> adminPharmacyDecision(
+    String pharmacyId,
+    String decision,
+  ) {
+    return _api.post('/admin/pharmacies/$pharmacyId', {'decision': decision});
+  }
+
+  Future<void> adminCourierDecision(String courierId, String decision) async {
+    await _api.post('/admin/couriers/$courierId', {'decision': decision});
+  }
+
+  // --- Carte des pharmacies (Google Maps) -----------------------------------
+
+  /// Pharmacies partenaires autour d'une position :
+  /// `{ pharmacies, without_location, center, radius_km }`.
+  Future<Map<String, dynamic>> adminPharmaciesNearby({
+    required double lat,
+    required double lng,
+    double radiusKm = 5,
+  }) =>
+      _api.get('/admin/pharmacies/nearby', query: {
+        'lat': lat,
+        'lng': lng,
+        'radius': radiusKm,
+      });
+
+  /// Toutes les pharmacies autour d'une position (Google Places) ;
+  /// `local_pharmacy_id` non nul quand la pharmacie est déjà partenaire.
+  Future<List<Map<String, dynamic>>> adminPharmaciesPlaces({
+    required double lat,
+    required double lng,
+    double radiusKm = 5,
+    String? query,
+  }) async {
+    final data = await _api.post('/admin/pharmacies/places', {
+      'lat': lat,
+      'lng': lng,
+      'radius_m': (radiusKm * 1000).round(),
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+    });
+    return ((data['places'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  /// Ajoute une pharmacie repérée sur la carte comme partenaire
+  /// (l'emplacement lat/lng est obligatoire). Renvoie `{ id, created,
+  /// account }` — `account: { email, password }` quand un compte vient
+  /// d'être créé pour la pharmacie.
+  Future<Map<String, dynamic>> adminAddPartnerPharmacy({
+    required String name,
+    required String address,
+    required double lat,
+    required double lng,
+    String? city,
+    String? phone,
+    String? placeId,
+    double? rating,
+  }) async {
+    final data = await _api.post('/admin/pharmacies', {
+      'name': name,
+      'address': address,
+      'lat': lat,
+      'lng': lng,
+      if (city != null && city.trim().isNotEmpty) 'city': city.trim(),
+      if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+      if (placeId != null && placeId.isNotEmpty) 'place_id': placeId,
+      if (rating != null) 'rating': rating,
+    });
+    return data;
+  }
 }

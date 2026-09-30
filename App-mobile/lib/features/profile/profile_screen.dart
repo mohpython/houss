@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/api/api_client.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
+import 'package:saha_sante/core/l10n/language_picker.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
@@ -221,6 +223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     return Scaffold(
       body: Container(
         decoration: AppTheme.subtleGradient,
@@ -313,6 +316,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             onTap: _showNotifications,
                           ),
                           _ProfileTile(
+                            icon: Icons.language,
+                            title: '${L10n.t(context, 'language')} — '
+                                '${AppLocale.instance.current.badge}',
+                            onTap: () => showLanguageSheet(context),
+                          ),
+                          _ProfileTile(
                             icon: Icons.healing,
                             title: 'Consultation & praticiens',
                             onTap: () => context.push('/health'),
@@ -325,7 +334,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 56,
                       child: OutlinedButton(
                         onPressed: _signOut,
-                        child: const Text('Se déconnecter'),
+                        child: Text(L10n.t(context, 'signOut')),
                       ),
                     ),
                     const SizedBox(height: 24),

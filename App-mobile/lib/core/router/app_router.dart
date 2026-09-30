@@ -11,6 +11,7 @@ import 'package:saha_sante/features/profile/profile_screen.dart';
 import 'package:saha_sante/features/reservations/reservations_screen.dart';
 import 'package:saha_sante/features/scan/scan_screen.dart';
 import 'package:saha_sante/features/splash/onboarding_screen.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/features/tracking/tracking_screen.dart';
 
@@ -37,7 +38,9 @@ class AppRouter {
   static GoRouter get router => _instance ??= GoRouter(
         navigatorKey: _rootNavigatorKey,
         initialLocation: '/',
-        refreshListenable: AuthService.instance,
+        // La session (redirections / connexion) ET la langue (reconstruction
+        // de l'écran affiché) déclenchent une reconstruction des routes.
+        refreshListenable: Listenable.merge([AuthService.instance, AppLocale.instance]),
         redirect: (context, state) {
           final auth = AuthService.instance;
           if (auth.isLoading) return null;

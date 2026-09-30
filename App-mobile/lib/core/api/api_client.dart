@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:saha_sante/core/config/app_config.dart';
 
 /// Erreur renvoyée par l'API, avec un message déjà traduit en français.
@@ -64,12 +65,39 @@ class ApiClient {
     );
   }
 
+  Future<Map<String, dynamic>> delete(String path) async {
+    return _send(path, () => http.delete(_uri(path), headers: _headers()));
+  }
+
+  /// Type MIME déduit de l'extension du fichier.
+  ///
+  /// Les photos prises par `image_picker` portent un nom de fichier temporaire
+  /// sans extension : sans type explicite, `http` envoie
+  /// `application/octet-stream` et le serveur refuse le fichier.
+  static MediaType _contentTypeFor(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    const byExt = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'webp': 'image/webp',
+      'heic': 'image/heic',
+      'heif': 'image/heif',
+      'pdf': 'application/pdf',
+    };
+    return MediaType.parse(byExt[ext] ?? 'image/jpeg');
+  }
+
   /// Envoi d'un fichier (photo d'ordonnance) en multipart.
   Future<Map<String, dynamic>> upload(String path, File file, {String field = 'file'}) async {
     return _send(path, () async {
       final request = http.MultipartRequest('POST', _uri(path))
         ..headers.addAll(_headers(json: false))
-        ..files.add(await http.MultipartFile.fromPath(field, file.path));
+        ..files.add(await http.MultipartFile.fromPath(
+          field,
+          file.path,
+          contentType: _contentTypeFor(file.path),
+        ));
       final streamed = await request.send().timeout(_timeout);
       return http.Response.fromStream(streamed);
     });

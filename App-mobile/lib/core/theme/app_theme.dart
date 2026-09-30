@@ -132,7 +132,7 @@ class AppTheme {
 
   static BoxDecoration subtleGradient = const BoxDecoration(
     gradient: RadialGradient(
-      colors: [Color(0xFF1E1B4B), AppColors.background],
+      colors: [Color(0xFF0B3B36), AppColors.background],
       radius: 1.2,
       center: Alignment.topRight,
     ),
