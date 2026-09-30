@@ -184,7 +184,16 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
               final pi = it['prescription_items'] as Map<String, dynamic>?;
               if (pi == null) return const SizedBox.shrink();
               final name = (pi['medicine_name_raw'] as String?) ?? 'Article';
-              final qty = (pi['quantity'] as num?) ?? 1;
+              // `quantity` est un texte libre venant de l'IA (ex. « 2 »,
+              // « 1 comprimé »). Le caster en `num?` plante la carte et vide
+              // l'onglet Commandes : on accepte nombre ou texte libre.
+              final rawQty = pi['quantity'];
+              final parsedQty = rawQty is num ? rawQty : num.tryParse('$rawQty'.trim());
+              final qtyLabel = parsedQty != null
+                  ? (parsedQty == parsedQty.truncateToDouble()
+                      ? '× ${parsedQty.toInt()}'
+                      : '× $parsedQty')
+                  : (rawQty is String && rawQty.trim().isNotEmpty ? rawQty : '× 1');
               final available = it['available'] != false;
               final price = ((it['unit_price'] as num?) ?? (it['price'] as num?)) ?? 0;
               return Padding(
@@ -193,7 +202,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        '$name × $qty${available ? '' : ' — manquant'}',
+                        '$name $qtyLabel${available ? '' : ' — manquant'}',
                         style: available
                             ? const TextStyle(fontSize: 13)
                             : TextStyle(
