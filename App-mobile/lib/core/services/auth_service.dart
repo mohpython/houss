@@ -119,9 +119,14 @@ class AuthService extends ChangeNotifier {
   /// (client web enregistré) ; on récupère le profil via `/me`.
   Future<void> applySessionToken(String accessToken) async {
     _token = accessToken;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, accessToken);
+    // Pendant la récupération du profil, le routeur ne doit pas encore
+    // rediriger vers /app : sans les rôles, PatientMainScreen serait construit
+    // avec la seule interface patient (bug « admin/pharmacie absent tant que
+    // l'app n'est pas relancée »). `isLoading` retient la redirection.
+    _loading = true;
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, accessToken);
       final data = await api.get('/me');
       _user = AppUser.fromJson(
         data['user'] as Map<String, dynamic>,
@@ -130,11 +135,13 @@ class AuthService extends ChangeNotifier {
     } on ApiException catch (e) {
       if (e.isUnauthorized) {
         _token = null;
+        final prefs = await SharedPreferences.getInstance();
         await prefs.remove(_tokenKey);
       }
       rethrow;
+    } finally {
+      _loading = false;
     }
-    _loading = false;
     notifyListeners();
   }
 

@@ -26,10 +26,6 @@ class PatientMainScreen extends StatefulWidget {
 class _PatientMainScreenState extends State<PatientMainScreen> {
   int _currentIndex = 0;
 
-  late final List<Widget> _pages;
-  late final List<IconData> _icons;
-  static late final String _spaceLabelKey;
-
   /// Espace professionnel du compte connecté (priorité : admin > pharmacie >
   /// livreur > praticien).
   static ({Widget page, String labelKey, IconData icon})? _spaceFor(Set<String> roles) {
@@ -64,92 +60,104 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
     return null;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    final roles = (AuthService.instance.user?.roles ?? const <String>[]).toSet();
+  /// Recalcule la barre du bas à partir des rôles **actuels**.
+  ///
+  /// Ne JAMAIS figer ceci dans `initState` : après une connexion Google par
+  /// lien profond, les rôles arrivent via `/me` quelques centaines de ms après
+  /// le jeton. Si l'écran était construit avant, l'onglet admin/pharmacie
+  /// restait invisible jusqu'à un redémarrage (où `restore()` précharge `/me`).
+  ({List<Widget> pages, List<IconData> icons, String spaceLabelKey}) _tabsFor(
+    Set<String> roles,
+  ) {
     final space = _spaceFor(roles);
-
-    _pages = [
-      const HomeScreen(),
-      const ScanScreen(),
-      const TrackingScreen(),
-      if (space != null) space.page,
-      const ProfileScreen(),
-    ];
-    _spaceLabelKey = space?.labelKey ?? '';
-    _icons = [
-      Icons.home,
-      Icons.camera_alt,
-      Icons.local_shipping,
-      if (space != null) space.icon,
-      Icons.person_outline,
-    ];
+    return (
+      pages: [
+        const HomeScreen(),
+        const ScanScreen(),
+        const TrackingScreen(),
+        if (space != null) space.page,
+        const ProfileScreen(),
+      ],
+      icons: [
+        Icons.home,
+        Icons.camera_alt,
+        Icons.local_shipping,
+        if (space != null) space.icon,
+        Icons.person_outline,
+      ],
+      spaceLabelKey: space?.labelKey ?? '',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     L10n.bind(context);
-    if (_currentIndex >= _pages.length) _currentIndex = 0;
-    final count = _pages.length;
-    final labels = [
-      L10n.t(context, 'navHome'),
-      L10n.t(context, 'navScan'),
-      L10n.t(context, 'navTrack'),
-      if (_spaceLabelKey.isNotEmpty) L10n.t(context, _spaceLabelKey),
-      L10n.t(context, 'navProfile'),
-    ];
+    return ListenableBuilder(
+      listenable: AuthService.instance,
+      builder: (context, _) {
+        final roles = (AuthService.instance.user?.roles ?? const <String>[]).toSet();
+        final tabs = _tabsFor(roles);
+        if (_currentIndex >= tabs.pages.length) _currentIndex = tabs.pages.length - 1;
+        final labels = [
+          L10n.t(context, 'navHome'),
+          L10n.t(context, 'navScan'),
+          L10n.t(context, 'navTrack'),
+          if (tabs.spaceLabelKey.isNotEmpty) L10n.t(context, tabs.spaceLabelKey),
+          L10n.t(context, 'navProfile'),
+        ];
 
-    return Scaffold(
-      body: _pages[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(
-            top: BorderSide(color: AppColors.border),
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(count, (index) {
-                final selected = _currentIndex == index;
-                return GestureDetector(
-                  onTap: () => setState(() => _currentIndex = index),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.primary.withAlpha(40) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Icon(
-                          _icons[index],
-                          color: selected ? AppColors.primaryLight : AppColors.textMuted,
-                          size: 22,
-                        ),
+        return Scaffold(
+          body: tabs.pages[_currentIndex],
+          bottomNavigationBar: Container(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(
+                top: BorderSide(color: AppColors.border),
+              ),
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(tabs.pages.length, (index) {
+                    final selected = _currentIndex == index;
+                    return GestureDetector(
+                      onTap: () => setState(() => _currentIndex = index),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: selected ? AppColors.primary.withAlpha(40) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              tabs.icons[index],
+                              color: selected ? AppColors.primaryLight : AppColors.textMuted,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            labels[index],
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: selected ? AppColors.primaryLight : AppColors.textMuted,
+                              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        labels[index],
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: selected ? AppColors.primaryLight : AppColors.textMuted,
-                          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
+                    );
+                  }),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
