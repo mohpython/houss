@@ -17,10 +17,14 @@
     "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "db:studio": "prisma studio",
     "admin:create": "tsx --env-file-if-exists=.env scripts/create-admin.ts",
+    "accounts:demo": "tsx --env-file-if-exists=.env scripts/create-demo-accounts.ts",
+    "medicines:seed": "tsx --env-file-if-exists=.env scripts/seed-medicines.ts",
     "postinstall": "prisma generate",
     "db:import-supabase": "bash scripts/migrate-from-supabase.sh",
     "storage:import-supabase": "tsx --env-file-if-exists=.env scripts/migrate-storage-from-supabase.ts",
-    "cap:prepare": "node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').writeFileSync('dist/index.html','<!doctype html><meta charset=utf-8><title>SAHA Sant\u00e9</title>')\""
+    "eval:golden": "tsx --env-file-if-exists=.env scripts/eval/build-golden.ts",
+    "eval:rx": "tsx --env-file-if-exists=.env scripts/eval/run-eval.ts",
+    "cap:prepare": "node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').writeFileSync('dist/index.html','<!doctype html><meta charset=utf-8><title>SAHA Santé</title>')\""
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.7",
@@ -77,6 +81,8 @@
     "i18next": "^26.3.6",
     "i18next-browser-languagedetector": "^8.2.1",
     "input-otp": "^1.4.2",
+    "jose": "^6.2.12",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.575.0",
     "nodemailer": "^7.0.6",
     "react": "^19.2.0",
@@ -97,6 +103,7 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@types/google.maps": "^3.65.2",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^22.16.5",
     "@types/nodemailer": "^7.0.1",
     "@types/react": "^19.2.0",

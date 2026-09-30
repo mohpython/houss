@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAuth } from "@/integrations/auth/middleware";
+import { encodePolyline } from "@/lib/osmap";
 
 /**
  * Auto-routes a prescription to the closest approved pharmacy that has the most items in stock.
@@ -305,7 +306,8 @@ export const approveCourier = createServerFn({ method: "POST" })
   });
 
 /**
- * Google Directions route between two points, returns encoded polyline + duration/distance.
+ * Itinéraire entre deux points via OSRM public (OpenStreetMap, sans clé),
+ * renvoie la polyline encodée (format Google) + durée/distance.
  */
 export const getDeliveryRoute = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -320,39 +322,29 @@ export const getDeliveryRoute = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!gmapsKey) throw new Error("Google Maps non configuré");
-
-    const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
-      method: "POST",
-      headers: {
-        "X-Goog-Api-Key": gmapsKey,
-        "Content-Type": "application/json",
-        "X-Goog-FieldMask": "routes.polyline.encodedPolyline,routes.duration,routes.distanceMeters",
-      },
-      body: JSON.stringify({
-        origin: { location: { latLng: { latitude: data.originLat, longitude: data.originLng } } },
-        destination: { location: { latLng: { latitude: data.destLat, longitude: data.destLng } } },
-        travelMode: "DRIVE",
-        routingPreference: "TRAFFIC_AWARE",
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Routes API (${res.status}): ${body.slice(0, 200)}`);
-    }
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${data.originLng},${data.originLat},${data.destLng},${data.destLat}` +
+      `?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`OSRM (${res.status})`);
     const payload = (await res.json()) as {
       routes?: Array<{
-        polyline?: { encodedPolyline?: string };
-        duration?: string;
-        distanceMeters?: number;
+        geometry?: { coordinates?: number[][] };
+        duration?: number;
+        distance?: number;
       }>;
     };
     const r = payload.routes?.[0];
+    if (!r?.geometry?.coordinates) {
+      return { polyline: null, durationSeconds: null, distanceMeters: null };
+    }
+    // GeoJSON est en [lng, lat] : on inverse pour obtenir des points lat/lng.
+    const points = r.geometry.coordinates.map((c) => ({ lat: c[1], lng: c[0] }));
     return {
-      polyline: r?.polyline?.encodedPolyline ?? null,
-      durationSeconds: r?.duration ? parseInt(r.duration.replace("s", ""), 10) : null,
-      distanceMeters: r?.distanceMeters ?? null,
+      polyline: encodePolyline(points),
+      durationSeconds: r.duration != null ? Math.round(r.duration) : null,
+      distanceMeters: r.distance != null ? Math.round(r.distance) : null,
     };
   });
 

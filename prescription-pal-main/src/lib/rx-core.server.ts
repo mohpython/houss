@@ -11,7 +11,12 @@ import { prisma } from "@/server/db.server";
 import { readObject } from "@/server/storage.server";
 import { visionModel } from "@/server/ai.server";
 import { toDateOnly } from "@/server/serialize";
-import { catalogHint, linkPrescriptionItemsToCatalog, loadCatalog } from "./medicine-match.server";
+import {
+  catalogHint,
+  linkPrescriptionItemsToCatalog,
+  loadCatalog,
+  type CatalogMed,
+} from "./medicine-match.server";
 
 export const ExtractionSchema = z.object({
   is_prescription: z.boolean(),
@@ -174,6 +179,86 @@ export function classifySeverity(res: {
   return { severity, blocking, reasons };
 }
 
+export type PrescriptionAiOutput = z.infer<typeof ExtractionSchema>;
+
+/**
+ * Cœur pur de l'extraction : octets du fichier → sortie JSON de l'IA.
+ *
+ * Aucun effet de bord — ni base, ni journal, ni fichier. C'est ce qui permet au
+ * harnais d'évaluation (`npm run eval:rx`) de rejouer les mêmes ordonnances et de
+ * comparer deux versions du prompt sans toucher aux données des patients.
+ *
+ * @param catalog Catalogue de médicaments ; chargé depuis la base si omis.
+ *   Passer `null` désactive l'indication de noms (utile pour mesurer l'effet du
+ *   catalogue seul). Passer un instantané figé rend deux exécutions comparables
+ *   même si le catalogue a changé entre-temps.
+ */
+export async function runPrescriptionVisionAi(
+  fileBytes: Buffer,
+  mime: string,
+  catalog?: CatalogMed[] | null,
+): Promise<PrescriptionAiOutput> {
+  const isPdf = mime === "application/pdf";
+
+  // Catalog names help the model spell medicine names consistently run after run.
+  let hint = "";
+  if (catalog === undefined) {
+    try {
+      hint = catalogHint(await loadCatalog());
+    } catch {
+      hint = "";
+    }
+  } else if (catalog) {
+    hint = catalogHint(catalog);
+  }
+
+  const userContent: Array<Record<string, unknown>> = [
+    {
+      type: "text",
+      text:
+        "Extract this prescription. Return JSON only." +
+        (hint
+          ? `\n\nKnown medicine names in our partner pharmacies (use EXACTLY one of these spellings for \"name\" when the handwritten word clearly designates it; put dosage in \"strength\", not in \"name\"; never add form words like cp/comprimé/gélule to \"name\"): ${hint}`
+          : ""),
+    },
+  ];
+  if (isPdf) {
+    userContent.push({
+      type: "file",
+      data: new Uint8Array(fileBytes),
+      mediaType: "application/pdf",
+      filename: "prescription.pdf",
+    });
+  } else {
+    // Part « file » (et non « image ») : le type « image » est déprécié par
+    // l'AI SDK et disparaîtra. Même forme que la branche PDF ci-dessus.
+    userContent.push({
+      type: "file",
+      data: new Uint8Array(fileBytes),
+      mediaType: mime,
+      filename: "prescription",
+    });
+  }
+
+  const { output } = await generateText({
+    model: visionModel(),
+    system: SYSTEM_PROMPT,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: [{ role: "user", content: userContent as any }],
+    output: Output.object({ schema: ExtractionSchema }),
+  });
+
+  // Le modèle renvoie parfois des fractions (0-1) au lieu de pourcentages
+  // (0-100) : on normalise pour ne pas fausser le verdict ("Confiance IA
+  // faible (1%)" sur une extraction correcte) ni rejeter une vraie
+  // ordonnance si authenticity_score arrive sous forme 0-1.
+  if (output.confidence > 0 && output.confidence <= 1) output.confidence *= 100;
+  if (output.authenticity_score > 0 && output.authenticity_score <= 1) {
+    output.authenticity_score *= 100;
+  }
+  return output;
+}
+
 /**
  * Runs the AI extraction on an existing prescription row and persists the
  * results (items, metadata, audit log). Throws a human-readable error when the
@@ -193,48 +278,10 @@ export async function extractPrescriptionCore(
     throw new Error("Impossible d'accéder au fichier");
   }
 
-  const model = visionModel();
-
   await prisma.prescriptions.update({ where: { id: rx.id }, data: { status: "processing" } });
 
-  const isPdf = rx.file_mime === "application/pdf";
-
-  // Catalog names help the model spell medicine names consistently run after run.
-  let hint = "";
   try {
-    hint = catalogHint(await loadCatalog());
-  } catch {
-    hint = "";
-  }
-  const userContent: Array<Record<string, unknown>> = [
-    {
-      type: "text",
-      text:
-        "Extract this prescription. Return JSON only." +
-        (hint
-          ? `\n\nKnown medicine names in our partner pharmacies (use EXACTLY one of these spellings for \"name\" when the handwritten word clearly designates it; put dosage in \"strength\", not in \"name\"; never add form words like cp/comprimé/gélule to \"name\"): ${hint}`
-          : ""),
-    },
-  ];
-  if (isPdf) {
-    userContent.push({
-      type: "file",
-      data: new Uint8Array(fileBytes),
-      mediaType: "application/pdf",
-      filename: "prescription.pdf",
-    });
-  } else {
-    userContent.push({ type: "image", image: new Uint8Array(fileBytes), mediaType: rx.file_mime });
-  }
-
-  try {
-    const { output } = await generateText({
-      model,
-      system: SYSTEM_PROMPT,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      messages: [{ role: "user", content: userContent as any }],
-      output: Output.object({ schema: ExtractionSchema }),
-    });
+    const output = await runPrescriptionVisionAi(fileBytes, rx.file_mime);
 
     if (!output.is_prescription || output.authenticity_score < 50) {
       await prisma.prescriptions.update({

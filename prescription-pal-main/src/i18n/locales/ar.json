@@ -109,6 +109,8 @@
     "authError": "خطأ في المصادقة",
     "googleError": "خطأ Google",
     "connecting": "جارٍ تسجيل الدخول…",
+    "openApp": "افتح SAHA Santé",
+    "openAppHint": "إذا لم يفتح التطبيق، اضغط على الزر أعلاه.",
     "methodEmail": "البريد الإلكتروني",
     "methodPhone": "الهاتف",
     "phone": "رقم الهاتف",

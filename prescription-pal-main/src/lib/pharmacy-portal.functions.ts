@@ -130,6 +130,18 @@ export const createPharmacyApplication = createServerFn({ method: "POST" })
       });
       if (dup) throw new Error("Cette pharmacie est déjà enregistrée.");
     }
+    // Repli de géocodage (Nominatim/OpenStreetMap) si aucune position n'est fournie.
+    let lat = data.lat;
+    let lng = data.lng;
+    if (lat == null || lng == null) {
+      const { nominatimGeocode } = await import("./pharmacy.functions");
+      const query = [data.name, data.address, data.city].filter(Boolean).join(", ");
+      const geo = await nominatimGeocode(query).catch(() => null);
+      if (geo) {
+        lat = geo.lat;
+        lng = geo.lng;
+      }
+    }
     const row = await prisma.pharmacies.create({
       data: {
         owner_user_id: context.userId,
@@ -138,8 +150,8 @@ export const createPharmacyApplication = createServerFn({ method: "POST" })
         address: data.address,
         city: data.city || null,
         phone: data.phone || null,
-        lat: data.lat,
-        lng: data.lng,
+        lat,
+        lng,
         google_place_id: data.google_place_id || null,
         status: "pending",
       },
@@ -192,7 +204,12 @@ export const upsertInventoryItem = createServerFn({ method: "POST" })
     const { assertPharmacyMemberOrAdmin, isAdmin } = await import("@/server/authz.server");
     await assertPharmacyMemberOrAdmin(context.userId, data.pharmacyId);
 
-    const normalized = data.name.trim().toLowerCase();
+    // Minuscules sans accent : correspond aux `normalized_name` du catalogue.
+    const normalized = data.name
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
     const existing = await prisma.medicines.findFirst({
       where: { normalized_name: normalized, strength: data.strength || "" },
       select: { id: true },

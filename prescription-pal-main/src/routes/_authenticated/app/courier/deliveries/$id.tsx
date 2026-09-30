@@ -1,13 +1,13 @@
-/// <reference types="google.maps" />
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import type { Map as LeafletMap } from "leaflet";
 import { getCourierDelivery } from "@/lib/courier.functions";
 import { getDeliveryRoute, updateDeliveryStatus } from "@/lib/delivery.functions";
 import { verifyReceiptCode } from "@/lib/fulfillment.functions";
 import { Input } from "@/components/ui/input";
-import { loadGoogleMaps, decodePolyline } from "@/lib/gmaps";
+import { loadLeaflet, decodePolyline, letterIcon } from "@/lib/osmap";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +63,7 @@ function DeliveryPage() {
   const [d, setD] = useState<Delivery | null>(null);
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<google.maps.Map | null>(null);
+  const mapInstance = useRef<LeafletMap | null>(null);
   const getRoute = useServerFn(getDeliveryRoute);
   const updateStatus = useServerFn(updateDeliveryStatus);
   const verifyReceipt = useServerFn(verifyReceiptCode);
@@ -102,59 +102,63 @@ function DeliveryPage() {
     const hasPatient = !!(d.patient_lat && d.patient_lng);
     if (!hasPharm && !hasPatient) return;
 
-    loadGoogleMaps().then((google) => {
-      const center = hasPharm
-        ? { lat: pharm!.lat!, lng: pharm!.lng! }
-        : { lat: d.patient_lat!, lng: d.patient_lng! };
-      const map = new google.maps.Map(mapRef.current!, {
-        center,
-        zoom: 14,
-        disableDefaultUI: true,
-        zoomControl: true,
-      });
-      mapInstance.current = map;
-      if (hasPharm) {
-        new google.maps.Marker({
-          position: { lat: pharm!.lat!, lng: pharm!.lng! },
-          map,
-          label: "P",
+    loadLeaflet()
+      .then((L) => {
+        const center: [number, number] = hasPharm
+          ? [pharm!.lat!, pharm!.lng!]
+          : [d.patient_lat!, d.patient_lng!];
+        const map = L.map(mapRef.current!, {
+          center,
+          zoom: 14,
+          zoomControl: true,
         });
-      }
-      if (hasPatient) {
-        new google.maps.Marker({
-          position: { lat: d.patient_lat!, lng: d.patient_lng! },
-          map,
-          label: "V",
-        });
-      }
-      if (hasPharm && hasPatient) {
-        const bounds = new google.maps.LatLngBounds();
-        bounds.extend({ lat: pharm!.lat!, lng: pharm!.lng! });
-        bounds.extend({ lat: d.patient_lat!, lng: d.patient_lng! });
-        map.fitBounds(bounds, 60);
+        mapInstance.current = map;
+        // Tuiles OpenStreetMap (sans clé).
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap",
+        }).addTo(map);
+        if (hasPharm) {
+          L.marker([pharm!.lat!, pharm!.lng!], {
+            icon: letterIcon(L, "P", "#2563eb"),
+          }).addTo(map);
+        }
+        if (hasPatient) {
+          L.marker([d.patient_lat!, d.patient_lng!], {
+            icon: letterIcon(L, "V", "#dc2626"),
+          }).addTo(map);
+        }
+        if (hasPharm && hasPatient) {
+          map.fitBounds(
+            L.latLngBounds([
+              [pharm!.lat!, pharm!.lng!],
+              [d.patient_lat!, d.patient_lng!],
+            ]),
+            { padding: [60, 60] },
+          );
 
-        getRoute({
-          data: {
-            originLat: pharm!.lat!,
-            originLng: pharm!.lng!,
-            destLat: d.patient_lat!,
-            destLng: d.patient_lng!,
-          },
-        })
-          .then((r) => {
-            if (r.polyline) {
-              new google.maps.Polyline({
-                path: decodePolyline(r.polyline),
-                strokeColor: "#2563eb",
-                strokeOpacity: 0.85,
-                strokeWeight: 4,
-                map,
-              });
-            }
+          getRoute({
+            data: {
+              originLat: pharm!.lat!,
+              originLng: pharm!.lng!,
+              destLat: d.patient_lat!,
+              destLng: d.patient_lng!,
+            },
           })
-          .catch(() => {});
-      }
-    });
+            .then((r) => {
+              if (r.polyline) {
+                L.polyline(
+                  decodePolyline(r.polyline).map((pt) => L.latLng(pt.lat, pt.lng)),
+                  { color: "#2563eb", opacity: 0.85, weight: 4 },
+                ).addTo(map);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch((e: unknown) =>
+        toast.error(e instanceof Error ? e.message : "Carte indisponible"),
+      );
   }, [d, getRoute]);
 
   const advance = async () => {

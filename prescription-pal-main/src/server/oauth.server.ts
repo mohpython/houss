@@ -21,11 +21,16 @@ export function googleRedirectUri() {
   return `${env.appUrl}/api/auth/google/callback`;
 }
 
-export function buildGoogleAuthUrl(redirectPath: string) {
+export function buildGoogleAuthUrl(redirectPath: string, mobile = false) {
   const nonce = randomBytes(16).toString("base64url");
   const exp = Math.floor(Date.now() / 1000) + 600;
   const payload = Buffer.from(
-    JSON.stringify({ r: safeRedirectPath(redirectPath), n: nonce, e: exp }),
+    JSON.stringify({
+      r: safeRedirectPath(redirectPath),
+      n: nonce,
+      e: exp,
+      ...(mobile ? { m: 1 } : {}),
+    }),
   ).toString("base64url");
   const state = `${payload}.${hmac(payload)}`;
   const params = new URLSearchParams({
@@ -51,13 +56,41 @@ export function parseState(state: string | null, cookieNonce: string | null) {
       r: string;
       n: string;
       e: number;
+      m?: number;
     };
     if (data.e < Math.floor(Date.now() / 1000)) return null;
     if (!cookieNonce || cookieNonce !== data.n) return null;
-    return { redirect: safeRedirectPath(data.r) };
+    return { nonce: data.n, redirect: safeRedirectPath(data.r), mobile: data.m === 1 };
   } catch {
     return null;
   }
+}
+
+/**
+ * Le `code` de Google est à usage unique, or Chrome peut demander le callback
+ * deux fois (double navigation) : sans mémoire, la seconde requête échoue en
+ * 400 et l'utilisateur retombe sur la page d'erreur. On mémorise donc
+ * brièvement la session issue d'un même `state.nonce`.
+ */
+type OAuthSession = { accessToken: string; expiresAt: number };
+const sessionCache = new Map<string, { at: number; session: OAuthSession }>();
+const SESSION_CACHE_TTL_MS = 2 * 60 * 1000;
+
+export function rememberSession(nonce: string, session: OAuthSession) {
+  const now = Date.now();
+  for (const [key, value] of sessionCache) {
+    if (now - value.at > SESSION_CACHE_TTL_MS) sessionCache.delete(key);
+  }
+  sessionCache.set(nonce, { at: now, session });
+}
+
+export function recallSession(nonce: string): OAuthSession | null {
+  const hit = sessionCache.get(nonce);
+  if (!hit) return null;
+  // À usage unique, comme le `code` de Google : la troisième requête échouera
+  // proprement au lieu de resservir le même jeton.
+  sessionCache.delete(nonce);
+  return hit.session;
 }
 
 export type GoogleProfile = {

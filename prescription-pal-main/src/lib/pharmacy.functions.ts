@@ -4,14 +4,63 @@ import { requireAuth } from "@/integrations/auth/middleware";
 import { toPlain } from "@/server/serialize";
 import type { InventoryLine } from "./medicine-match.server";
 
-/** Clé Google Maps (API Places v1), lue côté serveur uniquement. */
-function googleMapsKey(): string {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) throw new Error("Google Maps non configuré");
-  return key;
+/** Clé Google Maps (API Places v1), lue côté serveur uniquement — null si absente (migration OpenStreetMap). */
+function googleMapsKey(): string | null {
+  return process.env.GOOGLE_MAPS_API_KEY ?? null;
 }
 
 const PLACES_API = "https://places.googleapis.com/v1";
+
+// ---------------------------------------------------------------------------
+// Nominatim (OpenStreetMap) — géocodage/recherche sans clé, en secours de Google.
+// ---------------------------------------------------------------------------
+
+const NOMINATIM_HEADERS = {
+  "User-Agent": "SAHA-Sante/1.0",
+  Accept: "application/json",
+};
+
+// Nominatim impose ~1 requête/seconde : on sérialise les appels côté serveur.
+let lastNominatimCall = 0;
+
+async function nominatimFetch(url: string): Promise<Response> {
+  const wait = lastNominatimCall + 1000 - Date.now();
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastNominatimCall = Date.now();
+  return fetch(url, { headers: NOMINATIM_HEADERS });
+}
+
+type NominatimPlace = {
+  osm_type: string;
+  osm_id: number;
+  lat: string;
+  lon: string;
+  display_name: string;
+  name?: string;
+};
+
+/** Identifiant d'origine stable (OSM) utilisé comme place_id de repli. */
+function nominatimPlaceId(p: NominatimPlace): string {
+  return `osm${p.osm_type}${p.osm_id}`;
+}
+
+/** Recherche textuelle Nominatim (OpenStreetMap), sans clé. */
+async function nominatimSearch(query: string, limit: number): Promise<NominatimPlace[]> {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${limit}&q=${encodeURIComponent(query)}`;
+  const res = await nominatimFetch(url);
+  if (!res.ok) throw new Error(`Nominatim (${res.status})`);
+  return (await res.json()) as NominatimPlace[];
+}
+
+/** Géocodage exact d'une adresse en lat/lng via Nominatim — best effort (null si introuvable). */
+export async function nominatimGeocode(
+  address: string,
+): Promise<{ lat: number; lng: number } | null> {
+  const hits = await nominatimSearch(address, 1);
+  const hit = hits[0];
+  if (!hit) return null;
+  return { lat: Number(hit.lat), lng: Number(hit.lon) };
+}
 
 /**
  * Pharmacies visibles par l'utilisateur (ancienne RLS de `pharmacies`) :
@@ -173,6 +222,9 @@ export const findNearbyPharmaciesPlaces = createServerFn({ method: "POST" })
     const { matchItemsToInventory } = await import("./medicine-match.server");
 
     const gmapsKey = googleMapsKey();
+    // Sans clé Google, on laisse une erreur explicite : la page patient bascule
+    // automatiquement sur findNearbyPharmacies (base locale).
+    if (!gmapsKey) throw new Error("Google Maps non configuré");
 
     const rxItems = await readableItems(userId, data.prescriptionId);
 
@@ -556,26 +608,41 @@ export const searchPlacesPharmaciesAdmin = createServerFn({ method: "POST" })
 
     const gmapsKey = googleMapsKey();
 
-    const res = await fetch(`${PLACES_API}/places:searchText`, {
-      method: "POST",
-      headers: {
-        "X-Goog-Api-Key": gmapsKey,
-        "Content-Type": "application/json",
-        "X-Goog-FieldMask":
-          "places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.rating",
-      },
-      body: JSON.stringify({
-        textQuery: `pharmacie ${data.query}`,
-        includedType: "pharmacy",
-        maxResultCount: 15,
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Google Places (${res.status}): ${body.slice(0, 200)}`);
+    let places: PlaceResult[];
+    if (gmapsKey) {
+      // Recherche Google Places — utilisée seulement si une clé est configurée.
+      const res = await fetch(`${PLACES_API}/places:searchText`, {
+        method: "POST",
+        headers: {
+          "X-Goog-Api-Key": gmapsKey,
+          "Content-Type": "application/json",
+          "X-Goog-FieldMask":
+            "places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.rating",
+        },
+        body: JSON.stringify({
+          textQuery: `pharmacie ${data.query}`,
+          includedType: "pharmacy",
+          maxResultCount: 15,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Google Places (${res.status}): ${body.slice(0, 200)}`);
+      }
+      const payload = (await res.json()) as { places?: PlaceResult[] };
+      places = payload.places ?? [];
+    } else {
+      // Repli sans clé : Nominatim (OpenStreetMap), gratuit et sans quota.
+      const hits = await nominatimSearch(`pharmacie ${data.query}`, 15);
+      places = hits.map((h) => ({
+        id: nominatimPlaceId(h),
+        displayName: {
+          text: h.name || h.display_name.split(",")[0].trim() || "Pharmacie",
+        },
+        formattedAddress: h.display_name,
+        location: { latitude: Number(h.lat), longitude: Number(h.lon) },
+      }));
     }
-    const payload = (await res.json()) as { places?: PlaceResult[] };
-    const places = payload.places ?? [];
     const ids = places.map((p) => p.id);
 
     const existing =
@@ -653,6 +720,78 @@ export const registerPlacePharmacyAdmin = createServerFn({ method: "POST" })
         entity: "pharmacy",
         entity_id: inserted.id,
         meta: { place_id: data.placeId },
+      },
+    });
+
+    return { id: inserted.id, created: true };
+  });
+
+/** Géocodage d'une adresse en lat/lng via Nominatim (OpenStreetMap, sans clé). */
+export const geocodeAddress = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ address: z.string().min(3).max(300) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const geo = await nominatimGeocode(data.address);
+    if (!geo) throw new Error("Adresse introuvable (Nominatim)");
+    return geo;
+  });
+
+/** Admin : enregistrer une pharmacie en saisie manuelle (géocodée via Nominatim, best effort). */
+export const registerManualPharmacyAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        name: z.string().min(1).max(200),
+        address: z.string().min(1).max(300),
+        city: z.string().max(120).optional(),
+        phone: z.string().max(50).nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
+
+    const existing = await prisma.pharmacies.findFirst({
+      where: { name: data.name, address: data.address },
+      select: { id: true },
+    });
+    if (existing) return { id: existing.id, created: false };
+
+    // Géocodage best effort : la pharmacie est créable même sans coordonnées.
+    const query = [data.name, data.address, data.city].filter(Boolean).join(", ");
+    const geo = await nominatimGeocode(query).catch(() => null);
+
+    let inserted: { id: string };
+    try {
+      inserted = await prisma.pharmacies.create({
+        data: {
+          owner_user_id: null,
+          name: data.name,
+          address: data.address,
+          city: data.city || null,
+          phone: data.phone || null,
+          lat: geo?.lat ?? null,
+          lng: geo?.lng ?? null,
+          license_number: `MANUAL-${Date.now().toString(36).toUpperCase()}`,
+          status: "approved",
+        },
+        select: { id: true },
+      });
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Erreur");
+    }
+
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "pharmacy_registered_manual",
+        entity: "pharmacy",
+        entity_id: inserted.id,
+        meta: { geocoded: !!geo },
       },
     });
 

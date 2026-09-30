@@ -40,7 +40,7 @@ export async function extractOtcFromImage(dataUrl: string) {
 
   const userContent = [
     { type: "text", text: "Identifie le ou les médicaments sur cette photo. JSON uniquement." },
-    { type: "image", image: bytes, mediaType },
+    { type: "file", data: bytes, mediaType },
   ];
 
   let output: z.infer<typeof OtcSchema>;

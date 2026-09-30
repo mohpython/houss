@@ -5,6 +5,7 @@ import {
   createPharmacyApplication,
   getPharmacyOnboardingStatus,
 } from "@/lib/pharmacy-portal.functions";
+import { geocodeAddress } from "@/lib/pharmacy.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,8 +33,10 @@ function Onboarding() {
     google_place_id: "",
   });
   const [saving, setSaving] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const fetchStatus = useServerFn(getPharmacyOnboardingStatus);
   const createPharmacy = useServerFn(createPharmacyApplication);
+  const geoFn = useServerFn(geocodeAddress);
 
   useEffect(() => {
     const check = async () => {
@@ -85,6 +88,22 @@ function Onboarding() {
         })),
       () => toast.error("Localisation refusée"),
     );
+  };
+
+  // Repli de géocodage : convertit l'adresse saisie en lat/lng via Nominatim (OpenStreetMap, sans clé).
+  const geocode = async () => {
+    const address = [form.address, form.city].filter(Boolean).join(", ").trim();
+    if (address.length < 3) return;
+    setGeocoding(true);
+    try {
+      const geo = await geoFn({ data: { address } });
+      setForm((f) => ({ ...f, lat: String(geo.lat), lng: String(geo.lng) }));
+      toast.success("Adresse géocodée (OpenStreetMap)");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Géocodage impossible");
+    } finally {
+      setGeocoding(false);
+    }
   };
 
   if (checking) return <div className="p-8 text-sm text-muted-foreground">Chargement…</div>;
@@ -172,7 +191,10 @@ function Onboarding() {
                 onChange={(e) => setForm({ ...form, lng: e.target.value })}
               />
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
+              <Button type="button" variant="outline" onClick={geocode} disabled={geocoding}>
+                {geocoding ? "…" : "Géocoder"}
+              </Button>
               <Button type="button" variant="outline" onClick={detect}>
                 Localiser
               </Button>

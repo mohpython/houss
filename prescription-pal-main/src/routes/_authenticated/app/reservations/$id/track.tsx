@@ -1,12 +1,12 @@
-/// <reference types="google.maps" />
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import type { Map as LeafletMap, Marker as LeafletMarker, Polyline as LeafletPolyline } from "leaflet";
 import { getReservationTracking } from "@/lib/reservations.functions";
 import { subscribeRealtime } from "@/integrations/realtime/client";
 import { getDeliveryRoute } from "@/lib/delivery.functions";
-import { loadGoogleMaps, decodePolyline } from "@/lib/gmaps";
+import { loadLeaflet, decodePolyline, letterIcon, dotIcon } from "@/lib/osmap";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,12 +57,12 @@ function TrackPage() {
   const [res, setRes] = useState<Reservation | null>(null);
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<google.maps.Map | null>(null);
+  const mapInstance = useRef<LeafletMap | null>(null);
   const markers = useRef<{
-    pharm?: google.maps.Marker;
-    patient?: google.maps.Marker;
-    courier?: google.maps.Marker;
-    route?: google.maps.Polyline;
+    pharm?: LeafletMarker;
+    patient?: LeafletMarker;
+    courier?: LeafletMarker;
+    route?: LeafletPolyline;
   }>({});
   const getRoute = useServerFn(getDeliveryRoute);
 
@@ -88,7 +88,7 @@ function TrackPage() {
         }
         const p = payload.new as { lat: number; lng: number };
         if (markers.current.courier && mapInstance.current) {
-          markers.current.courier.setPosition({ lat: p.lat, lng: p.lng });
+          markers.current.courier.setLatLng([p.lat, p.lng]);
         }
       },
       { onResync: () => load() },
@@ -102,36 +102,39 @@ function TrackPage() {
     const pharm = res.pharmacies;
     if (!pharm?.lat || !pharm?.lng || !res.patient_lat || !res.patient_lng) return;
 
-    loadGoogleMaps()
-      .then((google) => {
-        const map = new google.maps.Map(mapRef.current!, {
-          center: { lat: res.patient_lat!, lng: res.patient_lng! },
+    loadLeaflet()
+      .then((L) => {
+        const map = L.map(mapRef.current!, {
+          center: [res.patient_lat!, res.patient_lng!],
           zoom: 13,
-          disableDefaultUI: true,
           zoomControl: true,
         });
         mapInstance.current = map;
+        // Tuiles OpenStreetMap (sans clé).
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap",
+        }).addTo(map);
 
-        markers.current.pharm = new google.maps.Marker({
-          position: { lat: pharm.lat!, lng: pharm.lng! },
-          map,
-          label: "P",
+        markers.current.pharm = L.marker([pharm.lat!, pharm.lng!], {
+          icon: letterIcon(L, "P", "#2563eb"),
           title: pharm.name,
-        });
-        markers.current.patient = new google.maps.Marker({
-          position: { lat: res.patient_lat!, lng: res.patient_lng! },
-          map,
-          label: "V",
+        }).addTo(map);
+        markers.current.patient = L.marker([res.patient_lat!, res.patient_lng!], {
+          icon: letterIcon(L, "V", "#dc2626"),
           title: "Vous",
-        });
+        }).addTo(map);
 
         // Fit bounds
-        const bounds = new google.maps.LatLngBounds();
-        bounds.extend({ lat: pharm.lat!, lng: pharm.lng! });
-        bounds.extend({ lat: res.patient_lat!, lng: res.patient_lng! });
-        map.fitBounds(bounds, 60);
+        map.fitBounds(
+          L.latLngBounds([
+            [pharm.lat!, pharm.lng!],
+            [res.patient_lat!, res.patient_lng!],
+          ]),
+          { padding: [60, 60] },
+        );
 
-        // Fetch directions
+        // Fetch directions (OSRM côté serveur, polyline encodée en retour)
         getRoute({
           data: {
             originLat: pharm.lat!,
@@ -143,18 +146,17 @@ function TrackPage() {
           .then((r) => {
             if (r.polyline) {
               const path = decodePolyline(r.polyline);
-              markers.current.route = new google.maps.Polyline({
-                path,
-                strokeColor: "#2563eb",
-                strokeOpacity: 0.85,
-                strokeWeight: 4,
-                map,
-              });
+              markers.current.route = L.polyline(
+                path.map((pt) => L.latLng(pt.lat, pt.lng)),
+                { color: "#2563eb", opacity: 0.85, weight: 4 },
+              ).addTo(map);
             }
           })
           .catch(() => {});
       })
-      .catch((e) => toast.error(e.message));
+      .catch((e: unknown) =>
+        toast.error(e instanceof Error ? e.message : "Carte indisponible"),
+      );
   }, [res, getRoute]);
 
   // Courier marker
@@ -163,23 +165,16 @@ function TrackPage() {
     const c = res.couriers;
     if (!c.current_lat || !c.current_lng) return;
     if (!markers.current.courier) {
-      loadGoogleMaps().then((google) => {
-        markers.current.courier = new google.maps.Marker({
-          position: { lat: c.current_lat!, lng: c.current_lng! },
-          map: mapInstance.current!,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 9,
-            fillColor: "#16a34a",
-            fillOpacity: 1,
-            strokeColor: "#fff",
-            strokeWeight: 2,
-          },
-          title: c.full_name,
-        });
-      });
+      loadLeaflet()
+        .then((L) => {
+          markers.current.courier = L.marker([c.current_lat!, c.current_lng!], {
+            icon: dotIcon(L, "#16a34a"),
+            title: c.full_name,
+          }).addTo(mapInstance.current!);
+        })
+        .catch(() => {});
     } else {
-      markers.current.courier.setPosition({ lat: c.current_lat, lng: c.current_lng });
+      markers.current.courier.setLatLng([c.current_lat, c.current_lng]);
     }
   }, [res]);
 

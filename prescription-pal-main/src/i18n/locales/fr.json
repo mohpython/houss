@@ -109,6 +109,8 @@
     "authError": "Erreur d'authentification",
     "googleError": "Erreur Google",
     "connecting": "Connexion en cours…",
+    "openApp": "Ouvrir SAHA Santé",
+    "openAppHint": "Si l'application ne s'ouvre pas, touchez le bouton ci-dessus.",
     "methodEmail": "Email",
     "methodPhone": "Téléphone",
     "phone": "Numéro de téléphone",

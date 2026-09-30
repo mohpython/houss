@@ -15,6 +15,10 @@ export function aiProvider() {
     name: "saha-ai",
     baseURL: env.aiBaseUrl,
     apiKey,
+    // Indique que la passerelle accepte response_format json_schema (Gemini le
+    // fait) : sans ce drapeau le provider n'envoie que "json_object" sans
+    // schéma, le modèle invente ses clés et l'extraction échoue systématiquement.
+    supportsStructuredOutputs: true,
     headers: {
       // Recommandé par OpenRouter, ignoré par les autres fournisseurs.
       "HTTP-Referer": env.appUrl,

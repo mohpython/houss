@@ -1,7 +1,11 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { findNearbyPharmaciesPlaces, createReservation } from "@/lib/pharmacy.functions";
+import {
+  findNearbyPharmaciesPlaces,
+  findNearbyPharmacies,
+  createReservation,
+} from "@/lib/pharmacy.functions";
 import { getPrescriptionDetail } from "@/lib/prescriptions.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,12 +36,51 @@ type Pharm = {
   availability: Array<{ itemId: string; name: string; available: boolean; price: number | null }>;
 };
 
+// Forme retournée par findNearbyPharmacies (base locale, sans Google)
+type DbPharm = {
+  id: string;
+  name: string;
+  address: string;
+  city: string | null;
+  lat: number | null;
+  lng: number | null;
+  phone: string | null;
+  rating: number | null;
+  distanceKm: number | null;
+  availableCount: number;
+  totalItems: number;
+  availability: Array<{ itemId: string; name: string; available: boolean; price: number | null }>;
+};
+
+/** Convertit une pharmacie de la base locale au format d'affichage commun. */
+function dbToPharm(p: DbPharm): Pharm {
+  return {
+    placeId: `local-${p.id}`,
+    localPharmacyId: p.id,
+    name: p.name,
+    address: p.city ? `${p.address}, ${p.city}` : p.address,
+    phone: p.phone ?? null,
+    rating: p.rating ?? null,
+    openNow: null,
+    mapsUri:
+      p.lat != null && p.lng != null
+        ? `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}`
+        : null,
+    distanceKm: p.distanceKm ?? null,
+    availableCount: p.availableCount,
+    totalItems: p.totalItems,
+    registered: true,
+    availability: p.availability,
+  };
+}
+
 function Pharmacies() {
   const { id } = Route.useParams();
   const { t } = useTranslation();
   const router = useRouter();
   const [deliveryLoc, setDeliveryLoc] = useState<DeliveryLocation | null>(null);
   const findFn = useServerFn(findNearbyPharmaciesPlaces);
+  const findDbFn = useServerFn(findNearbyPharmacies);
   const createRes = useServerFn(createReservation);
   const getDetail = useServerFn(getPrescriptionDetail);
   const [pharms, setPharms] = useState<Pharm[] | null>(null);
@@ -70,9 +113,18 @@ function Pharmacies() {
         data: { prescriptionId: id, lat: coords.lat, lng: coords.lng },
       });
       setPharms(res.pharmacies as Pharm[]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Recherche échouée");
-      setPharms([]);
+    } catch {
+      // Repli : recherche distante indisponible (ex. pas de clé Google),
+      // on retombe sur les pharmacies enregistrées en base.
+      try {
+        const res = await findDbFn({
+          data: { prescriptionId: id, lat: coords.lat, lng: coords.lng },
+        });
+        setPharms((res.pharmacies as unknown as DbPharm[]).map(dbToPharm));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Recherche échouée");
+        setPharms([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -119,7 +171,7 @@ function Pharmacies() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Pharmacies proches</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Résultats en direct via Google Maps autour de votre position.
+            Résultats en direct autour de votre position.
           </p>
         </div>
       </div>
@@ -265,7 +317,7 @@ function Pharmacies() {
                 <Button variant="outline" asChild>
                   <a href={p.mapsUri} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    Voir sur Maps
+                    Voir sur la carte
                   </a>
                 </Button>
               )}

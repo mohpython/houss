@@ -12,7 +12,8 @@ export const Route = createFileRoute("/api/auth/google/")({
           return Response.redirect(`${env.appUrl}/auth?error=google_disabled`, 302);
         }
         const redirect = new URL(request.url).searchParams.get("redirect") ?? "/app";
-        const { url, nonce } = buildGoogleAuthUrl(redirect);
+        const mobile = new URL(request.url).searchParams.get("mobile") === "1";
+        const { url, nonce } = buildGoogleAuthUrl(redirect, mobile);
         return new Response(null, {
           status: 302,
           headers: { Location: url, "Set-Cookie": cookieHeader(OAUTH_COOKIE, nonce, 600) },

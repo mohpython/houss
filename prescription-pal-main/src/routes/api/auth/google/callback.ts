@@ -29,44 +29,80 @@ export const Route = createFileRoute("/api/auth/google/callback")({
         );
         if (!code || !state) return fail("google_state");
 
-        try {
-          const profile = await oauth.exchangeGoogleCode(code);
-          const { basePrisma } = await import("@/server/prisma-base.server");
-          const { createAccount, createSession, requestMeta, normalizeEmail } =
-            await import("@/server/auth.server");
+        // Chrome peut declencher deux fois la meme navigation : la seconde
+        // arrive apres consommation du `code` (400). On reutilise alors la
+        // session deja creee pour ce `state.nonce`.
+        const cached = oauth.recallSession(state.nonce);
 
-          let user = await basePrisma.users.findUnique({
-            where: { google_sub: profile.sub },
-            select: { id: true },
-          });
-          if (!user && profile.email && profile.emailVerified) {
-            // Rattache le compte Google à un compte email existant.
-            const existing = await basePrisma.users.findUnique({
-              where: { email: normalizeEmail(profile.email) },
+        try {
+          let accessToken: string;
+          let expiresAt: number;
+
+          if (cached) {
+            accessToken = cached.accessToken;
+            expiresAt = cached.expiresAt;
+          } else {
+            const profile = await oauth.exchangeGoogleCode(code);
+            const { basePrisma } = await import("@/server/prisma-base.server");
+            const { createAccount, createSession, requestMeta, normalizeEmail } =
+              await import("@/server/auth.server");
+
+            let user = await basePrisma.users.findUnique({
+              where: { google_sub: profile.sub },
               select: { id: true },
             });
-            if (existing) {
-              await basePrisma.users.update({
-                where: { id: existing.id },
-                data: { google_sub: profile.sub, email_verified_at: new Date() },
+            if (!user && profile.email && profile.emailVerified) {
+              // Rattache le compte Google a un compte email existant.
+              const existing = await basePrisma.users.findUnique({
+                where: { email: normalizeEmail(profile.email) },
+                select: { id: true },
               });
-              user = existing;
+              if (existing) {
+                await basePrisma.users.update({
+                  where: { id: existing.id },
+                  data: { google_sub: profile.sub, email_verified_at: new Date() },
+                });
+                user = existing;
+              }
             }
-          }
-          if (!user) {
-            const id = await createAccount({
-              email: profile.emailVerified ? profile.email : null,
-              googleSub: profile.sub,
-              fullName: profile.name ?? "",
-              emailVerified: profile.emailVerified,
-            });
-            user = { id };
+            if (!user) {
+              const id = await createAccount({
+                email: profile.emailVerified ? profile.email : null,
+                googleSub: profile.sub,
+                fullName: profile.name ?? "",
+                emailVerified: profile.emailVerified,
+              });
+              user = { id };
+            }
+
+            const session = await createSession(user.id, requestMeta(request));
+            accessToken = session.access_token;
+            expiresAt = session.expires_at;
+            oauth.rememberSession(state.nonce, { accessToken, expiresAt });
           }
 
-          const session = await createSession(user.id, requestMeta(request));
+          if (state.mobile) {
+            // Application mobile. Une redirection automatique vers un schema
+            // inconnu est refusee par Chrome : on renvoie vers la page
+            // /auth-callback?mobile=1 qui, elle, propose un bouton (geste
+            // utilisateur) vers sahasantemali://auth?... Le jeton reste dans le
+            // fragment `#`, donc jamais journalise par nginx.
+            const fragment = new URLSearchParams({
+              access_token: accessToken,
+              expires_at: String(expiresAt),
+            });
+            return new Response(null, {
+              status: 302,
+              headers: {
+                Location: `${env.appUrl}/auth-callback?mobile=1#${fragment}`,
+                "Set-Cookie": clearCookie,
+              },
+            });
+          }
+
           const fragment = new URLSearchParams({
-            access_token: session.access_token,
-            expires_at: String(session.expires_at),
+            access_token: accessToken,
+            expires_at: String(expiresAt),
             redirect: state.redirect,
           });
           return new Response(null, {

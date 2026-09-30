@@ -3,7 +3,7 @@
   "short_name": "SAHA",
   "description": "Scannez votre ordonnance, trouvez une pharmacie et suivez votre livraison.",
   "start_url": "/app",
-  "scope": "/",
+  "scope": "/app",
   "display": "standalone",
   "background_color": "#0A1931",
   "theme_color": "#0A1931",

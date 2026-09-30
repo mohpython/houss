@@ -65,6 +65,14 @@ export const env = {
   get googleClientSecret() {
     return str("GOOGLE_CLIENT_SECRET");
   },
+  /**
+   * Client ID Android (projet même que le web) : audience des ID tokens
+   * émis par l'app mobile. Google exige que l'app Android soit "matchée"
+   * sur ce client ; l'app mobile récupère cet id via /auth/google/client-config.
+   */
+  get googleAndroidClientId() {
+    return str("GOOGLE_ANDROID_CLIENT_ID", "");
+  },
   /** 'log' (dev), 'whatsapp' ou 'twilio'. */
   get otpChannel() {
     return str("OTP_CHANNEL", "log") as "log" | "whatsapp" | "twilio";

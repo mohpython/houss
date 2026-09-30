@@ -114,3 +114,155 @@ Capacitor + les plugins ajoutés déclarent automatiquement dans `AndroidManifes
 - `POST_NOTIFICATIONS`
 
 Vous pouvez vérifier / éditer dans `android/app/src/main/AndroidManifest.xml`.
+
+---
+
+# Connexion Google sur l'application mobile (Flutter)
+
+> Cette section concerne l'application **Flutter** (`App-mobile/`), pas
+> l'application Capacitor décrite plus haut.
+
+## Flux retenu : le client OAuth « Web » via Custom Tab
+
+Le sélecteur de compte **natif** (Google Play Services) est inutilisable tant que
+le client Android n'est pas correctement enregistré dans la console Google Cloud :
+toute requête de jeton faite par le paquet `com.sahasantemali.saha_sante` est alors
+rejetée par Google, **y compris** les jetons d'accès « simples » (portée `oauth2:…`) :
+
+```
+W/Auth: [GetTokenResponseHandler] Server returned error: This android application
+is not registered to use OAuth2.0 …
+```
+
+Le registre Android étant hors de portée du serveur, la connexion Google mobile
+passe donc par le **client Web** (qui fonctionne) :
+
+```
+Application mobile
+  │ 1. bouton « Continuer avec Google » → Custom Tab
+  │    https://sahasantemali.com/api/auth/google/?redirect=%2Fapp&mobile=1
+  ▼
+Google (consentement, client Web enregistré)
+  │ 302 → /api/auth/google/callback  (échange du code, création de session)
+  │ state = { r, n, e, m: 1 }        ← HMAC, « m » = mobile
+  ▼
+302 → /auth-callback?mobile=1#access_token=…&expires_at=…
+  │   ← le jeton reste dans le fragment : jamais envoyé au serveur
+  ▼
+Page « Ouvrir SAHA Santé » (tentative auto, puis bouton)
+  │  sahasantemali://auth?access_token=…&expires_at=…
+  ▼
+Application mobile : applySessionToken() → GET /api/v1/me → écran /app
+```
+
+### Côté serveur
+
+| Fichier | Rôle |
+| --- | --- |
+| `src/server/oauth.server.ts` | `buildGoogleAuthUrl(redirect, mobile)` place `m: 1` dans le state ; `parseState()` le relit et retourne le `nonce` ; `rememberSession()` / `recallSession()` rendent le callback idempotent. |
+| `src/routes/api/auth/google/index.ts` | Lit `?mobile=1` et le transmet au state. |
+| `src/routes/api/auth/google/callback.ts` | Si `m === 1`, redirige vers `/auth-callback?mobile=1#access_token=…`. |
+| `src/routes/auth-callback.tsx` | Version mobile de la page : construit `sahasantemali://auth?…` depuis le fragment et propose le bouton d'ouverture. |
+| `public/manifest.webmanifest` | `scope` restreint à `/app` pour que la PWA n'intercepte pas le flux OAuth. |
+
+Le flux **web** (sans `mobile=1`) est inchangé : redirection vers
+`/auth-callback#access_token=…`.
+
+> ⚠️ **Pourquoi une page intermédiaire ?** Une redirection automatique (`302`)
+> vers un schéma inconnu est **refusée par Chrome** : le navigateur reste sur
+> la page web et l'application ne s'ouvre jamais. Chrome n'accepte d'ouvrir une
+> application que sur un **geste utilisateur**, d'où le bouton. La tentative
+> automatique au chargement est une commodité (certains navigateurs l'acceptent,
+> Chrome non).
+
+> ⚠️ **TanStack Router réécrit `?mobile=1` en `?mobile=%221%22`** (la valeur est
+> sérialisée en JSON), et `validateSearch` ne reçoit pas toujours l'écriture
+> d'origine. Compter sur `useSearch()` seul fait échouer la détection et l'app
+> retombe sur la branche web. `detectMobileFlow()` relit donc l'indicateur dans
+> `window.location.search` **au montage** (seul moment où il est encore là, car
+> l'effet nettoie ensuite l'URL) et ne conserve que les chiffres.
+
+> ⚠️ **L'application Web installée (WebAPK) peut voler la navigation.** Chrome
+> résout l'URL `https://sahasantemali.com/api/auth/google/?…` vers la PWA
+> installée (scope `/`), et non vers une Custom Tab : l'utilisateur atterrit sur
+> `/app` dans la fenêtre autonome et le jeton n'atteint jamais l'application
+> native. Le manifeste est donc passé à `"scope": "/app"` : `/api/auth/google/`
+> et `/auth-callback` sont hors de la portée de la PWA, et Chrome ouvre une
+> vraie Custom Tab. **Une PWA déjà installée garde son ancien `scope` en cache** :
+> la désinstaller puis la réinstaller (menu Chrome → « Ajouter à l'écran d'accueil »)
+> est nécessaire une fois.
+
+> ⚠️ **Chrome demande parfois le callback deux fois** (double navigation) alors
+> que le `code` Google est à usage unique : la seconde requête échouait en 400 et
+> l'utilisateur retombait sur la page d'erreur. `recallSession(nonce)` mémorise la
+> session 2 minutes et la restitue au second appel, une seule fois.
+
+### Côté application
+
+- `android/app/src/main/AndroidManifest.xml` : `intent-filter` sur le schéma
+  `sahasantemali` / hôte `auth` (action VIEW + catégorie BROWSABLE).
+- `lib/main.dart` : écoute `AppLinks` (lien au démarrage **et** pendant que
+  l'app tourne).
+- `lib/core/services/auth_service.dart` : `handleAuthUri()` puis
+  `applySessionToken()` (récupère le profil via `/me`).
+
+## Revenir au sélecteur de compte natif
+
+Quand le client Android sera de nouveau accepté par la console Google Cloud,
+remplacer le `launchUrl(...)` des écrans `login_screen.dart` / `register_screen.dart`
+par :
+
+```dart
+final google = GoogleSignIn(serverClientId: <client_id_WEB>);
+final account = await google.signIn();
+final idToken = account.authentication.idToken;   // null → apiClient → /auth/google
+```
+
+et renommer l'identifiant `sahasantemali://auth` si un autre schéma est souhaité.
+
+## Connexion par téléphone (code OTP)
+
+Routes ajoutées à `src/server/api-v1.server.ts` :
+
+| Route | Effet |
+| --- | --- |
+| `POST /api/v1/auth/otp/send` | Envoie un code de 6 chiffres (10 min, 3 essais). |
+| `POST /api/v1/auth/otp/verify` | Vérifie le code, **crée le compte au premier code valide** puis ouvre la session. |
+
+Le canal d'envoi est piloté par `OTP_CHANNEL` :
+
+- `twilio` / `whatsapp` → envoi réel (identifiants requis) ;
+- `log` → **écrit le code dans les logs du serveur**, refusé en production
+  (`otpChannelAvailable()` renvoie `false` → HTTP 503).
+
+Sans canal configuré, l'application affiche « La connexion par téléphone n'est pas
+activée. » — c'est le comportement attendu, pas une panne.
+
+## Langues
+
+L'application Flutter embarque quatre langues (`lib/core/l10n/app_locale.dart`) :
+français, anglais, arabe (RTL) et bambara. Le choix est persisté (SharedPreferences)
+et modifiable depuis l'accueil, la connexion et le profil.
+
+### Deux pièges à connaître
+
+1. **Le bambara n'existe pas dans `flutter_localizations`.** Sans delegate de
+   repli, `MaterialLocalizations.of(context)` renvoie `null` et *tout* composant
+   Material plante dès que la locale vaut `bm` (feuilles modales, dialogues,
+   `SnackBar`…). `lib/app.dart` ajoute donc trois delegates
+   (`_FallbackMaterialLocalizations`, `_FallbackWidgetsLocalizations`,
+   `_FallbackCupertinoLocalizations`) qui chargent l'anglais pour les locales non
+   couvertes, placés **après** les delegates officiels. Les libellés d'interface
+   Material (boutons par exemple) restent alors en anglais en bambara — c'est
+   normal et sans conséquence.
+2. **Un écran déjà monté reste figé dans l'ancienne langue.** Changer la locale
+   reconstruit `MaterialApp`, mais pas le contenu des routes déjà créées : le
+   routeur (`refreshListenable`) ne suffit pas. Chaque écran doit donc appeler
+   `L10n.bind(context);` **au début de son `build()`**, ce qui enregistre la
+   dépendance à la locale. `L10n.t()` ne peut pas le faire lui-même : il est
+   aussi appelé depuis des callbacks (SnackBar, dialogues), hors phase de build.
+
+> ⚠️ En release, les erreurs d'interface ne s'affichent pas. `lib/main.dart`
+> installe un `FlutterError.onError` qui écrit le message et la pile dans logcat
+> (filtre `flutter`, marqueurs `ERREUR_FLUTTER:` / `STACK:`) — c'est le moyen le
+> plus rapide de diagnostiquer un écran vide sur un téléphone.

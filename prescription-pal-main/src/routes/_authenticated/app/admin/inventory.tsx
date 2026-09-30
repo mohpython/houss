@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { searchPlacesPharmaciesAdmin, registerPlacePharmacyAdmin } from "@/lib/pharmacy.functions";
+import {
+  searchPlacesPharmaciesAdmin,
+  registerPlacePharmacyAdmin,
+  registerManualPharmacyAdmin,
+} from "@/lib/pharmacy.functions";
 import { listApprovedPharmacies } from "@/lib/admin-data.functions";
 import {
   deleteInventoryItem,
@@ -49,8 +53,8 @@ function AdminInventory() {
     stock: "1",
     price: "",
   });
-  const [gmapsQuery, setGmapsQuery] = useState("");
-  const [gmapsResults, setGmapsResults] = useState<Array<{
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{
     placeId: string;
     name: string;
     address: string;
@@ -60,10 +64,13 @@ function AdminInventory() {
     lng: number | null;
     localPharmacyId: string | null;
   }> | null>(null);
-  const [gmapsLoading, setGmapsLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [registering, setRegistering] = useState<string | null>(null);
+  const [manual, setManual] = useState({ name: "", address: "", phone: "" });
+  const [manualSaving, setManualSaving] = useState(false);
   const searchFn = useServerFn(searchPlacesPharmaciesAdmin);
   const registerFn = useServerFn(registerPlacePharmacyAdmin);
+  const registerManualFn = useServerFn(registerManualPharmacyAdmin);
 
   const fetchPharms = useServerFn(listApprovedPharmacies);
   const fetchInventory = useServerFn(listPharmacyInventory);
@@ -81,21 +88,21 @@ function AdminInventory() {
     loadPharms();
   }, []);
 
-  const searchGmaps = async (e: React.FormEvent) => {
+  const searchPlaces = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (gmapsQuery.trim().length < 2) return;
-    setGmapsLoading(true);
+    if (searchQuery.trim().length < 2) return;
+    setSearchLoading(true);
     try {
-      const res = await searchFn({ data: { query: gmapsQuery.trim() } });
-      setGmapsResults(res.places);
+      const res = await searchFn({ data: { query: searchQuery.trim() } });
+      setSearchResults(res.places);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
-      setGmapsLoading(false);
+      setSearchLoading(false);
     }
   };
 
-  const registerGmaps = async (p: NonNullable<typeof gmapsResults>[number]) => {
+  const registerPlace = async (p: NonNullable<typeof searchResults>[number]) => {
     setRegistering(p.placeId);
     try {
       const res = await registerFn({
@@ -111,7 +118,7 @@ function AdminInventory() {
       toast.success(res.created ? "Pharmacie ajoutée" : "Déjà enregistrée");
       loadPharms();
       setSelected(res.id);
-      setGmapsResults(
+      setSearchResults(
         (r) =>
           r?.map((x) => (x.placeId === p.placeId ? { ...x, localPharmacyId: res.id } : x)) ?? null,
       );
@@ -119,6 +126,31 @@ function AdminInventory() {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
       setRegistering(null);
+    }
+  };
+
+  // Voie « saisie manuelle » : fonctionne sans aucune API externe
+  // (géocodage Nominatim côté serveur, best effort).
+  const submitManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manual.name.trim() || !manual.address.trim()) return;
+    setManualSaving(true);
+    try {
+      const res = await registerManualFn({
+        data: {
+          name: manual.name.trim(),
+          address: manual.address.trim(),
+          phone: manual.phone.trim() || null,
+        },
+      });
+      toast.success(res.created ? "Pharmacie ajoutée (géocodée si adresse reconnue)" : "Déjà enregistrée");
+      setManual({ name: "", address: "", phone: "" });
+      loadPharms();
+      setSelected(res.id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setManualSaving(false);
     }
   };
 
@@ -211,28 +243,30 @@ function AdminInventory() {
       <Card className="mt-6 p-4">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-primary" />
-          <h2 className="font-semibold">Ajouter une pharmacie depuis Google Maps</h2>
+          <h2 className="font-semibold">Ajouter une pharmacie</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Recherchez une pharmacie (ville, quartier ou nom), enregistrez-la puis gérez son stock.
+          Recherchez une pharmacie par nom, quartier ou ville (OpenStreetMap, sans clé API),
+          enregistrez-la puis gérez son stock. Si elle n'apparaît pas dans les résultats, utilisez
+          la saisie manuelle ci-dessous.
         </p>
-        <form onSubmit={searchGmaps} className="mt-3 flex gap-2">
+        <form onSubmit={searchPlaces} className="mt-3 flex gap-2">
           <Input
             placeholder="Ex : Cocody Abidjan, Pharmacie de la Paix…"
-            value={gmapsQuery}
-            onChange={(e) => setGmapsQuery(e.target.value)}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <Button type="submit" disabled={gmapsLoading}>
+          <Button type="submit" disabled={searchLoading}>
             <Search className="mr-2 h-4 w-4" />
-            {gmapsLoading ? "…" : "Rechercher"}
+            {searchLoading ? "…" : "Rechercher"}
           </Button>
         </form>
-        {gmapsResults && gmapsResults.length === 0 && (
+        {searchResults && searchResults.length === 0 && (
           <p className="mt-3 text-sm text-muted-foreground">Aucun résultat.</p>
         )}
-        {gmapsResults && gmapsResults.length > 0 && (
+        {searchResults && searchResults.length > 0 && (
           <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
-            {gmapsResults.map((p) => (
+            {searchResults.map((p) => (
               <div
                 key={p.placeId}
                 className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3"
@@ -253,7 +287,7 @@ function AdminInventory() {
                 ) : (
                   <Button
                     size="sm"
-                    onClick={() => registerGmaps(p)}
+                    onClick={() => registerPlace(p)}
                     disabled={registering === p.placeId}
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -264,6 +298,42 @@ function AdminInventory() {
             ))}
           </div>
         )}
+
+        <form onSubmit={submitManual} className="mt-4 border-t border-border pt-4">
+          <div className="flex items-center gap-2">
+            <Store className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Saisie manuelle</h3>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Voie de repli sans API externe : l'adresse est géocodée automatiquement via
+            OpenStreetMap (si reconnue).
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Input
+              placeholder="Nom de la pharmacie"
+              className="min-w-[180px] flex-1"
+              value={manual.name}
+              onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))}
+              required
+            />
+            <Input
+              placeholder="Adresse (quartier, ville)"
+              className="min-w-[180px] flex-1"
+              value={manual.address}
+              onChange={(e) => setManual((m) => ({ ...m, address: e.target.value }))}
+              required
+            />
+            <Input
+              placeholder="Téléphone (optionnel)"
+              className="min-w-[140px] flex-1"
+              value={manual.phone}
+              onChange={(e) => setManual((m) => ({ ...m, phone: e.target.value }))}
+            />
+            <Button type="submit" disabled={manualSaving}>
+              {manualSaving ? "…" : "Ajouter"}
+            </Button>
+          </div>
+        </form>
       </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
