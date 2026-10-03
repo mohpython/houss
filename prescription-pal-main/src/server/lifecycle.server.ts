@@ -19,6 +19,7 @@
  */
 import { randomInt } from "node:crypto";
 import type { Prisma } from "@prisma/client";
+import { pushCopy } from "@/lib/push-messages";
 import { basePrisma } from "./prisma-base.server";
 import { publish } from "./realtime.server";
 import { dispatchPush } from "./push-dispatch.server";
@@ -141,8 +142,21 @@ export async function notify(
   body = "",
 ) {
   if (!userId) return;
+  // Beaucoup d'appels (`new_reservation`, `delivered`, `courier_assigned`…)
+  // passent par le cycle de vie des commandes sans texte : la ligne était alors
+  // enregistrée avec un titre ET un corps vides, donc une bulle sans écriture
+  // dans l'application (le web se rattrapait avec ses propres libellés, pas le
+  // mobile). On complète donc champ par champ avec le texte générique du type,
+  // sans jamais écraser ce que l'appelant a fourni.
+  const copy = pushCopy(type, "fr", { title: "", body: "" });
   const row = await basePrisma.notifications.create({
-    data: { user_id: userId, type, title, body, data: data as Prisma.InputJsonValue },
+    data: {
+      user_id: userId,
+      type,
+      title: title.trim() || copy.title,
+      body: body.trim() || copy.body,
+      data: data as Prisma.InputJsonValue,
+    },
   });
   afterNotificationInserted(row);
 }

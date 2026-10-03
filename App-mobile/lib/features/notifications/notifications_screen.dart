@@ -129,8 +129,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   /// « Bulle » SMS : expéditeur, texte et horodatage, non-lues surlignées.
   Widget _bubble(Map<String, dynamic> n) {
-    final title = (n['title'] as String?) ?? 'Notification';
-    final body = (n['body'] as String?) ?? '';
+    final rawTitle = (n['title'] as String?)?.trim() ?? '';
+    final rawBody = (n['body'] as String?)?.trim() ?? '';
+    // Une notification enregistrée sans texte ne doit jamais produire une bulle
+    // vide : on retombe sur l'expéditeur, comme le serveur le fait désormais.
+    final title = rawTitle.isEmpty ? 'SAHA Santé' : rawTitle;
+    final body = rawBody;
     final unread = n['read_at'] == null;
     final created = parseDate(n['created_at']);
     final (icon, accent) = _typeMeta(n['type'] as String?);
