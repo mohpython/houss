@@ -1810,6 +1810,181 @@ async function adminCouriers(ctx: Ctx) {
   return json(toPlain({ couriers: rows }));
 }
 
+/** Pharmacies et leur gérant (liste admin, pour attribuer/retirer). */
+async function adminPharmacyOwners(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const rows = await prisma.pharmacies.findMany({
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      city: true,
+      status: true,
+      owner_user_id: true,
+      claim_email: true,
+      owner: { select: { email: true } },
+    },
+    orderBy: { name: "asc" },
+    take: 200,
+  });
+  // N'expose pas l'UUID du gérant : juste son email (ou « en attente »).
+  const pharmacies = rows.map(({ owner, owner_user_id, ...rest }) => ({
+    ...rest,
+    owner_email: owner_user_id ? (owner?.email ?? "(inconnu)") : null,
+  }));
+  return json({ pharmacies });
+}
+
+/** Attribue la gestion d'une pharmacie à un compte existant (ou la réserve
+ *  pour un email sans compte). Règles d'exclusivité identiques au site. */
+async function adminAssignPharmacyOwner(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const data = await body(
+    ctx,
+    z.object({
+      email: z.string().trim().toLowerCase().email("Email invalide").max(255),
+    }),
+  );
+  const pharmacyId = ctx.params[0];
+
+  const pharmacy = await prisma.pharmacies.findUnique({
+    where: { id: pharmacyId },
+    select: { id: true, name: true, owner_user_id: true },
+  });
+  if (!pharmacy) throw new ApiError(404, "Pharmacie introuvable");
+  if (pharmacy.owner_user_id) {
+    throw new ApiError(409, "Cette pharmacie a déjà un gérant. Retirez-le d'abord.");
+  }
+
+  const user = await prisma.users.findFirst({
+    where: { email: { equals: data.email, mode: "insensitive" } },
+    select: { id: true, email: true },
+  });
+
+  if (!user) {
+    // Aucun compte : on réserve la pharmacie pour cet email.
+    const reserved = await prisma.pharmacies.findFirst({
+      where: {
+        claim_email: { equals: data.email, mode: "insensitive" },
+        id: { not: pharmacyId },
+      },
+      select: { id: true, name: true },
+    });
+    if (reserved) {
+      throw new ApiError(409, `Cet email est déjà réservé pour « ${reserved.name} »`);
+    }
+    await prisma.pharmacies.update({
+      where: { id: pharmacyId },
+      data: { claim_email: data.email },
+    });
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: userId,
+        action: "pharmacy.owner_invited",
+        entity: "pharmacy",
+        entity_id: pharmacyId,
+        meta: { email: data.email },
+      },
+    });
+    return json({ status: "invited", email: data.email });
+  }
+
+  // Compte existant — exclusivité des rôles.
+  const [ownsOther, staffOther, courier] = await Promise.all([
+    prisma.pharmacies.findFirst({
+      where: { owner_user_id: user.id },
+      select: { id: true, name: true },
+    }),
+    prisma.pharmacy_staff.findFirst({ where: { user_id: user.id }, select: { id: true } }),
+    prisma.couriers.findFirst({ where: { user_id: user.id }, select: { id: true } }),
+  ]);
+  const targetIsAdmin = await isAdmin(user.id);
+  if (!targetIsAdmin) {
+    if (ownsOther) throw new ApiError(409, `Ce compte gère déjà « ${ownsOther.name} »`);
+    if (staffOther) throw new ApiError(409, "Ce compte est déjà rattaché à une autre pharmacie");
+    if (courier) {
+      throw new ApiError(
+        409,
+        "Ce compte est déjà livreur : un compte ne peut pas cumuler les deux rôles",
+      );
+    }
+  }
+
+  await prisma.pharmacies.update({
+    where: { id: pharmacyId },
+    data: { owner_user_id: user.id, claim_email: null },
+  });
+  // Comme sur le site, les insertions redondantes sont ignorées.
+  await prisma.pharmacy_staff
+    .create({ data: { pharmacy_id: pharmacyId, user_id: user.id } })
+    .catch(() => undefined);
+  await prisma.user_roles
+    .upsert({
+      where: { user_id_role: { user_id: user.id, role: "pharmacy_staff" } },
+      create: { user_id: user.id, role: "pharmacy_staff" },
+      update: {},
+    })
+    .catch(() => undefined);
+
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "pharmacy.owner_assigned",
+      entity: "pharmacy",
+      entity_id: pharmacyId,
+      meta: { email: data.email, user_id: user.id },
+    },
+  });
+  return json({ status: "assigned", email: data.email });
+}
+
+/** Retire le gérant d'une pharmacie (et le rôle associé s'il ne gère plus rien). */
+async function adminRemovePharmacyOwner(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const pharmacyId = ctx.params[0];
+
+  const pharmacy = await prisma.pharmacies.findUnique({
+    where: { id: pharmacyId },
+    select: { id: true, owner_user_id: true },
+  });
+  if (!pharmacy) throw new ApiError(404, "Pharmacie introuvable");
+  const ownerId = pharmacy.owner_user_id;
+
+  await prisma.pharmacies.update({
+    where: { id: pharmacyId },
+    data: { owner_user_id: null, claim_email: null },
+  });
+
+  if (ownerId) {
+    await prisma.pharmacy_staff.deleteMany({
+      where: { pharmacy_id: pharmacyId, user_id: ownerId },
+    });
+    const stillStaff = await prisma.pharmacy_staff.findFirst({
+      where: { user_id: ownerId },
+      select: { id: true },
+    });
+    if (!stillStaff) {
+      await prisma.user_roles.deleteMany({
+        where: { user_id: ownerId, role: "pharmacy_staff" },
+      });
+    }
+  }
+
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "pharmacy.owner_removed",
+      entity: "pharmacy",
+      entity_id: pharmacyId,
+      meta: { previous_owner: ownerId },
+    },
+  });
+  return json({ ok: true });
+}
+
 // ----------------------------------------------------------------------------
 // Carte des pharmacies alentour (Google Places) — espace admin
 // ----------------------------------------------------------------------------
@@ -2308,6 +2483,9 @@ const ROUTES: Array<[string, string, Handler]> = [
   ["GET", "admin/overview", adminOverview],
   ["GET", "admin/users", adminUsers],
   ["GET", "admin/couriers", adminCouriers],
+  ["GET", "admin/pharmacies/owners", adminPharmacyOwners],
+  ["POST", "admin/pharmacies/:id/owner", adminAssignPharmacyOwner],
+  ["POST", "admin/pharmacies/:id/owner/remove", adminRemovePharmacyOwner],
   ["GET", "admin/pharmacies/nearby", adminPharmaciesNearby],
   ["POST", "admin/pharmacies/places", adminPharmaciesPlaces],
   ["POST", "admin/pharmacies", adminCreatePharmacy],

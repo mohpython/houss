@@ -128,67 +128,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _showNotifications() async {
-    try {
-      final items = await ApiService.instance.getNotifications();
-      if (!mounted) return;
-      await showModalBottomSheet<void>(
-        context: context,
-        backgroundColor: AppColors.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (sheetContext) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Notifications',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                if (items.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      'Aucune notification pour l\'instant.',
-                      style: TextStyle(color: AppColors.textMuted),
-                    ),
-                  )
-                else
-                  ...items.take(15).map(
-                        (n) => Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                n['title'] as String? ?? 'Notification',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                              ),
-                              if ((n['body'] as String?)?.isNotEmpty ?? false)
-                                Text(
-                                  n['body'] as String,
-                                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-              ],
-            ),
-          ),
-        ),
-      );
-      await ApiService.instance.markNotificationsRead();
-    } on ApiException catch (e) {
-      _showError(e.message);
-    } catch (_) {
-      _showError('Impossible de charger les notifications.');
-    }
+  /// Ouvre le fil de notifications (style SMS, cliquable).
+  void _showNotifications() {
+    context.push('/notifications');
   }
 
   Future<void> _signOut() async {

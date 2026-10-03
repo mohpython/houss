@@ -415,6 +415,26 @@ class ApiService {
     await _api.post('/admin/couriers/$courierId', {'decision': decision});
   }
 
+  /// Pharmacies et leur gérant :
+  /// `{ pharmacies: [{ id, name, address, city, status, owner_email,
+  /// claim_email }] }`.
+  Future<List<Map<String, dynamic>>> adminPharmacyOwners() async {
+    final data = await _api.get('/admin/pharmacies/owners');
+    return ((data['pharmacies'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  /// Attribue la gestion d'une pharmacie à un compte existant (par email),
+  /// ou réserve la pharmacie pour cet email si aucun compte n'existe.
+  /// Renvoie `'assigned'` ou `'invited'`.
+  Future<String> adminAssignOwner(String pharmacyId, String email) async {
+    final data = await _api.post('/admin/pharmacies/$pharmacyId/owner', {'email': email});
+    return (data['status'] as String?) ?? 'assigned';
+  }
+
+  Future<void> adminRemoveOwner(String pharmacyId) async {
+    await _api.post('/admin/pharmacies/$pharmacyId/owner/remove');
+  }
+
   // --- Carte des pharmacies (Google Maps) -----------------------------------
 
   /// Pharmacies partenaires autour d'une position :

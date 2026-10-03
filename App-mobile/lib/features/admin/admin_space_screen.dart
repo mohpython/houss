@@ -27,6 +27,10 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _couriers = [];
 
+  // Gérants de pharmacie (par id) et emails en cours de saisie.
+  Map<String, Map<String, dynamic>> _ownersById = const {};
+  final Map<String, TextEditingController> _emailCtrls = {};
+
   // Carte Google Maps des pharmacies alentour.
   static const LatLng _bamako = LatLng(12.639, -8.002);
   double _lat = _bamako.latitude;
@@ -52,11 +56,16 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
       final overview = await ApiService.instance.adminOverview();
       final users = await ApiService.instance.adminUsers();
       final couriers = await ApiService.instance.adminCouriers();
+      final owners = await ApiService.instance.adminPharmacyOwners();
       if (!mounted) return;
       setState(() {
         _overview = overview;
         _users = users;
         _couriers = couriers;
+        _ownersById = {
+          for (final o in owners)
+            if (o['id'] != null) '${o['id']}': o,
+        };
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -72,6 +81,14 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
         _loading = false;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _emailCtrls.values) {
+      c.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _act(Future<void> Function() action) async {
@@ -442,8 +459,163 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               dense: true,
             ),
           ],
+          if (status == 'approved') ...[
+            const SizedBox(height: 10),
+            _managerSection(p),
+          ],
         ],
       ),
+    );
+  }
+
+  // --- Gérants de pharmacie --------------------------------------------------
+
+  TextEditingController _emailCtrl(String pharmacyId) =>
+      _emailCtrls.putIfAbsent(pharmacyId, TextEditingController.new);
+
+  /// Attribue (ou réserve) la pharmacie à un compte existant par email.
+  Future<void> _assignOwner(Map<String, dynamic> p) async {
+    final id = p['id'] as String;
+    final email = _emailCtrl(id).text.trim();
+    if (email.isEmpty) {
+      showSnack(context, 'Saisissez l’email du gérant à attribuer.', error: true);
+      return;
+    }
+    await _act(() async {
+      final status = await ApiService.instance.adminAssignOwner(id, email);
+      if (!mounted) return;
+      showSnack(
+        context,
+        status == 'invited'
+            ? 'Aucun compte pour cet email — pharmacie réservée jusqu’à la création de son compte.'
+            : 'Gérant attribué : ce compte a maintenant accès à l’espace pharmacie.',
+      );
+    });
+    _emailCtrl(id).clear();
+  }
+
+  /// Retire le gérant (ou la réservation) d'une pharmacie, après confirmation.
+  Future<void> _removeOwner(Map<String, dynamic> p, String? email) async {
+    final id = p['id'] as String;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Retirer le gérant ?'),
+        content: Text(
+          (email != null && email.isNotEmpty)
+              ? '« $email » perdra l’accès à cette pharmacie.'
+              : 'Ce compte perdra l’accès à cette pharmacie.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Retirer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _act(() async {
+      await ApiService.instance.adminRemoveOwner(id);
+      if (mounted) showSnack(context, 'Gérant retiré.');
+    });
+  }
+
+  /// Bloc « Gérant » d'une carte pharmacie : affiche le gérant (ou la
+  /// réservation) ou propose d'attribuer la pharmacie à un compte existant.
+  Widget _managerSection(Map<String, dynamic> p) {
+    final id = p['id'] as String;
+    final ownerRow = _ownersById[id];
+    final ownerEmail = (ownerRow?['owner_email'] as String?) ?? '';
+    final claimEmail = (ownerRow?['claim_email'] as String?) ?? '';
+
+    if (ownerEmail.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.person_pin_circle_outlined, size: 15, color: AppColors.success),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Gérant : $ownerEmail',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          actionButton(
+            'Retirer le gérant',
+            _busy ? null : () => _removeOwner(p, ownerEmail),
+            color: Colors.red.shade700,
+            dense: true,
+          ),
+        ],
+      );
+    }
+
+    if (claimEmail.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.mail_outline, size: 15, color: AppColors.warning),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Réservée — en attente du compte : $claimEmail',
+                  style: const TextStyle(fontSize: 12, color: AppColors.warning),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          actionButton(
+            'Annuler la réservation',
+            _busy ? null : () => _removeOwner(p, claimEmail),
+            color: Colors.red.shade700,
+            dense: true,
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _emailCtrl(id),
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            decoration: const InputDecoration(
+              isDense: true,
+              hintText: 'Email du gérant',
+              prefixIcon: Icon(Icons.alternate_email, size: 18, color: AppColors.textMuted),
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(vertical: 12),
+            ),
+            onSubmitted: (_) => _assignOwner(p),
+          ),
+        ),
+        const SizedBox(width: 8),
+        actionButton(
+          'Attribuer',
+          _busy ? null : () => _assignOwner(p),
+          icon: Icons.person_add_alt_1,
+          dense: true,
+        ),
+      ],
     );
   }
 

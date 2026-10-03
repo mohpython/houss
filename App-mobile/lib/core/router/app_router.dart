@@ -5,6 +5,7 @@ import 'package:saha_sante/features/auth/register_screen.dart';
 import 'package:saha_sante/features/health/health_screen.dart';
 import 'package:saha_sante/features/home/home_screen.dart';
 import 'package:saha_sante/features/home/patient_main_screen.dart';
+import 'package:saha_sante/features/notifications/notifications_screen.dart';
 import 'package:saha_sante/features/otc/otc_screen.dart';
 import 'package:saha_sante/features/prescriptions/prescriptions_screen.dart';
 import 'package:saha_sante/features/profile/profile_screen.dart';
@@ -29,6 +30,7 @@ class AppRouter {
     '/reservations',
     '/suivi',
     '/profil',
+    '/notifications',
     '/otc',
     '/health',
   ];
@@ -98,6 +100,10 @@ class AppRouter {
           GoRoute(
             path: '/profil',
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: '/notifications',
+            builder: (context, state) => const NotificationsScreen(),
           ),
           GoRoute(
             path: '/otc',
