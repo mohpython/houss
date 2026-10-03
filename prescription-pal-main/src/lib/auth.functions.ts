@@ -43,8 +43,13 @@ export const signUpWithEmail = createServerFn({ method: "POST" })
     const { basePrisma } = await import("@/server/prisma-base.server");
     const { createAccount, createSession, requestMeta } = await import("@/server/auth.server");
     const { rateLimit } = await import("@/server/rate-limit.server");
+    const { checkEmailDeliverable } = await import("@/server/email-check.server");
     const request = getRequest();
     rateLimit(`signup:${clientIp(request)}`, 10, 3600_000);
+
+    // Domaine inexistant ou boîte jetable : pas de compte fantôme.
+    const emailCheck = await checkEmailDeliverable(data.email);
+    if (!emailCheck.ok) throw new Error(emailCheck.reason);
 
     const existing = await basePrisma.users.findUnique({
       where: { email: data.email },
@@ -52,11 +57,13 @@ export const signUpWithEmail = createServerFn({ method: "POST" })
     });
     if (existing) throw new Error("Un compte existe déjà avec cet email. Connectez-vous.");
 
+    // `emailVerified: false` : rien ne prouve encore que l'adresse est réelle.
+    // Seul Google (qui a vérifié la boîte) marque le compte comme vérifié.
     const userId = await createAccount({
       email: data.email,
       password: data.password,
       fullName: data.fullName,
-      emailVerified: true,
+      emailVerified: false,
     });
     return createSession(userId, requestMeta(request));
   });

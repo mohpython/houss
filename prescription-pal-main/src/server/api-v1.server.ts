@@ -12,6 +12,7 @@
 import { z } from "zod";
 import { prisma } from "./db.server";
 import { isPrescriptionMime, normalizeMime, sniffMime } from "./file-type.server";
+import { checkEmailDeliverable } from "./email-check.server";
 import { basePrisma } from "./prisma-base.server";
 import { toPlain } from "./serialize";
 import {
@@ -123,17 +124,23 @@ async function register(ctx: Ctx) {
   );
   rateLimit(`api-register:${clientIp(ctx)}`, 10, 3600_000);
 
+  // Domaine inexistant ou boîte jetable : pas de compte fantôme.
+  const emailCheck = await checkEmailDeliverable(data.email);
+  if (!emailCheck.ok) throw new ApiError(400, emailCheck.reason);
+
   const existing = await basePrisma.users.findUnique({
     where: { email: data.email },
     select: { id: true },
   });
   if (existing) throw new ApiError(409, "Un compte existe déjà avec cet email. Connectez-vous.");
 
+  // `emailVerified: false` : sans SMTP, rien ne prouve que l'adresse existe.
+  // Seul Google (qui a vérifié la boîte) marque le compte comme vérifié.
   const userId = await createAccount({
     email: data.email,
     password: data.password,
     fullName: data.full_name,
-    emailVerified: true,
+    emailVerified: false,
   });
   if (data.phone) {
     await basePrisma.profiles.update({ where: { id: userId }, data: { phone: data.phone } });
@@ -309,7 +316,9 @@ async function googleProfileFromIdToken(idToken: string): Promise<GoogleProfile>
   return {
     sub,
     email,
-    emailVerified: payload.email_verified !== false,
+    // Strict : le jeton doit porter `email_verified: true`. Un jeton sans ce
+    // drapeau n'est pas accepté (avant, `!== false` laissait passer l'absent).
+    emailVerified: payload.email_verified === true,
     givenName: typeof payload.given_name === "string" ? payload.given_name : undefined,
     familyName: typeof payload.family_name === "string" ? payload.family_name : undefined,
     name: typeof payload.name === "string" ? payload.name : undefined,
@@ -338,7 +347,8 @@ async function googleProfileFromAccessToken(accessToken: string): Promise<Google
   return {
     sub,
     email,
-    emailVerified: info.email_verified !== false,
+    // Strict (idem chemin ID token) : `email_verified` doit valoir true.
+    emailVerified: info.email_verified === true,
     givenName: typeof info.given_name === "string" ? info.given_name : undefined,
     familyName: typeof info.family_name === "string" ? info.family_name : undefined,
     name: typeof info.name === "string" ? info.name : undefined,
@@ -368,7 +378,9 @@ async function loginGoogle(ctx: Ctx) {
 
   const email = profile.email.trim().toLowerCase();
   if (!profile.sub || !email) throw new ApiError(401, "Compte Google sans adresse email");
-  if (profile.emailVerified === false) {
+  // `emailVerified` est désormais calculé en `=== true` : ce contrôle attrape
+  // donc aussi un jeton Google privé du drapeau `email_verified`.
+  if (!profile.emailVerified) {
     throw new ApiError(401, "Adresse email Google non vérifiée");
   }
 

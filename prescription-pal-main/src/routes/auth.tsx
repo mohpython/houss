@@ -65,6 +65,9 @@ function AuthPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState({ google: false, phone: false, passwordReset: true });
+  // `config.google` vaut `false` tant que `getAuthConfig()` n'a pas répondu :
+  // sans ce drapeau, l'écran d'inscription afficherait brièvement « indisponible ».
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const PHONE_AUTH_ENABLED = config.phone;
 
@@ -73,8 +76,11 @@ function AuthPage() {
       if (data.session) navigate({ to: "/app" });
     });
     getAuthConfig()
-      .then(setConfig)
-      .catch(() => undefined);
+      .then((c) => {
+        setConfig(c);
+        setConfigLoaded(true);
+      })
+      .catch(() => setConfigLoaded(true));
   }, [navigate]);
 
   useEffect(() => {
@@ -248,19 +254,33 @@ function AuthPage() {
                   {t("auth.google")}
                 </Button>
 
-                <div className="my-5 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-[10px] uppercase tracking-widest text-foreground/50">
-                    {t("auth.or")}
-                  </span>
-                  <div className="h-px flex-1 bg-white/10" />
-                </div>
+                {/* Séparateur « ou » uniquement pour la connexion : à l'inscription,
+                    Google est le seul moyen de créer un compte (identité prouvée). */}
+                {mode === "signin" && (
+                  <div className="my-5 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-white/10" />
+                    <span className="text-[10px] uppercase tracking-widest text-foreground/50">
+                      {t("auth.or")}
+                    </span>
+                    <div className="h-px flex-1 bg-white/10" />
+                  </div>
+                )}
               </>
             )}
-            {!config.google && <div className="mt-6" />}
+            {mode === "signup" && configLoaded && config.google && (
+              <p className="mt-3 text-center text-xs leading-relaxed text-foreground/60">
+                {t("auth.signupGoogleOnly")}
+              </p>
+            )}
+            {mode === "signup" && configLoaded && !config.google && (
+              <p className="mt-6 rounded-xl border border-white/10 bg-white/5 p-3 text-center text-xs text-foreground/70">
+                {t("auth.signupUnavailable")}
+              </p>
+            )}
+            {mode === "signin" && !config.google && <div className="mt-6" />}
 
             {/* Method toggle — phone is hidden until the SMS provider is configured */}
-            {PHONE_AUTH_ENABLED && (
+            {mode === "signin" && PHONE_AUTH_ENABLED && (
               <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-white/5 p-1">
                 <button
                   type="button"
@@ -282,26 +302,12 @@ function AuthPage() {
               </div>
             )}
 
+            {/* Formulaires e-mail / téléphone : disponibles à la CONNEXION uniquement
+                (les comptes existants, notamment les gérants de pharmacie). */}
+            {mode === "signin" && (
+              <>
             {method === "email" && (
               <form onSubmit={handleEmail} className="space-y-3">
-                {mode === "signup" && (
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="fullName"
-                      className="text-xs uppercase tracking-widest text-foreground/60"
-                    >
-                      {t("auth.fullName")}
-                    </Label>
-                    <Input
-                      id="fullName"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder={t("auth.fullNamePlaceholder")}
-                      required
-                      className="h-11 rounded-xl border-white/10 bg-white/5"
-                    />
-                  </div>
-                )}
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="email"
@@ -333,11 +339,11 @@ function AuthPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
-                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                    autoComplete="current-password"
                     className="h-11 rounded-xl border-white/10 bg-white/5"
                   />
                 </div>
-                {mode === "signin" && config.passwordReset && (
+                {config.passwordReset && (
                   <div className="text-right">
                     <button
                       type="button"
@@ -353,31 +359,13 @@ function AuthPage() {
                   className="mt-2 h-11 w-full rounded-full aurora-bg text-primary-foreground shadow-lg shadow-primary/30"
                   disabled={loading}
                 >
-                  {loading ? "..." : mode === "signup" ? t("auth.createAccount") : t("auth.signIn")}
+                  {loading ? "..." : t("auth.signIn")}
                 </Button>
               </form>
             )}
 
             {method === "phone" && !otpSent && (
               <form onSubmit={handleSendOtp} className="space-y-3">
-                {mode === "signup" && (
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="fullNameP"
-                      className="text-xs uppercase tracking-widest text-foreground/60"
-                    >
-                      {t("auth.fullName")}
-                    </Label>
-                    <Input
-                      id="fullNameP"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder={t("auth.fullNamePlaceholder")}
-                      required
-                      className="h-11 rounded-xl border-white/10 bg-white/5"
-                    />
-                  </div>
-                )}
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="phone"
@@ -462,6 +450,8 @@ function AuthPage() {
                   </button>
                 </div>
               </form>
+            )}
+              </>
             )}
 
             <p className="mt-5 text-center text-xs text-foreground/60">
