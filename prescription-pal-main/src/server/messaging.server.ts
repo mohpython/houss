@@ -14,6 +14,10 @@ export function otpChannelAvailable(): boolean {
       return Boolean(env.twilioAccountSid && env.twilioAuthToken && env.twilioFrom);
     case "whatsapp":
       return Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
+    case "orangesms":
+      return Boolean(
+        env.orangeSmsClientId && env.orangeSmsClientSecret && env.orangeSmsSender,
+      );
     case "log":
       // Mode développement : le code est écrit dans les logs du serveur.
       return !env.isProd;
@@ -40,6 +44,20 @@ export async function sendOtp(phone: string, code: string): Promise<void> {
     );
     if (!res.ok) {
       console.error("[otp] Twilio", res.status, (await res.text()).slice(0, 300));
+      throw new Error("Impossible d'envoyer le SMS. Réessayez plus tard.");
+    }
+    return;
+  }
+
+  if (env.otpChannel === "orangesms") {
+    const { sendSms, orangeSmsConfigured } = await import("@/lib/orange-sms.server");
+    if (!orangeSmsConfigured()) {
+      throw new Error("Orange SMS non configuré. Vérifiez ORANGE_SMS_* dans le .env.");
+    }
+    try {
+      await sendSms(phone, text);
+    } catch (err) {
+      console.error("[otp] Orange SMS", err);
       throw new Error("Impossible d'envoyer le SMS. Réessayez plus tard.");
     }
     return;

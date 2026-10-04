@@ -73,9 +73,9 @@ export const env = {
   get googleAndroidClientId() {
     return str("GOOGLE_ANDROID_CLIENT_ID", "");
   },
-  /** 'log' (dev), 'whatsapp' ou 'twilio'. */
+  /** 'log' (dev), 'whatsapp', 'twilio' ou 'orangesms'. */
   get otpChannel() {
-    return str("OTP_CHANNEL", "log") as "log" | "whatsapp" | "twilio";
+    return str("OTP_CHANNEL", "log") as "log" | "whatsapp" | "twilio" | "orangesms";
   },
   get twilioAccountSid() {
     return str("TWILIO_ACCOUNT_SID");
@@ -85,6 +85,26 @@ export const env = {
   },
   get twilioFrom() {
     return str("TWILIO_FROM");
+  },
+
+  // --- Orange SMS (Mali) : canal OTP ---
+  get orangeSmsClientId() {
+    return str("ORANGE_SMS_CLIENT_ID");
+  },
+  get orangeSmsClientSecret() {
+    return str("ORANGE_SMS_CLIENT_SECRET");
+  },
+  /** Numéro/alias d'expéditeur Orange, ex. +22370000000. */
+  get orangeSmsSender() {
+    return str("ORANGE_SMS_SENDER");
+  },
+  /** Surcharge de l'URL du jeton OAuth (défaut : api.orange.com/oauth/token). */
+  get orangeSmsTokenUrl() {
+    return str("ORANGE_SMS_TOKEN_URL");
+  },
+  /** Surcharge complète de l'URL d'envoi (défaut : construit depuis ORANGE_SMS_SENDER). */
+  get orangeSmsSendUrl() {
+    return str("ORANGE_SMS_SEND_URL");
   },
 
   // --- Email (SMTP) : réinitialisation du mot de passe ---
