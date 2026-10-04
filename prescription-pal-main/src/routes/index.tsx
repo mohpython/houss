@@ -81,7 +81,7 @@ function Landing() {
             </Button>
           </Link>
           <Link to="/auth" search={{ mode: "signup" }}>
-            <Button size="sm" className="aurora-bg text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-95">
+            <Button size="sm" className="aurora-bg text-on-aurora shadow-lg shadow-primary/30 hover:opacity-95">
               {t("landing.start")}
             </Button>
           </Link>
@@ -108,7 +108,7 @@ function Landing() {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <Link to="/auth" search={{ mode: "signup" }}>
-                  <Button size="lg" className="aurora-bg h-12 gap-2 rounded-full px-6 text-primary-foreground shadow-xl shadow-primary/40">
+                  <Button size="lg" className="aurora-bg h-12 gap-2 rounded-full px-6 text-on-aurora shadow-xl shadow-primary/40">
                     <Camera className="h-4 w-4" />
                     {t("landing.scanCta")}
                     <ArrowUpRight className="h-4 w-4" />
@@ -138,7 +138,7 @@ function Landing() {
 
           <GlassCard className="p-6 md:col-span-2 md:row-span-2">
             <div className="flex h-full flex-col justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl aurora-bg text-primary-foreground">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl aurora-bg text-on-aurora">
                 <Bot className="h-5 w-5" />
               </div>
               <div>
@@ -184,7 +184,7 @@ function Landing() {
               {t("landing.ctaText")}
             </p>
             <Link to="/auth" search={{ mode: "signup" }} className="mt-8 inline-block">
-              <Button size="lg" className="aurora-bg h-12 gap-2 rounded-full px-8 text-primary-foreground shadow-xl shadow-primary/40">
+              <Button size="lg" className="aurora-bg h-12 gap-2 rounded-full px-8 text-on-aurora shadow-xl shadow-primary/40">
                 <Camera className="h-4 w-4" /> {t("landing.ctaStart")}
               </Button>
             </Link>

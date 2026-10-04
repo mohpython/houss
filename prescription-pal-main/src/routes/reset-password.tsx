@@ -78,7 +78,7 @@ function ResetPasswordPage() {
             </div>
             <Button
               type="submit"
-              className="h-11 w-full rounded-full aurora-bg text-primary-foreground shadow-lg shadow-primary/30"
+              className="h-11 w-full rounded-full aurora-bg text-on-aurora shadow-lg shadow-primary/30"
               disabled={loading}
             >
               {loading ? "..." : t("auth.resetSave")}

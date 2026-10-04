@@ -86,4 +86,11 @@ class AppColors {
 
   /// Couleur de texte a poser sur [primary] : lisible dans les deux themes.
   static Color get onPrimary => light ? const Color(0xFF06301F) : Colors.white;
+
+  /// Couleur de texte a poser sur [danger].
+  ///
+  /// En mode sombre, [danger] est un rouge clair (#F15C6D) : le blanc y
+  /// descendrait a 3,2:1, insuffisant pour le chiffre de 10 px de la pastille
+  /// de notifications. Le texte y est donc tres sombre (5,7:1).
+  static Color get onDanger => light ? Colors.white : const Color(0xFF0B141A);
 }

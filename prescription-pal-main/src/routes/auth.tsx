@@ -356,7 +356,7 @@ function AuthPage() {
                 )}
                 <Button
                   type="submit"
-                  className="mt-2 h-11 w-full rounded-full aurora-bg text-primary-foreground shadow-lg shadow-primary/30"
+                  className="mt-2 h-11 w-full rounded-full aurora-bg text-on-aurora shadow-lg shadow-primary/30"
                   disabled={loading}
                 >
                   {loading ? "..." : t("auth.signIn")}
@@ -387,7 +387,7 @@ function AuthPage() {
                 </div>
                 <Button
                   type="submit"
-                  className="mt-2 h-11 w-full rounded-full aurora-bg text-primary-foreground shadow-lg shadow-primary/30"
+                  className="mt-2 h-11 w-full rounded-full aurora-bg text-on-aurora shadow-lg shadow-primary/30"
                   disabled={loading || !isValidPhone}
                 >
                   {loading ? t("auth.sending") : t("auth.sendCode")}
@@ -422,7 +422,7 @@ function AuthPage() {
                 </div>
                 <Button
                   type="submit"
-                  className="mt-2 h-11 w-full rounded-full aurora-bg text-primary-foreground shadow-lg shadow-primary/30"
+                  className="mt-2 h-11 w-full rounded-full aurora-bg text-on-aurora shadow-lg shadow-primary/30"
                   disabled={loading || otp.length !== 6}
                 >
                   {loading ? t("auth.verifying") : t("auth.verify")}

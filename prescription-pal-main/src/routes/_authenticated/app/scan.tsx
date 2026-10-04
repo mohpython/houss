@@ -340,7 +340,7 @@ function Scan() {
             type="button"
             onClick={openCamera}
             aria-label={t("nav.scan")}
-            className="flex h-40 w-40 items-center justify-center rounded-full aurora-bg text-primary-foreground shadow-2xl shadow-primary/40 transition-transform active:scale-95"
+            className="flex h-40 w-40 items-center justify-center rounded-full aurora-bg text-on-aurora shadow-2xl shadow-primary/40 transition-transform active:scale-95"
           >
             <Camera className="h-16 w-16" />
           </button>

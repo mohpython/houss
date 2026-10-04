@@ -65,6 +65,12 @@
      `primary` reste plus sourd pour rester lisible en texte. */
   --color-brand: hsl(var(--brand));
   --color-brand-foreground: hsl(var(--brand-foreground));
+  /* Texte pose sur le degrade `aurora-bg`. Ce degrade est vert dans les deux
+     themes, donc son texte est toujours vert tres sombre — comme WhatsApp,
+     qui ecrit en fonce sur ses verts. Il a son propre jeton parce que
+     `primary-foreground` doit aussi convenir aux boutons verts vifs, sur
+     lesquels le blanc ne donnerait que 2,2:1. */
+  --color-on-aurora: hsl(var(--on-aurora));
 }
 
 :root {
@@ -81,10 +87,17 @@
   --popover: 202 16% 15%;
   --popover-foreground: 200 14% 93%;
 
-  /* Vert d'eau #00A884, assombri legerement pour que le texte blanc garde
-     un contraste suffisant sur les boutons. */
-  --primary: 168 78% 30%;
-  --primary-foreground: 0 0% 100%;
+  /* `primary` porte deux roles : fond de bouton (19 usages, avec
+     `primary-foreground` pose dessus) et couleur de texte (73 usages, sur le
+     fond de la page). Les deux ne sont compatibles que si `primary` est
+     toujours en contraste avec la page — d'ou une valeur plus claire en mode
+     sombre. Mesures : texte vert sur fond sombre 6,2:1, texte sombre sur vert
+     6,8:1. */
+  --primary: 142 70% 44%;
+  --primary-foreground: 160 80% 8%;
+  /* Sur le degrade, le texte est centre : c'est l'arret du milieu (#00A884) qui
+     compte, ou le vert tres sombre donne 5,5:1 contre 3,0:1 pour le blanc. */
+  --on-aurora: 160 80% 8%;
   --brand: 142 70% 45%;
   --brand-foreground: 160 80% 6%;
 
@@ -149,12 +162,18 @@ html, body {
   --popover: 0 0% 100%;
   --popover-foreground: 200 15% 12%;
 
-  /* Vert WhatsApp #25D366. Le texte pose dessus est vert tres sombre et non
-     blanc : blanc sur #25D366 ne donne que 2,2:1 de contraste, illisible. */
-  --primary: 142 70% 49%;
-  --primary-foreground: 160 75% 8%;
+  /* En mode clair, `primary` doit au contraire etre SOMBRE : c'est la couleur
+     du texte vert (73 usages) sur le fond clair de la page. Le vert vif
+     #25D366 n'y montait qu'a 2,0:1 — invisible. Cette valeur donne 4,6:1 en
+     texte sur la page et 5,2:1 sous le texte blanc des boutons. */
+  --primary: 168 78% 27%;
+  --primary-foreground: 0 0% 100%;
+  /* Memes deux themes, meme degrade : meme texte vert tres sombre. */
+  --on-aurora: 160 80% 8%;
+  /* `--brand` reste le vert vif WhatsApp, reserve aux badges et pastilles : le
+     texte y est tres sombre (6,2:1), le blanc n'y montait qu'a 2,7:1. */
   --brand: 142 70% 42%;
-  --brand-foreground: 0 0% 100%;
+  --brand-foreground: 160 75% 8%;
 
   --secondary: 214 25% 92%;
   --secondary-foreground: 200 15% 12%;

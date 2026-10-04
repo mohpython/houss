@@ -6,6 +6,7 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/notification_bell.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/features/home/notification_check_banner.dart';
 
@@ -108,6 +109,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       Row(
                         children: [
+                          // Cloche en tete d'accueil, avec pastille : c'est le
+                          // point d'entree le plus direct vers les notifications.
+                          const NotificationBell(),
                           IconButton(
                             onPressed: () => context.push('/otc'),
                             icon: const Icon(Icons.medical_services, size: 20),

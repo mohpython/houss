@@ -7,6 +7,7 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 /// Montant en FCFA, arrondi et séparé par milliers (« 4 000 FCFA »).
 String _frAmount(num amount) {
@@ -332,6 +333,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                           onPressed: () => context.pop(),
                           icon: const Icon(Icons.arrow_back),
                         ),
+                      const NotificationBell(),
                       const Expanded(
                         child: Text(
                           'Suivi de livraison',

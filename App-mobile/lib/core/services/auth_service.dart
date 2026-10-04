@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:saha_sante/core/api/api_client.dart';
+import 'package:saha_sante/core/services/unread_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Utilisateur connecté.
@@ -194,6 +195,9 @@ class AuthService extends ChangeNotifier {
     final hadToken = _token != null;
     _token = null;
     _user = null;
+    // Le compteur de non-lus appartient au compte qui vient de quitter : on
+    // l'oublie pour que la cloche ne montre pas ses notifications au suivant.
+    UnreadStore.instance.reset();
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);

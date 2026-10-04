@@ -154,7 +154,7 @@ export function PushSettingsCard() {
           {showEnable ? (
             <Button
               size="sm"
-              className="aurora-bg text-primary-foreground"
+              className="aurora-bg text-on-aurora"
               onClick={enable}
               disabled={busy}
             >

@@ -260,7 +260,7 @@ function AuthedLayout() {
                 aria-label={item.label}
                 title={item.label}
                 activeOptions={{ exact: item.to === "/app" }}
-                className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/60 transition-all [&.active]:aurora-bg [&.active]:text-primary-foreground [&.active]:shadow-lg [&.active]:shadow-primary/30"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/60 transition-all [&.active]:aurora-bg [&.active]:text-on-aurora [&.active]:shadow-lg [&.active]:shadow-primary/30"
               >
                 {item.icon}
               </Link>
@@ -322,7 +322,7 @@ function MoreMenu({
                 key={item.to}
                 to={item.to}
                 onClick={onClose}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-muted p-3 text-xs font-medium text-foreground transition hover:bg-secondary [&.active]:aurora-bg [&.active]:text-primary-foreground"
+                className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-muted p-3 text-xs font-medium text-foreground transition hover:bg-secondary [&.active]:aurora-bg [&.active]:text-on-aurora"
               >
                 {item.icon}
                 <span className="text-center leading-tight">{item.label}</span>
@@ -544,7 +544,7 @@ function NavItem({
       className={cn(
         "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-foreground/70 transition-all",
         "hover:bg-muted hover:text-foreground",
-        "[&.active]:aurora-bg [&.active]:text-primary-foreground [&.active]:shadow-lg [&.active]:shadow-primary/30",
+        "[&.active]:aurora-bg [&.active]:text-on-aurora [&.active]:shadow-lg [&.active]:shadow-primary/30",
       )}
       activeOptions={{ exact: to === "/app" }}
     >

@@ -5,6 +5,7 @@ import 'package:saha_sante/core/models/prescription.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 /// Date au format français, sans dépendre des données de locale d'intl.
 String _frDate(DateTime date) {
@@ -75,6 +76,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                       onPressed: () => context.pop(),
                       icon: const Icon(Icons.arrow_back),
                     ),
+                    const NotificationBell(),
                     const SizedBox(width: 8),
                     const Text(
                       'Mes ordonnances',

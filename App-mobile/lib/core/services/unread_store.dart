@@ -47,4 +47,16 @@ class UnreadStore extends ChangeNotifier {
     if (_count > 0) _count--;
     notifyListeners();
   }
+
+  /// A appeler a la deconnexion.
+  ///
+  /// Sans cela, le compteur de l'utilisateur precedent resterait affiche pour
+  /// le suivant : la cloche ne se rafraichit que si `loaded` est faux, donc
+  /// effacer le nombre ne suffit pas — il faut surtout oublier qu'on l'a
+  /// charge.
+  void reset() {
+    _count = 0;
+    _loaded = false;
+    notifyListeners();
+  }
 }

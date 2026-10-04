@@ -7,6 +7,7 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 class OtcScreen extends StatefulWidget {
   const OtcScreen({super.key});
@@ -158,6 +159,7 @@ class _OtcScreenState extends State<OtcScreen> {
                       onPressed: () => context.pop(),
                       icon: const Icon(Icons.arrow_back),
                     ),
+                    const NotificationBell(),
                     const SizedBox(width: 8),
                     const Text(
                       'Sans ordonnance',

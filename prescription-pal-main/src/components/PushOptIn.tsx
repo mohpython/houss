@@ -100,7 +100,7 @@ export function PushOptIn() {
         <div className="flex shrink-0 items-center gap-2">
           <Button
             size="sm"
-            className="aurora-bg text-primary-foreground"
+            className="aurora-bg text-on-aurora"
             onClick={() => window.open(window.location.href, "_blank", "noopener")}
           >
             <ExternalLink className="mr-2 h-4 w-4" />
@@ -145,7 +145,7 @@ export function PushOptIn() {
       <div className="flex shrink-0 items-center gap-2">
         <Button
           size="sm"
-          className="aurora-bg text-primary-foreground"
+          className="aurora-bg text-on-aurora"
           onClick={enable}
           disabled={busy}
         >

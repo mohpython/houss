@@ -7,6 +7,7 @@ import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 /// Montant en FCFA, arrondi et séparé par milliers (« 10 000 FCFA »).
 String _frAmount(num amount) {
@@ -287,6 +288,7 @@ class _HealthScreenState extends State<HealthScreen> {
                       onPressed: () => context.pop(),
                       icon: const Icon(Icons.arrow_back),
                     ),
+                    const NotificationBell(),
                     const SizedBox(width: 8),
                     const Text(
                       'Consultation',

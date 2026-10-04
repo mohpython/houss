@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
+import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 // ============================================================================
 // Formats
@@ -308,6 +309,12 @@ Widget spaceHeader(String title, {String? subtitle, Widget? trailing}) {
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ),
+          // Cloche en haut de chaque espace professionnel (pharmacie, livreur,
+          // praticien, admin). Elle est placee ici plutot que dans chaque
+          // ecran : ces quatre ecrans partagent cet en-tete, et c'est
+          // justement le pharmacien qui doit voir ses notifications sans avoir
+          // a revenir a l'accueil.
+          const NotificationBell(),
           if (trailing != null) trailing,
         ],
       ),

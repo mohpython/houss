@@ -155,6 +155,7 @@ class L10n {
       'home.heroTitle': 'Une ordonnance à faire préparer ?',
       'home.heroDesc': 'Prenez une photo. L\'IA identifie vos médicaments et trouve l\'officine de garde.',
       'home.scanCta': 'Scanner mon ordonnance',
+      'notifications': 'Notifications',
       'signOut': 'Se déconnecter',
     },
     SahaLang.en: {
@@ -229,6 +230,7 @@ class L10n {
       'home.heroTitle': 'Need a prescription prepared?',
       'home.heroDesc': 'Take a photo. Our AI identifies your medicines and finds the pharmacy on duty.',
       'home.scanCta': 'Scan my prescription',
+      'notifications': 'Notifications',
       'signOut': 'Sign out',
     },
     SahaLang.ar: {
@@ -302,6 +304,7 @@ class L10n {
       'home.heroTitle': 'لديك وصفة تحتاج تحضيرًا؟',
       'home.heroDesc': 'صوّرها. يتعرف الذكاء الاصطناعي على أدويتك ويجد الصيدلية المناوبة.',
       'home.scanCta': 'امسح وصفتك',
+      'notifications': 'الإشعارات',
       'signOut': 'تسجيل الخروج',
     },
     SahaLang.bm: {
@@ -375,6 +378,7 @@ class L10n {
       'home.heroTitle': 'I ka ɲɛ ɔrɔdɔnansi ka dilan waati?',
       'home.heroDesc': 'Jɛɲɛ a photo. An ka AI bɛ i ka ɛmɛnw lajɛ ani ka faramasɔ tiɲɛ na.',
       'home.scanCta': 'N ka ɔrɔdɔnansi jɛɲɛ',
+      'notifications': 'Kabiniw',
       'signOut': 'Bɔ',
     },
   };
