@@ -33,6 +33,32 @@ class Reservation {
   bool get needsPayment => paymentStatus == 'unpaid';
   bool get isPickup => fulfillmentMethod == 'pickup';
 
+  /// Copie avec quelques champs modifies.
+  ///
+  /// Sert au changement de mode de remise : on applique le nouveau mode
+  /// immediatement, avant la reponse du serveur, pour que le bouton bascule
+  /// dans la meme image. Le serveur confirme ensuite.
+  Reservation copyWith({
+    String? fulfillmentMethod,
+    double? totalPrice,
+    String? paymentStatus,
+    ReservationStatus? status,
+  }) {
+    return Reservation(
+      id: id,
+      pharmacyName: pharmacyName,
+      pharmacyAddress: pharmacyAddress,
+      createdAt: createdAt,
+      status: status ?? this.status,
+      medicines: medicines,
+      totalPrice: totalPrice ?? this.totalPrice,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      fulfillmentMethod: fulfillmentMethod ?? this.fulfillmentMethod,
+      pickupCode: pickupCode,
+      pharmacyPhone: pharmacyPhone,
+    );
+  }
+
   static ReservationStatus _status(String? status, String? delivery) {
     if (status == 'completed') return ReservationStatus.completed;
     if (status == 'cancelled' || status == 'rejected') return ReservationStatus.cancelled;

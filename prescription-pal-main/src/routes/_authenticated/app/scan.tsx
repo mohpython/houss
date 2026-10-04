@@ -133,31 +133,24 @@ function Scan() {
     }
   };
 
-  /** Extraction is done: ask the patient where to deliver before routing. */
-  const continueToRouting = async (rxId: string) => {
-    const pos = geo.current;
-    setDeliveryLoc(pos ? { mode: "gps", lat: pos.lat, lng: pos.lng } : null);
-    setPendingRx(rxId);
-  };
-
-  const confirmDelivery = async () => {
-    if (!pendingRx || !deliveryLoc) return;
+  /** Find the pharmacy that can fulfil the prescription, then open checkout. */
+  const routeTo = async (rxId: string, loc: DeliveryLocation) => {
     setRouting(true);
     setPhase(3);
     try {
       const routed = await autoRoute({
         data:
-          deliveryLoc.mode === "neighborhood"
+          loc.mode === "neighborhood"
             ? {
-                prescriptionId: pendingRx,
-                neighborhoodId: deliveryLoc.neighborhoodId,
-                patientAddress: deliveryLoc.detail?.trim() || undefined,
+                prescriptionId: rxId,
+                neighborhoodId: loc.neighborhoodId,
+                patientAddress: loc.detail?.trim() || undefined,
               }
             : {
-                prescriptionId: pendingRx,
-                patientLat: deliveryLoc.lat,
-                patientLng: deliveryLoc.lng,
-                patientAddress: deliveryLoc.detail?.trim() || undefined,
+                prescriptionId: rxId,
+                patientLat: loc.lat,
+                patientLng: loc.lng,
+                patientAddress: loc.detail?.trim() || undefined,
               },
       });
       setPhase(4);
@@ -167,11 +160,41 @@ function Scan() {
         params: { id: routed.reservationId },
       });
     } catch (err) {
+      // La recherche a echoue : on rend la main plutot que de laisser le
+      // patient sur un ecran bloque. Le lieu retenu reste propose, il peut
+      // relancer ou choisir un autre quartier.
       setPhase(2);
+      setDeliveryLoc(loc);
+      setPendingRx(rxId);
       toast.error(err instanceof Error ? err.message : t("scan.error"));
     } finally {
       setRouting(false);
     }
+  };
+
+  const confirmDelivery = async () => {
+    if (!pendingRx || !deliveryLoc) return;
+    await routeTo(pendingRx, deliveryLoc);
+  };
+
+  /**
+   * Extraction terminee : la pharmacie est cherchee automatiquement, sans
+   * attendre un clic de plus du patient.
+   *
+   * Le lieu de livraison reste demande quand la position est inconnue (GPS
+   * refuse, indisponible, ou navigateur sans geolocalisation) : choisir son
+   * quartier conditionne le choix de la pharmacie, on ne peut pas le deviner.
+   */
+  const continueToRouting = async (rxId: string) => {
+    const pos = await getGeo();
+    if (!pos) {
+      setDeliveryLoc(null);
+      setPendingRx(rxId);
+      return;
+    }
+    const loc: DeliveryLocation = { mode: "gps", lat: pos.lat, lng: pos.lng };
+    setDeliveryLoc(loc);
+    await routeTo(rxId, loc);
   };
 
   const submitManualDate = async () => {

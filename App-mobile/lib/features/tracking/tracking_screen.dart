@@ -65,6 +65,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
   String? _error;
   bool _empty = false;
 
+  /// Numero du dernier changement de mode de remise demande. Une reponse qui
+  /// arrive pour un numero anterieur est ignoree : sans cela, cliquer vite sur
+  /// « retrait » puis « livraison » pouvait reafficher « retrait » alors que la
+  /// derniere intention etait l'inverse.
+  int _fulfillmentSeq = 0;
+
   @override
   void initState() {
     super.initState();
@@ -151,23 +157,63 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   /// Choix du mode de remise : la livraison ajoute les frais, le retrait non.
+  ///
+  /// Le bouton bascule dans la meme image : on applique le nouveau mode en
+  /// local avant d'appeler le serveur. Avant, chaque changement enchainait deux
+  /// aller-retours (l'ecriture puis un rechargement complet de la commande) et
+  /// la carte etait bloquee pendant ce temps, ce qui se voyait comme plusieurs
+  /// secondes de latence entre le clic et le changement.
+  ///
+  /// [_fulfillmentSeq] sert quand l'utilisateur enchaîne les clics : seule la
+  /// reponse la plus recente est acceptee, une reponse plus ancienne ne peut
+  /// plus reafficher un mode deja abandonne.
   Future<void> _setFulfillment(String method) async {
     final id = _currentId;
-    if (id == null || _busy) return;
-    if (_reservation?.fulfillmentMethod == method) return;
-    setState(() => _busy = true);
+    final current = _reservation;
+    if (id == null || current == null) return;
+    if (current.fulfillmentMethod == method) return;
+
+    final seq = ++_fulfillmentSeq;
+    final wasMethod = current.fulfillmentMethod;
+    final wasTotal = current.totalPrice;
+
+    setState(() {
+      _busy = true;
+      // Le retrait ne coute rien, la livraison ajoute les frais de livraison.
+      final fee = AppConfig.deliveryFee.toDouble();
+      final items = (wasTotal ?? 0) - (wasMethod == 'pickup' ? 0 : fee);
+      _reservation = current.copyWith(
+        fulfillmentMethod: method,
+        totalPrice: method == 'pickup' ? items : items + fee,
+      );
+    });
+
     try {
-      await ApiService.instance.setFulfillment(id, method);
-      await _load();
-      if (!mounted) return;
-      setState(() => _busy = false);
+      final saved = await ApiService.instance.setFulfillment(id, method);
+      if (!mounted || seq != _fulfillmentSeq) return;
+      setState(() {
+        _reservation = saved;
+        _busy = false;
+      });
     } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _busy = false);
+      if (!mounted || seq != _fulfillmentSeq) return;
+      setState(() {
+        _reservation = current.copyWith(
+          fulfillmentMethod: wasMethod,
+          totalPrice: wasTotal,
+        );
+        _busy = false;
+      });
       _showError(e.message);
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _busy = false);
+      if (!mounted || seq != _fulfillmentSeq) return;
+      setState(() {
+        _reservation = current.copyWith(
+          fulfillmentMethod: wasMethod,
+          totalPrice: wasTotal,
+        );
+        _busy = false;
+      });
       _showError('Impossible de changer le mode de remise. Réessayez.');
     }
   }
@@ -381,7 +427,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
                       const SizedBox(height: 20),
                       _FulfillmentCard(
                         method: reservation.fulfillmentMethod,
-                        busy: _busy,
                         onChanged: _setFulfillment,
                       ),
                       const SizedBox(height: 20),
@@ -700,12 +745,10 @@ class _DetailCard extends StatelessWidget {
 /// Choix entre livraison à domicile (avec frais) et retrait en pharmacie.
 class _FulfillmentCard extends StatelessWidget {
   final String method;
-  final bool busy;
   final ValueChanged<String> onChanged;
 
   const _FulfillmentCard({
     required this.method,
-    required this.busy,
     required this.onChanged,
   });
 
@@ -728,7 +771,10 @@ class _FulfillmentCard extends StatelessWidget {
             title: 'Livraison à domicile',
             subtitle: '+ ${_frAmount(AppConfig.deliveryFee)} de frais',
             selected: method == 'delivery',
-            onTap: busy ? null : () => onChanged('delivery'),
+            // Le bouton n'est pas bloque pendant l'appel : la selection est
+            // deja affichee, et la commande de l'utilisateur prime sur la
+            // reponse en cours. Le serveur confirme derriere.
+            onTap: () => onChanged('delivery'),
           ),
           const SizedBox(height: 10),
           _Option(
@@ -736,7 +782,7 @@ class _FulfillmentCard extends StatelessWidget {
             title: 'Je récupère en pharmacie',
             subtitle: 'Sans frais de livraison',
             selected: method == 'pickup',
-            onTap: busy ? null : () => onChanged('pickup'),
+            onTap: () => onChanged('pickup'),
           ),
         ],
       ),

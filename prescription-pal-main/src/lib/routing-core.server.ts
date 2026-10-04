@@ -39,8 +39,9 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Flat delivery fee, in FCFA. */
-export const DELIVERY_FEE = 1000;
+/** Flat delivery fee, in FCFA. Source unique : `payment-config.ts`. */
+import { DELIVERY_FEE } from "./payment-config";
+export { DELIVERY_FEE };
 
 export type AutoRouteInput = {
   prescriptionId: string;

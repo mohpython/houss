@@ -1,10 +1,15 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getReservationCheckout } from "@/lib/reservations.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { declareMobileMoneyPayment } from "@/lib/payment.functions";
 import { setFulfillmentMethod } from "@/lib/fulfillment.functions";
-import { MERCHANT_NUMBERS, formatAmount, type PaymentMethod } from "@/lib/payment-config";
+import {
+  MERCHANT_NUMBERS,
+  DELIVERY_FEE,
+  formatAmount,
+  type PaymentMethod,
+} from "@/lib/payment-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,6 +56,11 @@ type Row = {
   }>;
 };
 
+/** Total des articles, independent du mode de remise. */
+function itemsOf(row: Row) {
+  return Number(row.items_total ?? 0);
+}
+
 function Checkout() {
   const { t } = useTranslation();
   const { id } = Route.useParams();
@@ -63,17 +73,42 @@ function Checkout() {
   const phoneValid = /^\+?[0-9 ]{8,20}$/.test(phone.trim());
   const declare = useServerFn(declareMobileMoneyPayment);
   const setMethodFn = useServerFn(setFulfillmentMethod);
-  const [switching, setSwitching] = useState(false);
+  /**
+   * Numero du dernier changement de mode demande. Une reponse arrivee pour un
+   * numero anterieur est ignoree : sans cela, cliquer vite « livraison » puis
+   * « retrait » pouvait reappliquer l'ancien mode.
+   */
+  const fulfillmentSeq = useRef(0);
 
   const chooseFulfillment = async (m: "delivery" | "pickup") => {
-    setSwitching(true);
+    const before = row;
+    if (!before || before.fulfillment_method === m) return;
+
+    // Application immediate : le bouton se selectionne dans la meme image, sans
+    // attendre le serveur. Avant, chaque clic enchainait deux aller-retours
+    // (l'ecriture puis un rechargement complet de la commande) et les deux
+    // boutons etaient desactives pendant ce temps — plusieurs secondes de
+    // latence percues entre le clic et le changement.
+    const fee = m === "pickup" ? 0 : DELIVERY_FEE;
+    const seq = ++fulfillmentSeq.current;
+    setRow({ ...before, fulfillment_method: m, delivery_fee: fee, total_amount: itemsOf(before) + fee });
+
     try {
-      await setMethodFn({ data: { reservationId: id, method: m } });
-      await load();
+      // L'ecriture seule suffit : elle renvoie deja les nouveaux frais et le
+      // nouveau total, on n'a donc plus besoin de recharger la commande.
+      const res = await setMethodFn({ data: { reservationId: id, method: m } });
+      if (seq !== fulfillmentSeq.current) return;
+      if (res) {
+        setRow((r) =>
+          r
+            ? { ...r, delivery_fee: res.deliveryFee, total_amount: res.totalAmount }
+            : r,
+        );
+      }
     } catch (err) {
+      if (seq !== fulfillmentSeq.current) return;
+      setRow(before);
       toast.error(err instanceof Error ? err.message : t("pay.error"));
-    } finally {
-      setSwitching(false);
     }
   };
 
@@ -187,8 +222,8 @@ function Checkout() {
               <button
                 key={m}
                 type="button"
-                disabled={switching}
                 onClick={() => chooseFulfillment(m)}
+                aria-pressed={row.fulfillment_method === m}
                 className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm transition-colors ${
                   row.fulfillment_method === m
                     ? "border-primary bg-primary/10 text-foreground"

@@ -23,6 +23,10 @@ class _ScanScreenState extends State<ScanScreen> {
   ScanResult? _result;
   bool _uploading = false;
   bool _sending = false;
+  /// Vrai quand la recherche de pharmacie est declenchee par l'app et non par
+  /// un appui du patient. Sert a afficher « Recherche en cours... » plutot que
+  /// de laisser croire a une action attendue.
+  bool _autoRouting = false;
 
   Future<void> _pick(ImageSource source) async {
     if (_uploading || _sending) return;
@@ -56,6 +60,22 @@ class _ScanScreenState extends State<ScanScreen> {
         _result = result;
         _uploading = false;
       });
+
+      // La lecture IA a abouti : on cherche la pharmacie tout de suite, sans
+      // attendre que le patient pense a appuyer sur « Envoyer a une pharmacie ».
+      // C'est ce que la promesse de l'ecran annonce deja (« l'IA extrait vos
+      // medicaments puis trouve la pharmacie qui a tout en stock ») mais qui
+      // demandait jusqu'ici un clic supplementaire, et rien ne partait d'elle.
+      //
+      // Deux cas sont laisses au choix du patient :
+      //  - la lecture est bloquee (needsReview) : on ne connait pas les
+      //    medicaments, un pharmacien doit relire avant de commander ;
+      //  - aucun medicament n'a ete identifie : il n'y a rien a commander.
+      if (result.error == null &&
+          !result.needsReview &&
+          result.prescription.medicines.isNotEmpty) {
+        await _sendToPharmacy(auto: true);
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _uploading = false);
@@ -67,12 +87,23 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  Future<void> _sendToPharmacy() async {
+  /// Cherche la pharmacie qui peut servir l'ordonnance et ouvre le suivi.
+  ///
+  /// [auto] vaut `true` quand l'appel enchaine directement apres la lecture IA.
+  /// Les messages diffèrent pour que l'echec soit comprensible : declenche tout
+  /// seul, le patient n'a vu aucun bouton, il faut donc lui dire ce qui s'est
+  /// passe et qu'il peut relancer. Le bouton reste de toute facon present.
+  Future<void> _sendToPharmacy({bool auto = false}) async {
     final result = _result;
     if (result == null || _sending) return;
-    setState(() => _sending = true);
+    setState(() {
+      _sending = true;
+      _autoRouting = auto;
+    });
     try {
-      // La position est facultative : sans GPS, le serveur choisit par défaut.
+      // La position est facultative : sans GPS, le serveur choisit par defaut.
+      // `LocationService.current` renvoie `null` au lieu de lever, donc la
+      // recherche automatique ne depend pas de la localisation.
       final position = await LocationService.current();
       final routing = await ApiService.instance.routePrescription(
         prescriptionId: result.prescription.id,
@@ -87,12 +118,30 @@ class _ScanScreenState extends State<ScanScreen> {
       context.push('/suivi/${routing.reservationId}');
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _sending = false);
-      _showError(e.message);
+      setState(() {
+        _sending = false;
+        // Le bouton redevient « Envoyer a une pharmacie » : la recherche
+        // automatique a echoue, c'est au patient de relancer s'il veut.
+        _autoRouting = false;
+      });
+      if (auto) {
+        _showError('Aucune pharmacie trouvee automatiquement. '
+            'Verifiez votre position ou reessayez ci-dessous.');
+      } else {
+        _showError(e.message);
+      }
     } catch (_) {
       if (!mounted) return;
-      setState(() => _sending = false);
-      _showError('Envoi à une pharmacie impossible. Réessayez.');
+      setState(() {
+        _sending = false;
+        _autoRouting = false;
+      });
+      if (auto) {
+        _showError('Recherche de la pharmacie impossible. '
+            'Verifiez votre connexion ou reessayez ci-dessous.');
+      } else {
+        _showError('Envoi à une pharmacie impossible. Réessayez.');
+      }
     }
   }
 
@@ -100,6 +149,7 @@ class _ScanScreenState extends State<ScanScreen> {
     setState(() {
       _photo = null;
       _result = null;
+      _autoRouting = false;
     });
   }
 
@@ -319,13 +369,25 @@ class _ScanScreenState extends State<ScanScreen> {
                 message: result.reasons.join('\n'),
               ),
             ],
+            if (_autoRouting) ...[
+              const SizedBox(height: 12),
+              // Pas de `const` : la couleur vient d'un accesseur qui depend du
+              // theme, il n'est donc pas connu a la compilation.
+              _Notice(
+                icon: Icons.storefront,
+                color: AppColors.primaryDeep,
+                title: 'Recherche de la pharmacie',
+                message: 'Nous cherchons la pharmacie la plus proche qui a '
+                    'vos medicaments en stock.',
+              ),
+            ],
             const SizedBox(height: 24),
             Container(
               width: double.infinity,
               height: 56,
               decoration: AppTheme.gradientButton,
               child: ElevatedButton.icon(
-                onPressed: _sending ? null : _sendToPharmacy,
+                onPressed: _sending ? null : () => _sendToPharmacy(),
                 icon: _sending
                     ? const SizedBox(
                         height: 20,
@@ -333,7 +395,11 @@ class _ScanScreenState extends State<ScanScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.local_pharmacy, color: Colors.white),
-                label: const Text('Envoyer à une pharmacie'),
+                label: Text(
+                  _autoRouting
+                      ? 'Recherche en cours...'
+                      : 'Envoyer à une pharmacie',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,

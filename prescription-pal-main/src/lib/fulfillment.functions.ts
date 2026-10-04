@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAuth } from "@/integrations/auth/middleware";
+import { DELIVERY_FEE } from "./payment-config";
 
 const MAX_ATTEMPTS = 10;
 
@@ -40,7 +41,6 @@ export const setFulfillmentMethod = createServerFn({ method: "POST" })
     if (res.patient_id !== userId) throw new Error("Non autorisé");
     if (res.payment_status !== "unpaid") throw new Error("Commande déjà payée");
 
-    const DELIVERY_FEE = 1000;
     const fee = data.method === "pickup" ? 0 : DELIVERY_FEE;
     const itemsTotal = Number(res.items_total ?? 0);
 
