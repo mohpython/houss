@@ -6,6 +6,7 @@ import { listMyRecentReservations } from "@/lib/prescriptions.functions";
 import { Camera, ListChecks, Store, Stethoscope, Package, Truck, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getDateLocale } from "@/i18n";
+import { PushSettingsCard } from "@/components/PushSettingsCard";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   head: () => ({
@@ -79,6 +80,10 @@ function Home() {
           label={t("health.title")}
           icon={<Stethoscope className="h-7 w-7" />}
         />
+      </div>
+
+      <div className="mt-10 w-full">
+        <PushSettingsCard />
       </div>
 
       <div className="mt-10 w-full space-y-2">

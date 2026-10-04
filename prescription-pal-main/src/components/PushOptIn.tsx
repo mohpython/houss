@@ -37,7 +37,10 @@ export function PushOptIn() {
       if (next === "granted") toast.success(t("push.enabled"));
       else if (next === "denied") toast.error(t("push.denied"));
       else toast.error(t("push.notConfigured"));
-    } catch {
+    } catch (e) {
+      // Le toast seul ne permettait pas de distinguer un enregistrement refuse
+      // d'une permission bloquee : on garde la raison technique dans la console.
+      console.error("[push] activation impossible", e);
       toast.error(t("push.unavailable"));
     } finally {
       setBusy(false);

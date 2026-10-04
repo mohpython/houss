@@ -68,6 +68,11 @@ export const registerDeviceToken = createServerFn({ method: "POST" })
         updated_at: new Date(),
       },
     });
+    // Trace de chaque enregistrement : sans elle, un_push qui n'arrive pas
+    // (permission refusee, bannier masque, SDK bloque) est invisible.
+    console.log(
+      `[devices] jeton ${data.platform} enregistre (${data.token.length} car., compte ${context.userId})`,
+    );
     return { ok: true };
   });
 

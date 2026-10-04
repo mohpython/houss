@@ -137,10 +137,16 @@ async function enableWeb(language: string): Promise<PushState> {
     senderId: config.senderId,
     appId: config.appId,
   });
-  const registration = await navigator.serviceWorker.register(
-    `/firebase-messaging-sw.js?${params.toString()}`,
-    { scope: "/firebase-cloud-messaging-push-scope" },
-  );
+  let registration: ServiceWorkerRegistration;
+  try {
+    registration = await navigator.serviceWorker.register(
+      `/firebase-messaging-sw.js?${params.toString()}`,
+      { scope: "/firebase-cloud-messaging-push-scope" },
+    );
+  } catch (e) {
+    console.error("[push] enregistrement du service worker impossible", e);
+    throw e;
+  }
 
   const { initializeApp, getApps, getApp } = await import("firebase/app");
   const { getMessaging, getToken, onMessage } = await import("firebase/messaging");
@@ -157,17 +163,31 @@ async function enableWeb(language: string): Promise<PushState> {
       });
 
   const messaging = getMessaging(app);
-  const token = await getToken(messaging, {
-    vapidKey: config.vapidKey,
-    serviceWorkerRegistration: registration,
-  });
-  if (!token) return "default";
+  let token: string | null;
+  try {
+    token = await getToken(messaging, {
+      vapidKey: config.vapidKey,
+      serviceWorkerRegistration: registration,
+    });
+  } catch (e) {
+    console.error("[push] obtention du jeton FCM impossible", e);
+    throw e;
+  }
+  if (!token) {
+    console.warn("[push] FCM a renvoye un jeton vide");
+    return "default";
+  }
 
   onMessage(messaging, () => {
     /* foreground messages are already shown by the in-app toast */
   });
 
-  await saveToken(token, "web", language);
+  try {
+    await saveToken(token, "web", language);
+  } catch (e) {
+    console.error("[push] enregistrement du jeton cote serveur impossible", e);
+    throw e;
+  }
   return "granted";
 }
 
