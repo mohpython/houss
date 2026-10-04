@@ -27,8 +27,12 @@ class AppColors {
   static const Color _lPrimary = Color(0xFF25D366);
   /// #128C7E : le vert soutenu, lisible en texte sur fond clair.
   static const Color _lPrimaryDeep = Color(0xFF128C7E);
-  /// #D9FDD3 : la bulle sortante.
-  static const Color _lAccent = Color(0xFFD9FDD3);
+  /// Secondaire lisible : couleur d'icone, d'onglet actif, de libelle.
+  ///
+  /// On ne met PAS ici la bulle sortante #D9FDD3 : dans ce code `accent` est
+  /// une couleur de *texte et d'icone* sur 40 ecrans, pas un fond. Un vert
+  /// pale serait invisible sur une carte blanche.
+  static const Color _lAccent = Color(0xFF128C7E);
 
   static const Color _lTextPrimary = Color(0xFF111B21);
   static const Color _lTextSecondary = Color(0xFF4A5A66);

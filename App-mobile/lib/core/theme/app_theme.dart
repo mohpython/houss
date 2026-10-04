@@ -14,8 +14,10 @@ class AppTheme {
         brightness: brightness,
         primary: AppColors.primary,
         onPrimary: AppColors.onPrimary,
+        // `accent` est un vert soutenu dans les deux themes : le texte pose dessus
+        // est blanc, pas `onPrimary` (qui est vert tres sombre en mode clair).
         secondary: AppColors.accent,
-        onSecondary: AppColors.onPrimary,
+        onSecondary: Colors.white,
         surface: AppColors.surface,
         onSurface: AppColors.textPrimary,
         error: AppColors.danger,

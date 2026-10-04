@@ -47,3 +47,6 @@ app.*.map.json
 # Icône et splash générés
 /android/app/src/main/res/drawable*/splash.png
 /android/app/src/main/res/drawable*/android12splash.png
+
+# APK construit localement (60 Mo, jamais versionne).
+saha-sante-*.apk
