@@ -125,20 +125,43 @@ export async function attachNativeTapHandler(navigate: (path: string) => void) {
 /* ----------------------------------- web ----------------------------------- */
 
 let cachedConfig: WebConfig | null = null;
+let configPromise: Promise<WebConfig> | null = null;
 
 async function loadWebConfig(): Promise<WebConfig> {
-  if (!cachedConfig) cachedConfig = await getPushWebConfig();
+  if (!cachedConfig) {
+    configPromise ??= getPushWebConfig().then((c) => {
+      cachedConfig = c;
+      return c;
+    });
+    cachedConfig = await configPromise;
+  }
   return cachedConfig;
+}
+
+/**
+ * Charge la configuration web avant toute interaction. Indispensable pour la
+ * demande automatique : `Notification.requestPermission()` n'est acceptee par le
+ * navigateur que pendant une interaction utilisateur, et un aller-retour reseau
+ * avant l'appel fait perdre cette interaction.
+ */
+export function prefetchPushWebConfig(): void {
+  if (!webPushSupported()) return;
+  void loadWebConfig().catch(() => {
+    /* la demande automatique reverra plus tard */
+  });
 }
 
 async function enableWeb(language: string): Promise<PushState> {
   if (!webPushSupported()) return "unsupported";
 
-  const config = await loadWebConfig();
-  if (!config.configured) return "unsupported";
-
+  // La configuration part en parallele, mais la permission est demandee dans le
+  // meme tick : c'est elle qui doit beneficier de l'interaction utilisateur.
+  const configPromise = loadWebConfig();
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return "denied";
+
+  const config = await configPromise;
+  if (!config.configured) return "unsupported";
 
   const params = new URLSearchParams({
     apiKey: config.apiKey,
@@ -187,8 +210,22 @@ async function enableWeb(language: string): Promise<PushState> {
     return "default";
   }
 
-  onMessage(messaging, () => {
-    /* foreground messages are already shown by the in-app toast */
+  // FCM n'appelle `onBackgroundMessage` que lorsque la page est en arriere-plan.
+  // Sans cet affichage, une notification push restait invisible des que l'onglet du
+  // site etait au premier plan. On passe par le meme service worker et le meme
+  // tag que le service worker : le navigateur remplace, donc jamais de doublon.
+  onMessage(messaging, (payload) => {
+    const title = payload.notification?.title || "SAHA Sante";
+    const options: NotificationOptions = {
+      body: payload.notification?.body || "",
+      icon: "/favicon.png",
+      badge: "/favicon.png",
+      tag: payload.data?.tag,
+      data: { link: payload.data?.link || "/app" },
+    };
+    registration.showNotification(title, options).catch((e) => {
+      console.warn("[push] affichage impossible", e);
+    });
   });
 
   try {

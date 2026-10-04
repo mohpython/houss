@@ -25,6 +25,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { PushOptIn } from "@/components/PushOptIn";
+import { PushAutoAsk } from "@/components/PushAutoAsk";
 import { attachNativeTapHandler, refreshPushRegistration } from "@/lib/push-client";
 import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 import { ensurePractitionerAccess } from "@/lib/practitioner.functions";
@@ -239,6 +240,7 @@ function AuthedLayout() {
         </div>
 
         <main className="min-w-0 flex-1 overflow-x-hidden pb-28 md:pb-6">
+          <PushAutoAsk />
           <div className="mx-auto max-w-6xl px-4 pt-4 md:px-6">
             <PushOptIn />
           </div>
