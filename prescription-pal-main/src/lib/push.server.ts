@@ -105,6 +105,12 @@ export async function sendToToken(
   payload: PushPayload,
 ): Promise<SendResult> {
   const accessToken = await getAccessToken(sa);
+  // Le navigateur n'accepte qu'une URL absolue dans `fcm_options.link` (c'est
+  // lui qui ouvre la notification affichee par le SDK, hors de notre
+  // service worker qui gere lui-meme le clic).
+  const absoluteLink = payload.link.startsWith("http")
+    ? payload.link
+    : `${(process.env.APP_URL ?? "https://sahasantemali.com").replace(/\/+$/, "")}${payload.link}`;
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`,
     {
@@ -140,7 +146,7 @@ export async function sendToToken(
               badge: "/favicon.png",
               tag: payload.tag,
             },
-            fcm_options: { link: payload.link },
+            fcm_options: { link: absoluteLink },
           },
         },
       }),

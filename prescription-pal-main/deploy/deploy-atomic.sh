@@ -51,13 +51,15 @@ echo "  ordonnances restaurees : $(find "$STAGE/storage" -type f 2>/dev/null | w
 
 echo "--- 5. Dependances ---"
 cd "$STAGE"
+# `set -o pipefail` avant le premier pipe : sans lui un `npm ci` en echec, masque
+# par `| tail`, laissait la preparation continuer sur un repertoire incomplet.
+set -o pipefail
 npm ci --no-audit --no-fund 2>&1 | tail -4
 
 echo "--- 6. Build ---"
 # `| tail` masque le code de sortie de la commande pipée : sans `pipefail`, un
 # build raté laissait `set -e` passer et la bascule installait une version
 # cassee (502 sur tout le site). Journal complet dans /tmp/build-saha.log.
-set -o pipefail
 npm run build > /tmp/build-saha.log 2>&1 || {
   echo "  BUILD EN ECHEC - bascule annulee, l'ancienne version reste en service."
   echo "  Dernieres lignes :"

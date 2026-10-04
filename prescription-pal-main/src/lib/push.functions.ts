@@ -40,13 +40,18 @@ export const registerDeviceToken = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { prisma } = await import("@/server/db.server");
-    // RLS : un jeton appartenant à un autre utilisateur ne peut pas être repris.
+    // Le jeton push appartient a l'appareil, pas a la personne. Sur un poste
+    // partage (ou apres une reconnexion avec un autre compte) FCM renvoie le meme
+    // jeton : on le rattache au compte qui se connecte, sinon ce nouveau compte
+    // ne recevrait plus aucune notification.
     const existing = await prisma.device_tokens.findUnique({
       where: { token: data.token },
       select: { user_id: true },
     });
     if (existing && existing.user_id !== context.userId) {
-      throw new Error("Ce jeton d'appareil appartient à un autre compte.");
+      console.warn(
+        `[devices] jeton web rattache a un nouveau compte (precedent ${existing.user_id} -> ${context.userId})`,
+      );
     }
     await prisma.device_tokens.upsert({
       where: { token: data.token },
@@ -56,7 +61,12 @@ export const registerDeviceToken = createServerFn({ method: "POST" })
         platform: data.platform,
         language: data.language,
       },
-      update: { platform: data.platform, language: data.language, updated_at: new Date() },
+      update: {
+        user_id: context.userId,
+        platform: data.platform,
+        language: data.language,
+        updated_at: new Date(),
+      },
     });
     return { ok: true };
   });
