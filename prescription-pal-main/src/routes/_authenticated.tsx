@@ -180,12 +180,12 @@ function AuthedLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/5 bg-background/60 px-4 backdrop-blur-xl md:hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/60 px-4 backdrop-blur-xl md:hidden">
           <Link to="/app" className="flex items-center gap-2">
             <img
               src={sahaLogo.url}
               alt="SAHA Santé"
-              className="h-8 w-8 rounded-xl object-cover ring-1 ring-white/15"
+              className="h-8 w-8 rounded-xl object-cover ring-1 ring-ring"
             />
             <span className="font-display text-lg">SAHA</span>
           </Link>
@@ -203,7 +203,7 @@ function AuthedLayout() {
                 </SheetTrigger>
                 <SheetContent
                   side="bottom"
-                  className="rounded-t-3xl border-white/10 bg-background/95 p-0 backdrop-blur-xl"
+                  className="rounded-t-3xl border-border bg-background/95 p-0 backdrop-blur-xl"
                 >
                   <MoreMenu
                     extras={extras}
@@ -222,7 +222,7 @@ function AuthedLayout() {
               </SheetTrigger>
               <SheetContent
                 side="left"
-                className="w-72 border-white/10 bg-background/95 p-0 backdrop-blur-xl"
+                className="w-72 border-border bg-background/95 p-0 backdrop-blur-xl"
               >
                 <SidebarHeader />
                 <nav className="flex-1 space-y-1 px-3 py-4">{nav}</nav>
@@ -278,7 +278,7 @@ function AuthedLayout() {
                 </SheetTrigger>
                 <SheetContent
                   side="bottom"
-                  className="rounded-t-3xl border-white/10 bg-background/95 p-0 backdrop-blur-xl"
+                  className="rounded-t-3xl border-border bg-background/95 p-0 backdrop-blur-xl"
                 >
                   <MoreMenu
                     extras={extras}
@@ -310,7 +310,7 @@ function MoreMenu({
   const { t } = useTranslation();
   return (
     <>
-      <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-white/20" />
+      <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />
       <div className="px-5 pb-8 pt-4">
         <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-foreground/60">
           {t("nav.menu")}
@@ -322,7 +322,7 @@ function MoreMenu({
                 key={item.to}
                 to={item.to}
                 onClick={onClose}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs font-medium text-foreground/80 transition hover:bg-white/10 [&.active]:aurora-bg [&.active]:text-primary-foreground"
+                className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-muted p-3 text-xs font-medium text-foreground transition hover:bg-secondary [&.active]:aurora-bg [&.active]:text-primary-foreground"
               >
                 {item.icon}
                 <span className="text-center leading-tight">{item.label}</span>
@@ -330,14 +330,14 @@ function MoreMenu({
             ))}
           </div>
         )}
-        <div className="mt-5 border-t border-white/10 pt-4">
+        <div className="mt-5 border-t border-border pt-4">
           <div className="mb-2 truncate px-1 text-xs text-foreground/60">
             {user.email ?? user.phone}
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-start gap-2 hover:bg-white/10"
+            className="w-full justify-start gap-2 hover:bg-secondary"
             onClick={() => {
               onClose();
               onSignOut();
@@ -354,12 +354,12 @@ function MoreMenu({
 
 function SidebarHeader() {
   return (
-    <div className="flex h-16 items-center border-b border-white/10 px-5">
+    <div className="flex h-16 items-center border-b border-border px-5">
       <Link to="/app" className="flex items-center gap-3">
         <img
           src={sahaLogo.url}
           alt="SAHA Santé"
-          className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/15"
+          className="h-9 w-9 rounded-xl object-cover ring-1 ring-ring"
         />
         <span className="font-display text-xl">SAHA Santé</span>
       </Link>
@@ -370,14 +370,14 @@ function SidebarHeader() {
 function SidebarFooter({ user, onSignOut }: { user: AuthUser; onSignOut: () => void }) {
   const { t } = useTranslation();
   return (
-    <div className="border-t border-white/10 p-3">
+    <div className="border-t border-border p-3">
       <div className="mb-2 truncate px-2 text-xs text-foreground/60">
         {user.email ?? user.phone}
       </div>
       <Button
         variant="ghost"
         size="sm"
-        className="w-full justify-start gap-2 hover:bg-white/10"
+        className="w-full justify-start gap-2 hover:bg-secondary"
         onClick={onSignOut}
       >
         <LogOut className="h-4 w-4" />
@@ -520,7 +520,7 @@ function NavList({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-5 px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-foreground/50">
+    <div className="mt-5 px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
       {children}
     </div>
   );
@@ -543,7 +543,7 @@ function NavItem({
       onClick={onNavigate}
       className={cn(
         "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-foreground/70 transition-all",
-        "hover:bg-white/5 hover:text-foreground",
+        "hover:bg-muted hover:text-foreground",
         "[&.active]:aurora-bg [&.active]:text-primary-foreground [&.active]:shadow-lg [&.active]:shadow-primary/30",
       )}
       activeOptions={{ exact: to === "/app" }}

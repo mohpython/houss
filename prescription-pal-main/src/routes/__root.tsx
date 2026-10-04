@@ -69,7 +69,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           </button>
           <a
             href="/"
-            className="rounded-full border border-border/60 bg-white/5 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/10"
+            className="rounded-full border border-border/60 bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
             Accueil
           </a>

@@ -348,7 +348,7 @@ function Scan() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-12 w-12 rounded-full border border-white/10"
+              className="h-12 w-12 rounded-full border border-border"
               aria-label={t("scan.file")}
               onClick={() => inputRef.current?.click()}
             >
@@ -357,7 +357,7 @@ function Scan() {
             <Link
               to="/app/otc"
               aria-label={t("nav.otc")}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 text-foreground/70 transition-colors hover:text-foreground"
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:text-foreground"
             >
               <Pill className="h-5 w-5" />
             </Link>
@@ -371,7 +371,7 @@ function Scan() {
             <img
               src={previewUrl}
               alt="Aperçu de l'ordonnance scannée"
-              className="mx-auto mb-6 max-h-52 rounded-2xl border border-white/10 object-contain"
+              className="mx-auto mb-6 max-h-52 rounded-2xl border border-border object-contain"
             />
           )}
           <AutoFlowProgress steps={steps} />
@@ -459,7 +459,7 @@ function Scan() {
           {review && !correction && (
             <div className="mt-6 space-y-3 text-center">
               <ShieldAlert className="mx-auto h-8 w-8 text-warning" />
-              <p className="text-sm text-foreground/80">{t("auto.review")}</p>
+              <p className="text-sm text-foreground">{t("auto.review")}</p>
               <ul className="mx-auto max-w-sm space-y-1 rounded-2xl border border-warning/20 bg-warning/5 p-3 text-left text-xs text-foreground/70">
                 {review.split(" · ").map((r, i) => (
                   <li key={i}>• {r}</li>

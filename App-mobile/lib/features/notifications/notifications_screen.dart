@@ -4,6 +4,7 @@ import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/services/unread_store.dart';
 import 'package:saha_sante/features/spaces/space_widgets.dart';
 
 /// Types de notification liés à une commande (suivi de livraison).
@@ -99,6 +100,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         }
         if (mounted) setState(() {});
       }
+      // La coche de l'accueil vit dans un ecran conserve en memoire : sans
+      // cette ligne elle afficherait encore 1 alors que la notification est
+      // lue.
+      UnreadStore.instance.decrement();
     }
 
     final target = _targetOf(type, data);
@@ -118,6 +123,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         }
         if (mounted) setState(() {});
       }
+      UnreadStore.instance.setCount(0);
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     } catch (_) {
@@ -204,7 +210,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         const SizedBox(height: 4),
                         Text(
                           body,
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                         ),
                       ],
                       const SizedBox(height: 6),
@@ -212,7 +218,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         children: [
                           Text(
                             created == null ? '' : frDateTime(created),
-                            style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
                           ),
                           const Spacer(),
                           Icon(
@@ -271,7 +277,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 unread == 0
                     ? 'Tout est à jour.'
                     : '$unread non lue${unread > 1 ? 's' : ''}',
-                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
             );
           }
@@ -306,7 +312,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       child: const Icon(Icons.local_pharmacy, size: 22, color: Colors.white),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -334,7 +340,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.border),
+              Divider(height: 1, color: AppColors.border),
               Expanded(child: _body()),
             ],
           ),

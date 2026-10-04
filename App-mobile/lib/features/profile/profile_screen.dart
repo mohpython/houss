@@ -7,6 +7,8 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/theme/app_theme_mode.dart';
+import 'package:saha_sante/core/theme/theme_picker.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -213,12 +215,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 subtitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: AppColors.textMuted),
+                                style: TextStyle(color: AppColors.textMuted),
                               ),
                               if (phone != null && phone.isNotEmpty && phone != subtitle)
                                 Text(
                                   phone,
-                                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                                 ),
                             ],
                           ),
@@ -262,6 +264,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             title: '${L10n.t(context, 'language')} — '
                                 '${AppLocale.instance.current.badge}',
                             onTap: () => showLanguageSheet(context),
+                          ),
+                          _ProfileTile(
+                            icon: Icons.palette_outlined,
+                            title: '${L10n.t(context, 'theme')} — '
+                                '${L10n.t(context, 'theme.${AppThemeMode.instance.mode.code}')}',
+                            onTap: () => showThemeSheet(context),
                           ),
                           _ProfileTile(
                             icon: Icons.healing,
@@ -320,8 +328,9 @@ class _ProfileTile extends StatelessWidget {
           child: Icon(icon, color: AppColors.accent, size: 20),
         ),
         title: Text(title),
-        trailing: trailing ?? const Icon(Icons.chevron_right, color: AppColors.textMuted),
+        trailing: trailing ?? Icon(Icons.chevron_right, color: AppColors.textMuted),
       ),
     );
   }
 }
+

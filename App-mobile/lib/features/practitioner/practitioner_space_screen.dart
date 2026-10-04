@@ -169,16 +169,16 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.schedule, size: 13, color: AppColors.textMuted),
+              Icon(Icons.schedule, size: 13, color: AppColors.textMuted),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   frDateTime(when),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ),
               if (atHome)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(left: 8),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -207,7 +207,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
               symptoms,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
             ),
           ],
           if (rejection.isNotEmpty && status == 'rejected') ...[
@@ -374,3 +374,4 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
     );
   }
 }
+

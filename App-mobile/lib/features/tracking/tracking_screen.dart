@@ -198,7 +198,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       setState(() => _busy = false);
       _referenceController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Paiement déclaré, en attente de confirmation par la pharmacie'),
           backgroundColor: AppColors.success,
         ),
@@ -345,7 +345,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     reservation == null
                         ? 'Vos commandes en cours'
                         : 'Commande n° ${reservation.id.split('-').first.toUpperCase()}',
-                    style: const TextStyle(color: AppColors.textMuted),
+                    style: TextStyle(color: AppColors.textMuted),
                   ),
                   const SizedBox(height: 28),
                   if (_loading)
@@ -516,7 +516,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   ),
                   Text(
                     item.time,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -560,7 +560,7 @@ class _DetailCard extends StatelessWidget {
                   color: AppColors.accent.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.local_pharmacy, color: AppColors.accent),
+                child: Icon(Icons.local_pharmacy, color: AppColors.accent),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -574,7 +574,7 @@ class _DetailCard extends StatelessWidget {
                     if (reservation.pharmacyAddress.isNotEmpty)
                       Text(
                         reservation.pharmacyAddress,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                       ),
                   ],
                 ),
@@ -600,11 +600,11 @@ class _DetailCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               reservation.medicines.join(', '),
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
           const SizedBox(height: 16),
-          const Divider(color: AppColors.border, height: 1),
+          Divider(color: AppColors.border, height: 1),
           const SizedBox(height: 16),
           _Line(
             label: reservation.isPickup ? 'Retrait en pharmacie' : 'Livraison à domicile',
@@ -617,7 +617,7 @@ class _DetailCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 'Médicaments ${_frAmount(itemsTotal)} + livraison ${_frAmount(deliveryFee)}',
-                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
             ),
           const SizedBox(height: 10),
@@ -637,16 +637,16 @@ class _DetailCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.qr_code_2, size: 20, color: AppColors.accent),
+                  Icon(Icons.qr_code_2, size: 20, color: AppColors.accent),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     'Code de retrait',
                     style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
                   const Spacer(),
                   Text(
                     reservation.pickupCode!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 3,
@@ -668,7 +668,7 @@ class _DetailCard extends StatelessWidget {
                     color: AppColors.primary.withAlpha(30),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.two_wheeler, size: 20, color: AppColors.primaryLight),
+                  child: Icon(Icons.two_wheeler, size: 20, color: AppColors.primaryLight),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -681,7 +681,7 @@ class _DetailCard extends StatelessWidget {
                       ),
                       Text(
                         (courier!['phone'] as String?) ?? 'Votre livreur est en route',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                       ),
                     ],
                   ),
@@ -782,7 +782,7 @@ class _Option extends StatelessWidget {
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -846,7 +846,7 @@ class _PaymentCard extends StatelessWidget {
             value: deliveryFee > 0 ? _frAmount(deliveryFee) : 'Offerte (retrait)',
           ),
           const SizedBox(height: 12),
-          const Divider(color: AppColors.border, height: 1),
+          Divider(color: AppColors.border, height: 1),
           const SizedBox(height: 12),
           _Line(label: 'Total à payer', value: _frAmount(total), highlight: true),
           const SizedBox(height: 20),
@@ -855,7 +855,7 @@ class _PaymentCard extends StatelessWidget {
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'La pharmacie ne prépare la commande qu\'une fois le paiement déclaré.',
             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
@@ -891,9 +891,9 @@ class _PaymentCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.smartphone, size: 18, color: AppColors.accent),
+                  Icon(Icons.smartphone, size: 18, color: AppColors.accent),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     'Numéro marchand',
                     style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
@@ -902,7 +902,7 @@ class _PaymentCard extends StatelessWidget {
                     child: Text(
                       merchant,
                       textAlign: TextAlign.end,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
@@ -918,7 +918,7 @@ class _PaymentCard extends StatelessWidget {
             controller: phoneController,
             keyboardType: TextInputType.phone,
             enabled: !busy,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Votre numéro de téléphone',
               prefixIcon: Icon(Icons.call, size: 18, color: AppColors.textMuted),
             ),
@@ -928,7 +928,7 @@ class _PaymentCard extends StatelessWidget {
             controller: referenceController,
             textCapitalization: TextCapitalization.characters,
             enabled: !busy,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Référence de la transaction',
               prefixIcon: Icon(Icons.confirmation_number_outlined, size: 18, color: AppColors.textMuted),
             ),
@@ -1008,7 +1008,7 @@ class _Line extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
         ),
         Text(
           value,
@@ -1062,7 +1062,7 @@ class _Notice extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   message,
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -1099,7 +1099,7 @@ class _Message extends StatelessWidget {
           Text(
             text,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textMuted),
+            style: TextStyle(color: AppColors.textMuted),
           ),
           const SizedBox(height: 12),
           TextButton(onPressed: onTap, child: Text(actionLabel)),
@@ -1122,3 +1122,4 @@ class _TrackingItem {
     required this.active,
   });
 }
+

@@ -65,17 +65,17 @@ export function PushOptIn() {
   };
 
   const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       {children}
     </div>
   );
 
   if (state === "granted") {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <BellRing className="h-5 w-5 shrink-0 text-accent" />
-          <span className="truncate text-sm text-foreground/80">{t("push.activeTitle")}</span>
+          <span className="truncate text-sm text-foreground">{t("push.activeTitle")}</span>
         </div>
         <Button variant="ghost" size="sm" onClick={disable} disabled={busy}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellOff className="h-4 w-4" />}
@@ -134,7 +134,7 @@ export function PushOptIn() {
   if (state === "unsupported") return null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
         <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
         <div className="min-w-0">

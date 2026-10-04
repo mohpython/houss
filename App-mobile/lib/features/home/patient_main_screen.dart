@@ -109,7 +109,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
         return Scaffold(
           body: tabs.pages[_currentIndex],
           bottomNavigationBar: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surface,
               border: Border(
                 top: BorderSide(color: AppColors.border),

@@ -120,7 +120,7 @@ function Otc() {
   return (
     <div className="mx-auto max-w-xl px-4 py-8">
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-primary">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-muted text-primary">
           <Pill className="h-5 w-5" />
         </span>
         <div>
@@ -182,7 +182,7 @@ function Otc() {
                   return cur.length >= 10 ? cur : [...cur, s];
                 })
               }
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-foreground/70 hover:text-foreground"
+              className="rounded-full border border-border bg-muted px-3 py-1 text-xs text-foreground/70 hover:text-foreground"
             >
               {s}
             </button>

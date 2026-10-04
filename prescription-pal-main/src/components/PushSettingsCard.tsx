@@ -124,7 +124,7 @@ export function PushSettingsCard() {
 
   return (
     <section
-      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+      className="w-full rounded-2xl border border-border bg-muted px-4 py-3"
       aria-label={t("push.title")}
     >
       <div className="flex items-start justify-between gap-3">

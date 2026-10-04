@@ -295,7 +295,7 @@ class _HealthScreenState extends State<HealthScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Décrivez vos symptômes pour être orienté vers le bon praticien.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
@@ -400,12 +400,12 @@ class _HealthScreenState extends State<HealthScreen> {
                     decoration: AppTheme.glassCard,
                     child: Column(
                       children: [
-                        const Icon(Icons.wifi_off, size: 36, color: AppColors.textMuted),
+                        Icon(Icons.wifi_off, size: 36, color: AppColors.textMuted),
                         const SizedBox(height: 12),
                         Text(
                           _error!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                         ),
                         TextButton.icon(
                           onPressed: _loadPractitioners,
@@ -426,7 +426,7 @@ class _HealthScreenState extends State<HealthScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: AppTheme.glassCard,
-                      child: const Text(
+                      child: Text(
                         'Aucun praticien ne correspond à cette recherche.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 13, color: AppColors.textMuted),
@@ -490,7 +490,7 @@ class _TriageCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, size: 18, color: AppColors.accent),
+              Icon(Icons.auto_awesome, size: 18, color: AppColors.accent),
               const SizedBox(width: 8),
               const Text(
                 'Orientation proposée',
@@ -521,18 +521,18 @@ class _TriageCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               advice,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
           if (conditions.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               'Pistes possibles : ${conditions.join(', ')}',
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
           ],
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Cette orientation ne remplace pas un avis médical.',
             style: TextStyle(fontSize: 11, color: AppColors.textMuted),
           ),
@@ -583,7 +583,7 @@ class _PractitionerCard extends StatelessWidget {
                     Text(
                       '${_specialtyLabel(practitioner.specialty)}'
                       '${distance != null ? ' • ${distance.toStringAsFixed(1)} km' : ''}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                     ),
                   ],
                 ),
@@ -591,7 +591,7 @@ class _PractitionerCard extends StatelessWidget {
               if (practitioner.consultationFee != null)
                 Text(
                   _frAmount(practitioner.consultationFee!),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.accent,
@@ -606,14 +606,14 @@ class _PractitionerCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (practitioner.phone != null)
-                    Text(practitioner.phone!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text(practitioner.phone!, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                   if (practitioner.address != null)
-                    Text(practitioner.address!, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                    Text(practitioner.address!, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 ],
               ),
             ),
           if (practitioner.homeVisits)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
                 'Visite à domicile possible',
@@ -634,3 +634,4 @@ class _PractitionerCard extends StatelessWidget {
     );
   }
 }
+

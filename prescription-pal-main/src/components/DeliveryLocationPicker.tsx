@@ -95,7 +95,7 @@ export function DeliveryLocationPicker({ value, onChange, withDetail = true, dis
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div role="tablist" aria-label={t("delivery.where")} className="flex gap-2 rounded-full border border-white/10 bg-white/5 p-1">
+      <div role="tablist" aria-label={t("delivery.where")} className="flex gap-2 rounded-full border border-border bg-muted p-1">
         <button
           type="button"
           role="tab"
@@ -124,7 +124,7 @@ export function DeliveryLocationPicker({ value, onChange, withDetail = true, dis
       </div>
 
       {mode === "gps" && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
+        <div className="rounded-2xl border border-border bg-muted p-4 text-sm">
           {geoBusy ? (
             <span className="flex items-center gap-2 text-foreground/70">
               <Loader2 className="h-4 w-4 animate-spin" /> {t("delivery.locating")}
@@ -163,7 +163,7 @@ export function DeliveryLocationPicker({ value, onChange, withDetail = true, dis
         ) : (
           <div className="space-y-3">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/50" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(e) => {
@@ -179,14 +179,14 @@ export function DeliveryLocationPicker({ value, onChange, withDetail = true, dis
                   type="button"
                   onClick={clearSelection}
                   disabled={disabled}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/50 hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label={t("common.clear")}
                 >
                   <X className="h-4 w-4" />
                 </button>
               )}
             </div>
-            <div className="max-h-56 overflow-y-auto rounded-2xl border border-white/10 bg-white/5" role="listbox" aria-label={t("delivery.otherNeighborhood")}>
+            <div className="max-h-56 overflow-y-auto rounded-2xl border border-border bg-muted" role="listbox" aria-label={t("delivery.otherNeighborhood")}>
               {nbs === null && (
                 <p className="p-4 text-sm text-foreground/60">{t("common.loading")}</p>
               )}
@@ -203,7 +203,7 @@ export function DeliveryLocationPicker({ value, onChange, withDetail = true, dis
                     disabled={disabled}
                     onClick={() => pick(n)}
                     className={cn(
-                      "flex min-h-[44px] w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors hover:bg-white/5",
+                      "flex min-h-[44px] w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted",
                     )}
                   >
                     <span className="flex items-center gap-2">

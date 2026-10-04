@@ -108,7 +108,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Commandes en cours et livrées chez les pharmacies.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
@@ -182,7 +182,7 @@ class _Message extends StatelessWidget {
                       child: Text(
                         text,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textMuted),
+                        style: TextStyle(color: AppColors.textMuted),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -226,7 +226,7 @@ class _ReservationCard extends StatelessWidget {
                 color: AppColors.accent.withAlpha(30),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.local_pharmacy, color: AppColors.accent),
+              child: Icon(Icons.local_pharmacy, color: AppColors.accent),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -242,7 +242,7 @@ class _ReservationCard extends StatelessWidget {
                     item.pharmacyAddress.isEmpty ? date : '${item.pharmacyAddress} • $date',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
                   if (item.medicines.isNotEmpty)
                     Padding(
@@ -251,7 +251,7 @@ class _ReservationCard extends StatelessWidget {
                         item.medicines.join(', '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
                     ),
                   if (item.totalPrice != null)
@@ -261,7 +261,7 @@ class _ReservationCard extends StatelessWidget {
                         children: [
                           Text(
                             _frAmount(item.totalPrice!),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppColors.accent,
@@ -272,7 +272,7 @@ class _ReservationCard extends StatelessWidget {
                               padding: const EdgeInsets.only(left: 8),
                               child: Text(
                                 _paymentHint(item)!,
-                                style: const TextStyle(fontSize: 12, color: AppColors.warning),
+                                style: TextStyle(fontSize: 12, color: AppColors.warning),
                               ),
                             ),
                         ],
@@ -297,7 +297,7 @@ class _ReservationCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Icon(Icons.chevron_right, size: 18, color: AppColors.textMuted),
+                Icon(Icons.chevron_right, size: 18, color: AppColors.textMuted),
               ],
             ),
           ],
@@ -306,3 +306,4 @@ class _ReservationCard extends StatelessWidget {
     );
   }
 }
+

@@ -204,7 +204,7 @@ function HealthPage() {
           {t("health.analyze")}
         </Button>
         {!geo && (
-          <p className="mt-2 text-xs text-foreground/50">{t("health.geoHint")}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{t("health.geoHint")}</p>
         )}
       </GlassCard>
 
@@ -214,7 +214,7 @@ function HealthPage() {
             <Badge variant="secondary" className={`border ${urgencyTone[triage.urgency] ?? ""}`}>
               {t(`health.urgency.${triage.urgency}`)}
             </Badge>
-            <Badge variant="secondary" className="border border-white/10 bg-white/5">
+            <Badge variant="secondary" className="border border-border bg-muted">
               {triage.practitioner_type === "nurse" ? (
                 <Syringe className="mr-1 h-3 w-3" />
               ) : (
@@ -232,7 +232,7 @@ function HealthPage() {
               {triage.possible_conditions.map((c) => (
                 <span
                   key={c}
-                  className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-foreground/70"
+                  className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-foreground/70"
                 >
                   {c}
                 </span>
@@ -245,7 +245,7 @@ function HealthPage() {
               {t("health.emergencyNotice")}
             </div>
           )}
-          <p className="mt-3 text-[11px] text-foreground/50">{t("health.disclaimer")}</p>
+          <p className="mt-3 text-[11px] text-muted-foreground">{t("health.disclaimer")}</p>
         </GlassCard>
       )}
 
@@ -257,7 +257,7 @@ function HealthPage() {
             <button
               key={s.code}
               onClick={() => bySpecialty(s.code, s.practitioner_type)}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs transition hover:border-primary hover:text-primary"
+              className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs transition hover:border-primary hover:text-primary"
             >
               {s.practitioner_type === "nurse" ? "💉 " : "🩺 "}
               {label(s)}
@@ -311,7 +311,7 @@ function HealthPage() {
                       )}
                       {p.consultation_fee !== null && <span>{p.consultation_fee} FCFA</span>}
                     </div>
-                    {p.address && <div className="mt-1 text-xs text-foreground/50">{p.address}</div>}
+                    {p.address && <div className="mt-1 text-xs text-muted-foreground">{p.address}</div>}
                   </div>
                   <Button
                     size="sm"
@@ -324,7 +324,7 @@ function HealthPage() {
                 </div>
 
                 {bookingId === p.id && (
-                  <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+                  <div className="mt-4 space-y-3 border-t border-border pt-4">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Input
                         placeholder={t("health.phone")}

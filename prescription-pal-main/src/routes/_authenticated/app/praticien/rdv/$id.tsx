@@ -105,8 +105,8 @@ function TreatPage() {
           <div>
             <h1 className="font-display text-2xl">{a.patient_name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <Badge className="border border-white/10 bg-white/10 text-foreground">{t(`appointments.status.${a.status}`, a.status)}</Badge>
-              {a.at_home && <Badge className="gap-1 border border-white/10 bg-white/10 text-foreground"><Home className="h-3 w-3" />{t("prac.homeVisit")}</Badge>}
+              <Badge className="border border-border bg-secondary text-foreground">{t(`appointments.status.${a.status}`, a.status)}</Badge>
+              {a.at_home && <Badge className="gap-1 border border-border bg-secondary text-foreground"><Home className="h-3 w-3" />{t("prac.homeVisit")}</Badge>}
               {triage?.urgency && <Badge className="border border-amber-400/40 bg-amber-500/15 text-foreground">{String(triage.urgency)}</Badge>}
             </div>
             <p className="mt-2 text-sm">{a.reason}</p>
@@ -122,19 +122,19 @@ function TreatPage() {
           <div className="flex flex-wrap gap-1">
             {phone && (
               <>
-                <a href={`tel:${phone}`} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-medium hover:bg-white/20"><Phone className="h-4 w-4" />{t("prac.call")}</a>
+                <a href={`tel:${phone}`} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-secondary px-3 text-xs font-medium hover:bg-secondary"><Phone className="h-4 w-4" />{t("prac.call")}</a>
                 <a href={`https://wa.me/${phone.replace(/^\+/, "")}`} target="_blank" rel="noreferrer" className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-emerald-500/15 px-3 text-xs font-medium hover:bg-emerald-500/25"><MessageCircle className="h-4 w-4" />WhatsApp</a>
               </>
             )}
             {a.at_home && a.patient_lat && a.patient_lng && (
-              <a href={`https://www.google.com/maps/dir/?api=1&destination=${a.patient_lat},${a.patient_lng}`} target="_blank" rel="noreferrer" className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-medium hover:bg-white/20"><Navigation className="h-4 w-4" />{t("prac.route")}</a>
+              <a href={`https://www.google.com/maps/dir/?api=1&destination=${a.patient_lat},${a.patient_lng}`} target="_blank" rel="noreferrer" className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-secondary px-3 text-xs font-medium hover:bg-secondary"><Navigation className="h-4 w-4" />{t("prac.route")}</a>
             )}
           </div>
         </div>
 
         {(a.symptoms || triage?.summary) && (
-          <div className="mt-4 rounded-2xl bg-white/5 p-3 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-foreground/50">{t("prac.symptoms")}</div>
+          <div className="mt-4 rounded-2xl bg-muted p-3 text-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("prac.symptoms")}</div>
             {a.symptoms && <p className="mt-1 whitespace-pre-wrap">{a.symptoms}</p>}
             {triage?.summary && <p className="mt-2 text-xs text-foreground/70">🤖 {String(triage.summary)}</p>}
           </div>
@@ -145,12 +145,12 @@ function TreatPage() {
       <GlassCard className="mt-4 space-y-4 p-5">
         <label className="block text-sm font-medium">
           {t("prac.privateNotes")}
-          <span className="ms-1 text-xs font-normal text-foreground/50">({t("prac.privateHint")})</span>
+          <span className="ms-1 text-xs font-normal text-muted-foreground">({t("prac.privateHint")})</span>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="mt-1" disabled={closed} />
         </label>
         <label className="block text-sm font-medium">
           {t("prac.report")}
-          <span className="ms-1 text-xs font-normal text-foreground/50">({t("prac.reportHint")})</span>
+          <span className="ms-1 text-xs font-normal text-muted-foreground">({t("prac.reportHint")})</span>
           <Textarea value={report} onChange={(e) => setReport(e.target.value)} rows={4} className="mt-1" disabled={closed} />
         </label>
 
@@ -161,11 +161,11 @@ function TreatPage() {
               <Button size="sm" variant="secondary" onClick={() => setItems([...items, { name: "" }])}><Plus className="h-4 w-4" />{t("prac.addMedicine")}</Button>
             )}
           </div>
-          <p className="mt-1 text-xs text-foreground/50">{t("prac.prescriptionHint")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("prac.prescriptionHint")}</p>
           <div className="mt-2 space-y-2">
-            {items.length === 0 && <p className="text-xs text-foreground/50">{t("prac.noMedicine")}</p>}
+            {items.length === 0 && <p className="text-xs text-muted-foreground">{t("prac.noMedicine")}</p>}
             {items.map((it, i) => (
-              <div key={i} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl bg-white/5 p-2 sm:grid-cols-[2fr_2fr_1fr_auto]">
+              <div key={i} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl bg-muted p-2 sm:grid-cols-[2fr_2fr_1fr_auto]">
                 <Input placeholder={t("prac.medName")} value={it.name} disabled={closed} onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
                 <Input placeholder={t("prac.medDosage")} value={it.dosage ?? ""} disabled={closed} className="col-span-2 sm:col-span-1" onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, dosage: e.target.value } : x)))} />
                 <Input placeholder={t("prac.medDuration")} value={it.duration ?? ""} disabled={closed} onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, duration: e.target.value } : x)))} />
@@ -194,15 +194,15 @@ function TreatPage() {
       <section className="mt-6">
         <h2 className="font-semibold">{t("prac.history")}</h2>
         <div className="mt-2 space-y-2">
-          {history.length === 0 && <p className="text-sm text-foreground/50">{t("prac.noHistory")}</p>}
+          {history.length === 0 && <p className="text-sm text-muted-foreground">{t("prac.noHistory")}</p>}
           {history.map((h) => (
             <Link key={h.id} to="/app/praticien/rdv/$id" params={{ id: h.id }} className="block">
               <GlassCard interactive className="p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span>{h.reason}</span>
-                  <Badge className="border border-white/10 bg-white/10 text-foreground">{t(`appointments.status.${h.status}`, h.status)}</Badge>
+                  <Badge className="border border-border bg-secondary text-foreground">{t(`appointments.status.${h.status}`, h.status)}</Badge>
                 </div>
-                <div className="mt-1 text-xs text-foreground/50">{fmt(h.completed_at ?? h.scheduled_at ?? h.requested_at)}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{fmt(h.completed_at ?? h.scheduled_at ?? h.requested_at)}</div>
                 {h.report && <p className="mt-1 line-clamp-2 text-xs text-foreground/70">{h.report}</p>}
               </GlassCard>
             </Link>

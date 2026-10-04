@@ -49,7 +49,7 @@ function ResetPasswordPage() {
           <img
             src={sahaLogo.url}
             alt="SAHA Santé"
-            className="h-10 w-10 rounded-2xl object-cover ring-1 ring-white/20"
+            className="h-10 w-10 rounded-2xl object-cover ring-1 ring-ring"
           />
           <span className="font-display text-xl">SAHA Santé</span>
         </Link>
@@ -73,7 +73,7 @@ function ResetPasswordPage() {
                 required
                 minLength={6}
                 autoComplete="new-password"
-                className="h-11 rounded-xl border-white/10 bg-white/5"
+                className="h-11 rounded-xl border-border bg-muted"
               />
             </div>
             <Button

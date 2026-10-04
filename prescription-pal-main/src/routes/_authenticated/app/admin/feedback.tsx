@@ -71,7 +71,7 @@ function AdminFeedback() {
                 {data.averages.map((p) => (
                   <div
                     key={p.name}
-                    className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                    className="flex items-center justify-between rounded-lg border border-border bg-muted px-3 py-2 text-sm"
                   >
                     <span className="truncate">{p.name}</span>
                     <span className="text-muted-foreground">

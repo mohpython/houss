@@ -13,7 +13,7 @@ export function AutoFlowProgress({
       {steps.map((s, i) => (
         <li
           key={i}
-          className={`flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 transition-opacity ${
+          className={`flex items-center gap-3 rounded-2xl border border-border px-4 py-3 transition-opacity ${
             s.state === "pending" ? "opacity-40" : "opacity-100"
           }`}
         >
@@ -23,7 +23,7 @@ export function AutoFlowProgress({
                 ? "border-success/30 bg-success/10 text-success"
                 : s.state === "error"
                   ? "border-destructive/30 bg-destructive/10 text-destructive"
-                  : "border-white/10 bg-white/5 text-primary"
+                  : "border-border bg-muted text-primary"
             }`}
             aria-hidden
           >

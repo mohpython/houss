@@ -124,9 +124,9 @@ function Checkout() {
     <div className="mx-auto max-w-md px-6 py-8">
       <h1 className="text-lg font-semibold">{t("pay.title")}</h1>
 
-      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3">
+      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-border px-4 py-3">
         <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-primary"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-primary"
           aria-hidden
         >
           <Store className="h-4 w-4" />
@@ -134,7 +134,7 @@ function Checkout() {
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">{row.pharmacies?.name}</div>
           {row.pharmacies?.address && (
-            <div className="flex items-center gap-1 truncate text-xs text-foreground/50">
+            <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
               <MapPin className="h-3 w-3" />
               {row.pharmacies.address}
             </div>
@@ -146,7 +146,7 @@ function Checkout() {
         {row.reservation_items.map((i) => (
           <li
             key={i.id}
-            className="flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3"
+            className="flex items-center gap-3 rounded-2xl border border-border px-4 py-3"
           >
             <span
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success"
@@ -157,7 +157,7 @@ function Checkout() {
             <span className="min-w-0 flex-1 truncate text-sm">
               {i.prescription_items?.medicine_name_raw}
               {i.prescription_items?.strength && (
-                <span className="ml-2 text-foreground/50">{i.prescription_items.strength}</span>
+                <span className="ml-2 text-muted-foreground">{i.prescription_items.strength}</span>
               )}
             </span>
             <span className="shrink-0 text-sm tabular-nums">{formatAmount(i.unit_price)}</span>
@@ -192,7 +192,7 @@ function Checkout() {
                 className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm transition-colors ${
                   row.fulfillment_method === m
                     ? "border-primary bg-primary/10 text-foreground"
-                    : "border-white/10 text-foreground/60"
+                    : "border-border text-foreground/60"
                 }`}
               >
                 {m === "delivery" ? <Bike className="h-4 w-4" /> : <Store className="h-4 w-4" />}
@@ -212,7 +212,7 @@ function Checkout() {
         </div>
       )}
 
-      <dl className="mt-4 space-y-1 rounded-2xl border border-white/10 px-4 py-3 text-sm">
+      <dl className="mt-4 space-y-1 rounded-2xl border border-border px-4 py-3 text-sm">
         <div className="flex justify-between">
           <dt className="text-foreground/60">{t("pay.items")}</dt>
           <dd className="tabular-nums">{formatAmount(row.items_total)}</dd>
@@ -221,7 +221,7 @@ function Checkout() {
           <dt className="text-foreground/60">{t("pay.delivery")}</dt>
           <dd className="tabular-nums">{formatAmount(row.delivery_fee)}</dd>
         </div>
-        <div className="flex justify-between border-t border-white/10 pt-2 text-base font-semibold">
+        <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
           <dt>{t("pay.total")}</dt>
           <dd className="tabular-nums">{formatAmount(row.total_amount)}</dd>
         </div>
@@ -250,7 +250,7 @@ function Checkout() {
                 className={`rounded-2xl border px-4 py-3 text-sm transition-colors ${
                   method === m
                     ? "border-primary bg-primary/10 text-foreground"
-                    : "border-white/10 text-foreground/60"
+                    : "border-border text-foreground/60"
                 }`}
               >
                 {m === "orange_money" ? t("pay.orange") : t("pay.moov")}

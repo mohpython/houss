@@ -65,7 +65,7 @@ class OnboardingScreen extends StatelessWidget {
                 Text(
                   L10n.t(context, 'tagline'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: AppColors.accent),
+                  style: TextStyle(fontSize: 14, color: AppColors.accent),
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -76,7 +76,7 @@ class OnboardingScreen extends StatelessWidget {
                 Text(
                   L10n.t(context, 'hero2'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 27,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primaryLight,
@@ -86,7 +86,7 @@ class OnboardingScreen extends StatelessWidget {
                 Text(
                   L10n.t(context, 'heroDesc'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.45),
+                  style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.45),
                 ),
                 const Spacer(flex: 3),
                 Container(

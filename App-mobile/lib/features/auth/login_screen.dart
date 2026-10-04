@@ -181,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(width: 6),
                             Text(
                               L10n.t(context, 'tagline'),
-                              style: const TextStyle(fontSize: 12, color: AppColors.accent),
+                              style: TextStyle(fontSize: 12, color: AppColors.accent),
                             ),
                           ],
                         ),
@@ -194,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 10),
                       Text(
                         L10n.t(context, 'loginSub'),
-                        style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 24),
                       _MethodToggle(
@@ -267,7 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               'otpSent',
                               {'phone': _phoneController.text.trim()},
                             ),
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -303,7 +303,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     },
                               child: Text(
                                 L10n.t(context, 'resend'),
-                                style: const TextStyle(color: AppColors.primaryLight),
+                                style: TextStyle(color: AppColors.primaryLight),
                               ),
                             ),
                           ),
@@ -312,16 +312,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 20),
                       Row(
                         children: [
-                          const Expanded(child: Divider(color: AppColors.border)),
+                          Expanded(child: Divider(color: AppColors.border)),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
                               L10n.t(context, 'or'),
                               style:
-                                  const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                                  TextStyle(fontSize: 13, color: AppColors.textMuted),
                             ),
                           ),
-                          const Expanded(child: Divider(color: AppColors.border)),
+                          Expanded(child: Divider(color: AppColors.border)),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -335,7 +335,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             // blanc, un fond blanc rendait le bouton invisible.
                             backgroundColor: AppColors.surfaceLight,
                             foregroundColor: AppColors.textPrimary,
-                            side: const BorderSide(color: AppColors.border),
+                            side: BorderSide(color: AppColors.border),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(26),
                             ),
@@ -346,7 +346,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Icon(Icons.g_mobiledata,
+                              : Icon(Icons.g_mobiledata,
                                   size: 28, color: AppColors.primary),
                           label: Text(
                             L10n.t(context, 'googleBtn'),
@@ -361,7 +361,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () => context.push('/register'),
                           child: Text(
                             L10n.t(context, 'createAccount'),
-                            style: const TextStyle(color: AppColors.primaryLight),
+                            style: TextStyle(color: AppColors.primaryLight),
                           ),
                         ),
                       ),

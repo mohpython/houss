@@ -65,7 +65,7 @@ function Landing() {
           <img
             src={sahaLogo.url}
             alt="SAHA Santé"
-            className="h-10 w-10 rounded-2xl object-cover ring-1 ring-white/20"
+            className="h-10 w-10 rounded-2xl object-cover ring-1 ring-ring"
           />
           <span className="font-display text-xl">SAHA Santé</span>
         </Link>
@@ -76,7 +76,7 @@ function Landing() {
         </nav>
         <div className="flex items-center gap-2">
           <Link to="/auth">
-            <Button variant="ghost" size="sm" className="text-foreground/80 hover:text-foreground">
+            <Button variant="ghost" size="sm" className="text-foreground hover:text-foreground">
               {t("common.signIn")}
             </Button>
           </Link>
@@ -93,7 +93,7 @@ function Landing() {
           <GlassCard className="p-8 md:col-span-4 md:row-span-3 md:p-12">
             <div className="flex h-full flex-col justify-between gap-6">
               <div>
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-widest text-foreground/70">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-[11px] uppercase tracking-widest text-foreground/70">
                   <Sparkles className="h-3 w-3 text-accent" />
                   {t("landing.aiBadge")}
                 </span>
@@ -115,7 +115,7 @@ function Landing() {
                   </Button>
                 </Link>
                 <Link to="/auth">
-                  <Button size="lg" variant="ghost" className="h-12 rounded-full border border-white/15 bg-white/5 text-foreground hover:bg-white/10">
+                  <Button size="lg" variant="ghost" className="h-12 rounded-full border border-border bg-muted text-foreground hover:bg-secondary">
                     {t("landing.haveAccount")}
                   </Button>
                 </Link>
@@ -147,8 +147,8 @@ function Landing() {
                   {t("landing.aiExtractDesc")}
                 </p>
                 <div className="mt-4 space-y-1.5 text-xs font-mono text-foreground/70">
-                  <div className="rounded-md border border-white/10 bg-black/30 px-2 py-1">✓ Paracétamol 500mg — 2×/j</div>
-                  <div className="rounded-md border border-white/10 bg-black/30 px-2 py-1">✓ Amoxicilline 1g — 3×/j</div>
+                  <div className="rounded-md border border-border bg-black/30 px-2 py-1">✓ Paracétamol 500mg — 2×/j</div>
+                  <div className="rounded-md border border-border bg-black/30 px-2 py-1">✓ Amoxicilline 1g — 3×/j</div>
                   <div className="rounded-md border border-accent/40 bg-accent/10 px-2 py-1 text-accent">{t("landing.aiConfidence")}</div>
                 </div>
               </div>
@@ -192,7 +192,7 @@ function Landing() {
         </section>
       </main>
 
-      <footer className="relative border-t border-white/5">
+      <footer className="relative border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-8 text-xs text-foreground/60">
           <span>© {new Date().getFullYear()} SAHA Santé · Mali</span>
           <div className="flex gap-4">
@@ -209,11 +209,11 @@ function BentoStep({ icon, n, title, text, className }: { icon: React.ReactNode;
   return (
     <GlassCard className={`p-5 ${className ?? ""}`}>
       <div className="flex h-full items-center gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-accent">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-muted text-accent">
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] uppercase tracking-widest text-foreground/50">{n}</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{n}</div>
           <div className="font-display text-xl">{title}</div>
           <div className="text-xs text-foreground/60">{text}</div>
         </div>

@@ -17,12 +17,13 @@
     "language": "Language",
     "notifications": "Notifications",
     "markAllRead": "Mark all as read",
-    "noNotifications": "No notifications",
+    "noNotifications": "No notifications yet",
     "home": "Home",
     "error": "Error",
     "updated": "Updated",
     "call": "Call",
-    "open": "Open"
+    "open": "Open",
+    "unreadNotifications": "{{count}} unread notification(s)"
   },
   "nav": {
     "home": "Home",
@@ -142,8 +143,8 @@
   },
   "home": {
     "greeting": "Hello",
-    "ready": "Ready",
-    "quickAction": "Quick action",
+    "ready": "Ready to scan",
+    "quickAction": "Quick access",
     "scanTitle": "Scan a prescription",
     "scanDesc": "The AI extracts your medications in seconds then finds the pharmacy with everything in stock.",
     "prescriptions": "Prescriptions",
@@ -381,7 +382,7 @@
     "deniedBody": "Allow notifications for this site in your browser settings, then reload the page.",
     "notConfigured": "The notification service is not configured on the server yet.",
     "notRegistered": "Notifications not registered",
-    "notRegisteredBody": "This device is not yet known to the server. Click to register it and receive notifications."
+    "notRegisteredBody": "This device is not yet known to the server. Click here to register it and start receiving notifications."
   },
   "whatsapp": {
     "fab": "Order on WhatsApp",

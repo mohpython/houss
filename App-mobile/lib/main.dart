@@ -7,6 +7,7 @@ import 'package:saha_sante/app.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/core/services/push_service.dart';
+import 'package:saha_sante/core/theme/app_theme_mode.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,9 @@ Future<void> main() async {
   await initializeDateFormatting('fr_FR');
   // Restaure la langue choisie.
   await AppLocale.instance.load();
+  // Restaure le thème choisi (clair / sombre / automatique). Doit précéder
+  // `runApp` : la palette de l'app est lue dès la première construction.
+  await AppThemeMode.instance.load();
 
   // Lien profond OAuth Google : l'app peut être lancée directement par
   // `sahasantemali://auth?access_token=…` (retour du navigateur web).

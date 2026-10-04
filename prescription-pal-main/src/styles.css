@@ -5,9 +5,14 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * SAHA Santé — Glass Aurora design system
- * Deep night background, aurora violet/mint/sky accents, serif display, glassmorphism.
- * All color tokens use HSL space (kept compatible with shadcn's hsl(var(--*)) references).
+ * SAHA Santé — WhatsApp design system
+ *
+ * Palette recalee sur celle de WhatsApp : vert #25D366 en clair, vert d'eau
+ * #00A884 en sombre. Le mode sombre n'est plus un « degrade aurore » bleu
+ * nuit. Les deux themes partagent exactement les memes roles (memes noms de
+ * variables, memes contrastes vises) : un ecran ne peut donc pas etre lisible
+ * dans un theme et illisible dans l'autre.
+ * Toutes les couleurs sont en HSL (compatible avec hsl(var(--*)) de shadcn).
  */
 
 @theme inline {
@@ -51,66 +56,73 @@
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
-  --color-aurora-violet: hsl(202 100% 35%);
-  --color-aurora-mint: hsl(174 62% 47%);
-  --color-aurora-sky: hsl(191 100% 42%);
-
+  /* Les trois tons historiques, reteintes en vert WhatsApp (aucun composant ne
+     s'en sert directement, ils restent pour ne pas casser le theme). */
+  --color-aurora-violet: hsl(168 78% 30%);
+  --color-aurora-mint: hsl(142 70% 49%);
+  --color-aurora-sky: hsl(173 77% 31%);
+  /* Vert WhatsApp « vif » : reserve aux badges, coches et points d'accent.
+     `primary` reste plus sourd pour rester lisible en texte. */
+  --color-brand: hsl(var(--brand));
+  --color-brand-foreground: hsl(var(--brand-foreground));
 }
 
 :root {
   --radius: 1.25rem;
 
-  /* SAHA night canvas — Deep Navy Blue #0A1931 */
-  --background: 219 66% 12%;
-  --foreground: 180 26% 97%;
+  /* WhatsApp sombre : fond bleu-noir #0B141A, panneaux #111B21 #202C33,
+     texte #E9EDEF. Ce sont les valeurs reelles de WhatsApp en theme nuit,
+     donc l'app ne « clignote » pas quand on bascule clair/sombre. */
+  --background: 204 22% 6%;
+  --foreground: 200 14% 93%;
 
-  /* Glass surfaces on navy */
-  --card: 219 55% 16%;
-  --card-foreground: 180 26% 97%;
-  --popover: 219 60% 14%;
-  --popover-foreground: 180 26% 97%;
+  --card: 200 18% 10%;
+  --card-foreground: 200 14% 93%;
+  --popover: 202 16% 15%;
+  --popover-foreground: 200 14% 93%;
 
-  /* Vibrant Blue #0072B5 as primary */
-  --primary: 202 100% 35%;
-  --primary-foreground: 180 26% 97%;
+  /* Vert d'eau #00A884, assombri legerement pour que le texte blanc garde
+     un contraste suffisant sur les boutons. */
+  --primary: 168 78% 30%;
+  --primary-foreground: 0 0% 100%;
+  --brand: 142 70% 45%;
+  --brand-foreground: 160 80% 6%;
 
-  --secondary: 219 45% 20%;
-  --secondary-foreground: 180 26% 97%;
+  --secondary: 200 16% 16%;
+  --secondary-foreground: 200 14% 93%;
 
-  --muted: 219 40% 18%;
-  --muted-foreground: 202 20% 75%;
+  --muted: 200 16% 13%;
+  --muted-foreground: 200 10% 62%;
 
-  /* Cyan Teal #00B4D8 accent */
-  --accent: 191 100% 42%;
-  --accent-foreground: 219 66% 10%;
+  /* Bulle sortante WhatsApp #005C4B */
+  --accent: 169 100% 18%;
+  --accent-foreground: 200 14% 93%;
 
-  --destructive: 350 85% 62%;
+  --destructive: 4 78% 58%;
   --destructive-foreground: 0 0% 100%;
-  /* Mint Green #2EC4B6 success */
-  --success: 174 62% 47%;
-  --success-foreground: 219 66% 10%;
-  --warning: 38 95% 60%;
-  --warning-foreground: 219 66% 10%;
+  --success: 142 60% 42%;
+  --success-foreground: 160 80% 6%;
+  --warning: 38 92% 56%;
+  --warning-foreground: 160 80% 6%;
 
-  --border: 202 30% 30%;
-  --input: 219 40% 22%;
-  --ring: 191 100% 42%;
+  --border: 200 14% 21%;
+  --input: 200 16% 18%;
+  --ring: 142 70% 45%;
 
-  --sidebar: 219 60% 14%;
-  --sidebar-foreground: 180 26% 97%;
-  --sidebar-primary: 202 100% 35%;
-  --sidebar-primary-foreground: 180 26% 97%;
-  --sidebar-accent: 219 45% 20%;
-  --sidebar-accent-foreground: 180 26% 97%;
-  --sidebar-border: 202 30% 30%;
-  --sidebar-ring: 191 100% 42%;
+  --sidebar: 200 18% 10%;
+  --sidebar-foreground: 200 14% 93%;
+  --sidebar-primary: 168 78% 30%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 200 16% 16%;
+  --sidebar-accent-foreground: 200 14% 93%;
+  --sidebar-border: 200 14% 21%;
+  --sidebar-ring: 142 70% 45%;
 
-  --aurora-gradient: linear-gradient(135deg, hsl(202 100% 35%) 0%, hsl(191 100% 42%) 50%, hsl(174 62% 47%) 100%);
-  --aurora-soft: radial-gradient(60% 60% at 20% 10%, hsl(202 100% 35% / 0.35), transparent 60%),
-                 radial-gradient(50% 50% at 90% 20%, hsl(191 100% 42% / 0.28), transparent 60%),
-                 radial-gradient(50% 50% at 60% 100%, hsl(174 62% 47% / 0.22), transparent 60%);
-  --shadow-glass: 0 20px 60px -20px hsl(202 100% 25% / 0.45), 0 8px 30px -12px hsl(219 66% 4% / 0.6);
-  --shadow-glow: 0 0 40px hsl(191 100% 45% / 0.4);
+  --aurora-gradient: linear-gradient(135deg, hsl(168 78% 30%) 0%, hsl(167 100% 33%) 50%, hsl(142 70% 45%) 100%);
+  --aurora-soft: radial-gradient(60% 60% at 15% 0%, hsl(167 100% 33% / 0.22), transparent 60%),
+                 radial-gradient(55% 55% at 95% 10%, hsl(142 70% 45% / 0.12), transparent 60%);
+  --shadow-glass: 0 20px 60px -24px hsl(168 80% 10% / 0.7), 0 8px 30px -12px hsl(204 40% 3% / 0.7);
+  --shadow-glow: 0 0 40px hsl(142 70% 45% / 0.28);
 }
 
 
@@ -127,54 +139,56 @@ html, body {
 }
 
 .light {
-  /* Soft Ice White #F4F9F9 canvas */
-  --background: 180 26% 97%;
-  --foreground: 219 66% 12%;
+  /* WhatsApp clair : fond #F0F2F5, cartes blanches, texte #111B21.
+     Meme nomenclature de roles que le theme sombre ci-dessus. */
+  --background: 214 25% 95%;
+  --foreground: 200 15% 12%;
 
   --card: 0 0% 100%;
-  --card-foreground: 219 66% 12%;
+  --card-foreground: 200 15% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 219 66% 12%;
+  --popover-foreground: 200 15% 12%;
 
-  /* Vibrant Blue #0072B5 */
-  --primary: 202 100% 35%;
-  --primary-foreground: 0 0% 100%;
+  /* Vert WhatsApp #25D366. Le texte pose dessus est vert tres sombre et non
+     blanc : blanc sur #25D366 ne donne que 2,2:1 de contraste, illisible. */
+  --primary: 142 70% 49%;
+  --primary-foreground: 160 75% 8%;
+  --brand: 142 70% 42%;
+  --brand-foreground: 0 0% 100%;
 
-  --secondary: 180 26% 94%;
-  --secondary-foreground: 219 66% 12%;
+  --secondary: 214 25% 92%;
+  --secondary-foreground: 200 15% 12%;
 
-  --muted: 180 26% 94%;
-  --muted-foreground: 219 30% 35%;
+  --muted: 214 22% 92%;
+  --muted-foreground: 202 12% 42%;
 
-  /* Cyan Teal #00B4D8 accent */
-  --accent: 191 100% 42%;
-  --accent-foreground: 0 0% 100%;
+  /* Bulle sortante WhatsApp #D9FDD3 */
+  --accent: 141 45% 89%;
+  --accent-foreground: 160 60% 14%;
 
-  --destructive: 350 80% 52%;
+  --destructive: 4 72% 48%;
   --destructive-foreground: 0 0% 100%;
-  /* Mint Green #2EC4B6 */
-  --success: 174 62% 47%;
+  --success: 160 64% 28%;
   --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%;
-  --warning-foreground: 219 66% 12%;
+  --warning: 32 90% 42%;
+  --warning-foreground: 0 0% 100%;
 
-  --border: 202 25% 85%;
-  --input: 202 25% 90%;
-  --ring: 202 100% 35%;
+  --border: 214 20% 87%;
+  --input: 214 20% 91%;
+  --ring: 142 70% 42%;
 
   --sidebar: 0 0% 100%;
-  --sidebar-foreground: 219 66% 12%;
-  --sidebar-primary: 202 100% 35%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 180 26% 94%;
-  --sidebar-accent-foreground: 219 66% 12%;
-  --sidebar-border: 202 25% 85%;
-  --sidebar-ring: 202 100% 35%;
+  --sidebar-foreground: 200 15% 12%;
+  --sidebar-primary: 142 70% 49%;
+  --sidebar-primary-foreground: 160 75% 8%;
+  --sidebar-accent: 214 25% 92%;
+  --sidebar-accent-foreground: 200 15% 12%;
+  --sidebar-border: 214 20% 87%;
+  --sidebar-ring: 142 70% 42%;
 
-  --aurora-soft: radial-gradient(60% 60% at 20% 10%, hsl(202 100% 45% / 0.14), transparent 60%),
-                 radial-gradient(50% 50% at 90% 20%, hsl(191 100% 50% / 0.12), transparent 60%),
-                 radial-gradient(50% 50% at 60% 100%, hsl(174 62% 55% / 0.10), transparent 60%);
-  --shadow-glass: 0 20px 60px -20px hsl(202 60% 30% / 0.18), 0 8px 30px -12px hsl(219 30% 30% / 0.12);
+  --aurora-soft: radial-gradient(60% 60% at 15% 0%, hsl(142 70% 49% / 0.10), transparent 60%),
+                 radial-gradient(55% 55% at 95% 8%, hsl(168 78% 40% / 0.07), transparent 60%);
+  --shadow-glass: 0 12px 40px -20px hsl(200 30% 30% / 0.25), 0 4px 16px -8px hsl(200 30% 30% / 0.12);
 }
 
 
@@ -215,16 +229,16 @@ html, body {
 /* --- Utilities --- */
 
 @utility glass {
-  background: hsl(226 36% 14% / 0.55);
+  background: hsl(204 22% 11% / 0.72);
   backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid hsl(220 40% 90% / 0.08);
+  border: 1px solid hsl(200 14% 90% / 0.09);
   box-shadow: var(--shadow-glass);
 }
 
 @utility glass-soft {
-  background: hsl(226 36% 18% / 0.35);
+  background: hsl(204 20% 14% / 0.5);
   backdrop-filter: blur(18px) saturate(130%);
-  border: 1px solid hsl(220 40% 90% / 0.06);
+  border: 1px solid hsl(200 14% 90% / 0.07);
 }
 
 @utility aurora-bg {
@@ -264,8 +278,8 @@ html, body {
   50% { transform: translate3d(-5%, 4%, 0) scale(1.12); }
 }
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 hsl(258 90% 70% / 0.5); }
-  50% { box-shadow: 0 0 0 12px hsl(258 90% 70% / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 hsl(142 70% 45% / 0.45); }
+  50% { box-shadow: 0 0 0 12px hsl(142 70% 45% / 0); }
 }
 
 @utility animate-aurora {

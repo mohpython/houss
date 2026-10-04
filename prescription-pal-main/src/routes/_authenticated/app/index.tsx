@@ -7,6 +7,7 @@ import { Camera, ListChecks, Store, Stethoscope, Package, Truck, CheckCircle2 } 
 import { useTranslation } from "react-i18next";
 import { getDateLocale } from "@/i18n";
 import { PushSettingsCard } from "@/components/PushSettingsCard";
+import { NotificationCheckBanner } from "@/components/NotificationCheckBanner";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   head: () => ({
@@ -57,8 +58,14 @@ function Home() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center px-6 py-10">
+      {/* Coche de notification : rappel immediate qu'il y a du neuf, sans
+          dependre de l'icone dans l'en-tete. */}
+      <div className="w-full">
+        <NotificationCheckBanner userId={user.id} />
+      </div>
+
       <Link to="/app/scan" className="flex flex-col items-center gap-3" aria-label={t("nav.scan")}>
-        <span className="flex h-40 w-40 items-center justify-center rounded-full aurora-bg text-primary-foreground shadow-2xl shadow-primary/40 transition-transform active:scale-95">
+        <span className="flex h-40 w-40 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/40 transition-transform active:scale-95">
           <Camera className="h-20 w-20" />
         </span>
         <span className="text-base font-semibold">{t("nav.scan")}</span>
@@ -89,8 +96,8 @@ function Home() {
       <div className="mt-10 w-full space-y-2">
         {recent === null && (
           <>
-            <div className="h-14 w-full animate-pulse rounded-2xl bg-white/5" aria-hidden />
-            <div className="h-14 w-full animate-pulse rounded-2xl bg-white/5" aria-hidden />
+            <div className="h-14 w-full animate-pulse rounded-2xl bg-muted" aria-hidden />
+            <div className="h-14 w-full animate-pulse rounded-2xl bg-muted" aria-hidden />
           </>
         )}
         {recent?.map((r) => {
@@ -101,7 +108,7 @@ function Home() {
               key={r.id}
               to="/app/reservations/$id"
               params={{ id: r.id }}
-              className="flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3"
+              className="flex items-center gap-3 rounded-2xl border border-border px-4 py-3"
             >
               <span
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
@@ -109,7 +116,7 @@ function Home() {
                     ? "border-success/30 bg-success/10 text-success"
                     : shipping
                       ? "border-warning/30 bg-warning/10 text-warning"
-                      : "border-white/10 bg-white/5 text-primary"
+                      : "border-border bg-muted text-primary"
                 }`}
                 aria-hidden
               >
@@ -124,7 +131,7 @@ function Home() {
               <span className="min-w-0 flex-1 truncate text-sm">
                 {r.pharmacies?.name ?? t("home.pharmacyLabel")}
               </span>
-              <span className="shrink-0 text-xs text-foreground/50">
+              <span className="shrink-0 text-xs text-muted-foreground">
                 {new Date(r.created_at).toLocaleTimeString(getDateLocale(), {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -142,7 +149,7 @@ function IconLink({ to, label, icon }: { to: string; label: string; icon: React.
   return (
     <Link
       to={to}
-      className="group flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-2 py-4 text-center transition-colors hover:border-primary/50 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-muted px-2 py-4 text-center transition-colors hover:border-primary/50 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span
         className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"
@@ -150,7 +157,7 @@ function IconLink({ to, label, icon }: { to: string; label: string; icon: React.
       >
         {icon}
       </span>
-      <span className="text-xs font-medium leading-tight text-foreground/80 group-hover:text-foreground">
+      <span className="text-xs font-medium leading-tight text-foreground group-hover:text-foreground">
         {label}
       </span>
     </Link>

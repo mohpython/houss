@@ -89,7 +89,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 10),
                       Text(
                         L10n.t(context, 'registerSub'),
-                        style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 24),
                       SizedBox(
@@ -102,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             // blanc, un fond blanc rendait le bouton invisible.
                             backgroundColor: AppColors.surfaceLight,
                             foregroundColor: AppColors.textPrimary,
-                            side: const BorderSide(color: AppColors.border),
+                            side: BorderSide(color: AppColors.border),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(26),
                             ),
@@ -113,7 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   width: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Icon(Icons.g_mobiledata, size: 28, color: AppColors.primary),
+                              : Icon(Icons.g_mobiledata, size: 28, color: AppColors.primary),
                           label: Text(
                             L10n.t(context, 'googleBtn'),
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
@@ -126,7 +126,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onPressed: () => context.go('/login'),
                           child: Text(
                             L10n.t(context, 'alreadyRegistered'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               color: AppColors.textSecondary,
                             ),

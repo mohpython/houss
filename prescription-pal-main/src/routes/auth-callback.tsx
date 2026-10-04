@@ -139,9 +139,9 @@ function AuthCallback() {
           <img
             src={sahaLogo.url}
             alt="SAHA Santé"
-            className="mx-auto h-14 w-14 rounded-2xl object-cover ring-1 ring-white/20"
+            className="mx-auto h-14 w-14 rounded-2xl object-cover ring-1 ring-ring"
           />
-          <p className="mt-6 text-sm text-foreground/80">{t("auth.openApp")}</p>
+          <p className="mt-6 text-sm text-foreground">{t("auth.openApp")}</p>
           <a
             href={deepLink}
             className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition hover:opacity-90"
@@ -161,11 +161,11 @@ function AuthCallback() {
         <img
           src={sahaLogo.url}
           alt="SAHA Santé"
-          className="mx-auto h-14 w-14 rounded-2xl object-cover ring-1 ring-white/20"
+          className="mx-auto h-14 w-14 rounded-2xl object-cover ring-1 ring-ring"
         />
         <div className="mt-6 flex items-center justify-center gap-3">
           {!failed && <Loader2 className="h-5 w-5 animate-spin text-accent" />}
-          <p className="text-sm text-foreground/80">
+          <p className="text-sm text-foreground">
             {failed ? t("auth.googleError") : t("auth.connecting")}
           </p>
         </div>

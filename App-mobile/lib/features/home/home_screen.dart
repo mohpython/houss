@@ -6,6 +6,8 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
+import 'package:saha_sante/features/home/notification_check_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,13 +65,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            colors: [Color(0xFF1E1B4B), AppColors.background],
-            radius: 1.4,
-            center: Alignment.topCenter,
-          ),
-        ),
+        // Le decor d'origine etait violet (0xFF1E1B4B) : incoherent avec le
+        // vert de la marque. Meme halo que les autres ecrans, donc l'accueil ne
+        // se distingue plus des autres pages.
+        decoration: AppTheme.subtleGradient,
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: _load,
@@ -80,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 12),
+                  const NotificationCheckBanner(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -96,10 +96,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Icon(Icons.person_outline, size: 16),
                             const SizedBox(width: 6),
                             Text(
-                              'Espace Patient',
+                              L10n.t(context, 'home.patientSpace'),
                               style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.accent,
+                                color: AppColors.primaryLight,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -123,8 +123,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 20),
                   const _HeroCard(),
                   const SizedBox(height: 28),
-                  const Text(
-                    'Services',
+                  Text(
+                    L10n.t(context, 'home.services'),
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
@@ -135,25 +135,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
                     childAspectRatio: 1.5,
-                    children: const [
+                    children: [
                       _ServiceTile(
                         icon: Icons.description,
-                        label: 'Ordonnances',
+                        label: L10n.t(context, 'home.prescriptions'),
                         route: '/prescriptions',
                       ),
                       _ServiceTile(
                         icon: Icons.local_pharmacy,
-                        label: 'Réservations',
+                        label: L10n.t(context, 'home.reservations'),
                         route: '/reservations',
                       ),
                       _ServiceTile(
                         icon: Icons.local_shipping,
-                        label: 'Suivi livraison',
+                        label: L10n.t(context, 'home.tracking'),
                         route: '/suivi',
                       ),
                       _ServiceTile(
                         icon: Icons.medical_services,
-                        label: 'Sans ordonnance',
+                        label: L10n.t(context, 'home.otc'),
                         route: '/otc',
                       ),
                     ],
@@ -162,14 +162,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Pharmacies recommandées',
+                      Text(
+                        L10n.t(context, 'home.recommended'),
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       if (_pharmacies != null && _pharmacies!.isNotEmpty)
                         Text(
-                          '${_pharmacies!.length} prox.',
-                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          L10n.tArgs(context, 'home.nearby', {
+                            'count': '${_pharmacies!.length}',
+                          }),
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                     ],
                   ),
@@ -190,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   else if (_pharmacies == null || _pharmacies!.isEmpty)
                     _MessageCard(
                       icon: Icons.local_pharmacy_outlined,
-                      message: 'Aucune pharmacie trouvée pour le moment.',
+                      message: L10n.t(context, 'home.noPharmacy'),
                       onRetry: _load,
                     )
                   else
@@ -233,7 +235,7 @@ class _MessageCard extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           TextButton.icon(
@@ -258,8 +260,12 @@ class _HeroCard extends StatelessWidget {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: AppColors.border),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1D3A), Color(0xFF121528)],
+        // Le degrade bleu nuit codee en dur (0xFF1A1D3A) etait la seconde
+        // couleur « non professionnelle » de l'accueil, apres celle de l'ecran.
+        // On le remplace par le vert de la marque. Le degrade reste assez
+        // sombre dans les deux themes pour garder un texte blanc lisible.
+        gradient: LinearGradient(
+          colors: [AppColors.primaryDeep, AppColors.primary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -273,38 +279,48 @@ class _HeroCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withAlpha(40),
+                  // Voile blanc et non `primary` : le fond est deja vert.
+                  color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.bolt, size: 14, color: AppColors.accent),
-                    const SizedBox(width: 4),
+                    Icon(Icons.bolt, size: 14, color: Colors.white),
+                    SizedBox(width: 4),
                     Text(
-                      'IA Instantanée',
-                      style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600),
+                      L10n.t(context, 'home.aiInstant'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Text(
+              Text(
                 'Bamako, Mali',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12, color: Colors.white70),
               ),
             ],
           ),
           const SizedBox(height: 18),
-          const Text(
-            'Une ordonnance à faire préparer ?',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.2),
+          Text(
+            L10n.t(context, 'home.heroTitle'),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Prenez une photo. Notre IA identifie vos médicaments et trouve l\'officine de garde.',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          Text(
+            L10n.t(context, 'home.heroDesc'),
+            style: TextStyle(fontSize: 14, color: Colors.white70),
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
           Container(
             width: double.infinity,
             height: 54,
@@ -312,7 +328,7 @@ class _HeroCard extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: () => context.push('/scan'),
               icon: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
-              label: const Text('Scanner mon ordonnance'),
+              label: Text(L10n.t(context, 'home.scanCta')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
@@ -360,7 +376,11 @@ class _ServiceTile extends StatelessWidget {
             ),
             Text(
               label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
         ),
@@ -397,16 +417,20 @@ class _PharmacyCard extends StatelessWidget {
               children: [
                 Text(
                   pharmacy.name,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   pharmacy.address.isEmpty
                       ? '${pharmacy.neighborhood} — ${pharmacy.statusLabel}'
                       : '${pharmacy.address} — ${pharmacy.statusLabel}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
               ],
             ),
@@ -415,10 +439,12 @@ class _PharmacyCard extends StatelessWidget {
           if (pharmacy.distanceKm > 0)
             Text(
               pharmacy.distanceLabel,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: AppColors.accent,
+                // `accent` etait pale en mode clair (#D9FDD3) donc invisible
+                // sur une carte blanche : on prend le vert soutenu.
+                color: AppColors.primaryLight,
               ),
             ),
         ],
@@ -426,3 +452,4 @@ class _PharmacyCard extends StatelessWidget {
     );
   }
 }
+

@@ -125,7 +125,7 @@ export function MissingItemsPanel({ prescriptionId, missingItems, current, class
           <h2 id="missing-title" className="font-medium">
             {t("pay.missingTitle")}
           </h2>
-          <ul className="mt-1 list-disc pl-4 text-xs text-foreground/80">
+          <ul className="mt-1 list-disc pl-4 text-xs text-foreground">
             {missingItems.map((m, i) => (
               <li key={m.itemId ?? i}>{m.name}</li>
             ))}
@@ -135,11 +135,11 @@ export function MissingItemsPanel({ prescriptionId, missingItems, current, class
 
       {groups.length > 0 && (
         <div className="mt-3 space-y-2">
-          <p className="text-xs font-medium text-foreground/80">{t("missing.elsewhere")}</p>
+          <p className="text-xs font-medium text-foreground">{t("missing.elsewhere")}</p>
           {groups.map((g) => (
             <div
               key={g.pharm.pharmacyId}
-              className="rounded-xl border border-white/10 bg-background/40 px-3 py-2.5"
+              className="rounded-xl border border-border bg-background/40 px-3 py-2.5"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -218,7 +218,7 @@ export function MissingItemsPanel({ prescriptionId, missingItems, current, class
                 {t("missing.changeLocation")}
               </button>
             ) : (
-              <div className="rounded-xl border border-white/10 p-3">
+              <div className="rounded-xl border border-border p-3">
                 <p className="mb-2 text-xs text-foreground/70">{t("missing.changeLocationHint")}</p>
                 <DeliveryLocationPicker value={loc} onChange={setLoc} />
                 <button

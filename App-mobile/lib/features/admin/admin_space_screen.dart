@@ -394,17 +394,17 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               if (city.isNotEmpty) city,
               if (dist.isNotEmpty) dist,
             ].join(' · '),
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           if (address.isNotEmpty)
             Text(
               address,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
           if (p['lat'] == null || p['lng'] == null)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 3),
               child: Text(
                 '⚠ Emplacement manquant — à localiser sur la carte',
@@ -539,12 +539,12 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.person_pin_circle_outlined, size: 15, color: AppColors.success),
+              Icon(Icons.person_pin_circle_outlined, size: 15, color: AppColors.success),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
                   'Gérant : $ownerEmail',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.success,
                     fontWeight: FontWeight.w600,
@@ -570,12 +570,12 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.mail_outline, size: 15, color: AppColors.warning),
+              Icon(Icons.mail_outline, size: 15, color: AppColors.warning),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
                   'Réservée — en attente du compte : $claimEmail',
-                  style: const TextStyle(fontSize: 12, color: AppColors.warning),
+                  style: TextStyle(fontSize: 12, color: AppColors.warning),
                 ),
               ),
             ],
@@ -598,7 +598,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             controller: _emailCtrl(id),
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
               hintText: 'Email du gérant',
               prefixIcon: Icon(Icons.alternate_email, size: 18, color: AppColors.textMuted),
@@ -639,7 +639,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'Identifiant',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
@@ -653,7 +653,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             ),
             if (password != null) ...[
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Mot de passe',
                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
@@ -667,7 +667,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               ),
             ],
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'La pharmacie se connectera avec ces identifiants (espace Pharmacien).',
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
@@ -720,7 +720,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               address,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
           ],
           const SizedBox(height: 8),
@@ -729,11 +729,11 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               if (dist.isNotEmpty)
                 Text(
                   dist,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               const Spacer(),
               if (partner)
-                const Text(
+                Text(
                   'Déjà enregistrée',
                   style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                 )
@@ -775,7 +775,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             isDense: true,
             underline: const SizedBox.shrink(),
             dropdownColor: AppColors.card,
-            style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary),
+            style: TextStyle(fontSize: 12.5, color: AppColors.textPrimary),
             items: const [2.0, 5.0, 10.0, 20.0]
                 .map(
                   (r) => DropdownMenuItem(
@@ -882,9 +882,9 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           Row(
             children: [
               if (online) ...[
-                const Icon(Icons.circle, size: 8, color: AppColors.success),
+                Icon(Icons.circle, size: 8, color: AppColors.success),
                 const SizedBox(width: 4),
-                const Text(
+                Text(
                   'En ligne',
                   style: TextStyle(fontSize: 12, color: AppColors.success),
                 ),
@@ -894,7 +894,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
                 Expanded(
                   child: Text(
                     phone,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ),
             ],
@@ -904,7 +904,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               padding: const EdgeInsets.only(top: 3),
               child: Text(
                 [if (vehicle.isNotEmpty) vehicle, if (license.isNotEmpty) license].join(' · '),
-                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
             ),
           if (status != 'approved') ...[
@@ -990,12 +990,12 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               if (email.isNotEmpty) email,
               if (phone.isNotEmpty) phone,
             ].join(' · '),
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           if (lastLogin != null)
             Text(
               'Dernière connexion : ${frDateTime(lastLogin)}',
-              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
         ],
       ),
@@ -1070,3 +1070,4 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     );
   }
 }
+

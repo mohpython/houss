@@ -135,7 +135,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                     const SizedBox(height: 2),
                     Text(
                       frDateTime(when),
-                      style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                     ),
                   ],
                 ),
@@ -147,12 +147,12 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.storefront, size: 14, color: AppColors.textMuted),
+                Icon(Icons.storefront, size: 14, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     '${ph!['address']}',
-                    style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                   ),
                 ),
               ],
@@ -161,12 +161,12 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
+              Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   address,
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -331,3 +331,4 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
     );
   }
 }
+

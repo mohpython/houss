@@ -192,7 +192,7 @@ function Reviews() {
                     <img
                       src={r.imageUrl}
                       alt="Ordonnance signalée"
-                      className="h-56 w-44 rounded-lg border border-white/10 object-cover"
+                      className="h-56 w-44 rounded-lg border border-border object-cover"
                     />
                   </a>
                 )}
@@ -237,7 +237,7 @@ function Reviews() {
                   {(r.details?.unreadableZones?.length ||
                     r.details?.inconsistencies?.length ||
                     r.details?.qualityNotes) && (
-                    <div className="mt-3 space-y-1 rounded-lg border border-white/10 bg-white/5 p-3 text-xs">
+                    <div className="mt-3 space-y-1 rounded-lg border border-border bg-muted p-3 text-xs">
                       {r.details?.unreadableZones?.map((z, idx) => (
                         <div key={`z${idx}`}>Zone illisible : {z}</div>
                       ))}
@@ -285,7 +285,7 @@ function Reviews() {
                         />
                       </div>
                       {Object.entries(editForm.items).map(([itemId, vals]) => (
-                        <div key={itemId} className="space-y-1 border-t border-white/10 pt-2">
+                        <div key={itemId} className="space-y-1 border-t border-border pt-2">
                           <Label className="text-xs text-muted-foreground">Médicament</Label>
                           <Input
                             value={vals.medicineNameRaw}
@@ -399,7 +399,7 @@ function Reviews() {
                           <summary className="cursor-pointer text-xs text-muted-foreground">
                             JSON extrait par l'IA
                           </summary>
-                          <pre className="mt-2 max-h-72 overflow-auto rounded-lg border border-white/10 bg-black/30 p-3 text-[11px] leading-relaxed">
+                          <pre className="mt-2 max-h-72 overflow-auto rounded-lg border border-border bg-black/30 p-3 text-[11px] leading-relaxed">
                             {r.aiRaw}
                           </pre>
                         </details>

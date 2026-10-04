@@ -174,7 +174,7 @@ function AuthPage() {
             <img
               src={sahaLogo.url}
               alt="SAHA Santé"
-              className="h-11 w-11 rounded-2xl object-cover ring-1 ring-white/20"
+              className="h-11 w-11 rounded-2xl object-cover ring-1 ring-ring"
             />
             <span className="font-display text-2xl">SAHA Santé</span>
           </Link>
@@ -194,7 +194,7 @@ function AuthPage() {
             </div>
           </div>
 
-          <div className="mt-16 text-xs text-foreground/50">
+          <div className="mt-16 text-xs text-muted-foreground">
             © {new Date().getFullYear()} SAHA Santé · Mali
           </div>
         </div>
@@ -206,7 +206,7 @@ function AuthPage() {
               <img
                 src={sahaLogo.url}
                 alt="SAHA Santé"
-                className="h-9 w-9 rounded-xl object-cover ring-1 ring-white/15"
+                className="h-9 w-9 rounded-xl object-cover ring-1 ring-ring"
               />
               <span className="font-display text-lg">SAHA Santé</span>
             </Link>
@@ -229,7 +229,7 @@ function AuthPage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="mt-6 h-11 w-full rounded-full border border-white/15 bg-white/5 text-foreground hover:bg-white/10"
+                  className="mt-6 h-11 w-full rounded-full border border-border bg-muted text-foreground hover:bg-secondary"
                   onClick={handleGoogle}
                   disabled={loading}
                 >
@@ -258,11 +258,11 @@ function AuthPage() {
                     Google est le seul moyen de créer un compte (identité prouvée). */}
                 {mode === "signin" && (
                   <div className="my-5 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-white/10" />
-                    <span className="text-[10px] uppercase tracking-widest text-foreground/50">
+                    <div className="h-px flex-1 bg-secondary" />
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                       {t("auth.or")}
                     </span>
-                    <div className="h-px flex-1 bg-white/10" />
+                    <div className="h-px flex-1 bg-secondary" />
                   </div>
                 )}
               </>
@@ -273,7 +273,7 @@ function AuthPage() {
               </p>
             )}
             {mode === "signup" && configLoaded && !config.google && (
-              <p className="mt-6 rounded-xl border border-white/10 bg-white/5 p-3 text-center text-xs text-foreground/70">
+              <p className="mt-6 rounded-xl border border-border bg-muted p-3 text-center text-xs text-foreground/70">
                 {t("auth.signupUnavailable")}
               </p>
             )}
@@ -281,21 +281,21 @@ function AuthPage() {
 
             {/* Method toggle — phone is hidden until the SMS provider is configured */}
             {mode === "signin" && PHONE_AUTH_ENABLED && (
-              <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-white/5 p-1">
+              <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-border bg-muted p-1">
                 <button
                   type="button"
                   onClick={() => {
                     setMethod("email");
                     setOtpSent(false);
                   }}
-                  className={`h-9 rounded-full text-xs font-medium transition ${method === "email" ? "bg-white/15 text-foreground" : "text-foreground/60 hover:text-foreground"}`}
+                  className={`h-9 rounded-full text-xs font-medium transition ${method === "email" ? "bg-secondary text-foreground" : "text-foreground/60 hover:text-foreground"}`}
                 >
                   {t("auth.methodEmail")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setMethod("phone")}
-                  className={`h-9 rounded-full text-xs font-medium transition ${method === "phone" ? "bg-white/15 text-foreground" : "text-foreground/60 hover:text-foreground"}`}
+                  className={`h-9 rounded-full text-xs font-medium transition ${method === "phone" ? "bg-secondary text-foreground" : "text-foreground/60 hover:text-foreground"}`}
                 >
                   {t("auth.methodPhone")}
                 </button>
@@ -322,7 +322,7 @@ function AuthPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="h-11 rounded-xl border-white/10 bg-white/5"
+                    className="h-11 rounded-xl border-border bg-muted"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -340,7 +340,7 @@ function AuthPage() {
                     required
                     minLength={6}
                     autoComplete="current-password"
-                    className="h-11 rounded-xl border-white/10 bg-white/5"
+                    className="h-11 rounded-xl border-border bg-muted"
                   />
                 </div>
                 {config.passwordReset && (
@@ -381,7 +381,7 @@ function AuthPage() {
                     placeholder={t("auth.phonePlaceholder")}
                     required
                     autoComplete="tel"
-                    className="h-11 rounded-xl border-white/10 bg-white/5"
+                    className="h-11 rounded-xl border-border bg-muted"
                     dir="ltr"
                   />
                 </div>
@@ -416,7 +416,7 @@ function AuthPage() {
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                     required
                     autoComplete="one-time-code"
-                    className="h-12 rounded-xl border-white/10 bg-white/5 text-center text-2xl tracking-[0.5em]"
+                    className="h-12 rounded-xl border-border bg-muted text-center text-2xl tracking-[0.5em]"
                     dir="ltr"
                   />
                 </div>
@@ -533,8 +533,8 @@ function ForgotPasswordDialog({
 
 function Perk({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-center gap-3 text-sm text-foreground/80">
-      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-accent">
+    <div className="flex items-center gap-3 text-sm text-foreground">
+      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-muted text-accent">
         {icon}
       </div>
       {label}

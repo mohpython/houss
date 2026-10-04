@@ -83,7 +83,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Historique et suivi de vos prescriptions scannées.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
@@ -153,7 +153,7 @@ class _Message extends StatelessWidget {
                       child: Text(
                         text,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textMuted),
+                        style: TextStyle(color: AppColors.textMuted),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -193,7 +193,7 @@ class _PrescriptionCard extends StatelessWidget {
               color: AppColors.primary.withAlpha(30),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.description, color: AppColors.primary),
+            child: Icon(Icons.description, color: AppColors.primary),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -207,7 +207,7 @@ class _PrescriptionCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   date,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
                 if (item.medicines.isNotEmpty)
                   Padding(
@@ -216,7 +216,7 @@ class _PrescriptionCard extends StatelessWidget {
                       item.medicines.join(', '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ),
               ],
@@ -239,3 +239,4 @@ class _PrescriptionCard extends StatelessWidget {
     );
   }
 }
+

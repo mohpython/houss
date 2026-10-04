@@ -135,7 +135,7 @@ class _ScanScreenState extends State<ScanScreen> {
           width: 180,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [AppColors.primary, AppColors.accent],
             ),
             boxShadow: [
@@ -155,7 +155,7 @@ class _ScanScreenState extends State<ScanScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Prenez une photo nette de l\'ordonnance. Notre IA identifiera les médicaments demandés.',
           style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
           textAlign: TextAlign.center,
@@ -231,7 +231,7 @@ class _ScanScreenState extends State<ScanScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: AppTheme.glassCard,
-              child: const Column(
+              child: Column(
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
@@ -251,7 +251,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 message: result.error!,
               )
             else if (medicines.isEmpty)
-              const _Notice(
+              _Notice(
                 icon: Icons.help_outline,
                 color: AppColors.warning,
                 title: 'Aucun médicament identifié',
@@ -267,7 +267,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.auto_awesome, size: 18, color: AppColors.accent),
+                        Icon(Icons.auto_awesome, size: 18, color: AppColors.accent),
                         const SizedBox(width: 8),
                         const Text(
                           'Médicaments identifiés',
@@ -277,7 +277,7 @@ class _ScanScreenState extends State<ScanScreen> {
                         if (result.prescription.aiConfidence != null)
                           Text(
                             '${result.prescription.aiConfidence}%',
-                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
                       ],
                     ),
@@ -288,7 +288,7 @@ class _ScanScreenState extends State<ScanScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Padding(
+                            Padding(
                               padding: EdgeInsets.only(top: 3),
                               child: Icon(Icons.check_circle,
                                   size: 16, color: AppColors.success),
@@ -297,7 +297,7 @@ class _ScanScreenState extends State<ScanScreen> {
                             Expanded(
                               child: Text(
                                 m,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   color: AppColors.textSecondary,
                                 ),
@@ -399,7 +399,7 @@ class _Notice extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   message,
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -409,3 +409,4 @@ class _Notice extends StatelessWidget {
     );
   }
 }
+

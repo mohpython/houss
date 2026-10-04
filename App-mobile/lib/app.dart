@@ -4,6 +4,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/router/app_router.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/theme/app_theme_mode.dart';
+import 'package:saha_sante/core/theme/app_colors.dart';
 
 /// Repli sur l'anglais pour les langues absentes de `flutter_localizations`
 /// (le bambara `bm` en est un) : sans cela `MaterialLocalizations.of()` lève
@@ -59,12 +61,19 @@ class SahaSanteApp extends StatelessWidget {
     // L'ensemble de l'arbre est reconstruit quand la langue change
     // (le sélecteur de langue est disponible partout).
     return ListenableBuilder(
-      listenable: AppLocale.instance,
+      listenable: Listenable.merge([AppLocale.instance, AppThemeMode.instance]),
       builder: (context, _) {
+        // Positionne AVANT toute construction : les couleurs de l'application
+        // sont des accesseurs qui lisent ce drapeau. C'est ce qui fait que le
+        // mode clair s'applique a tous les ecrans d'un seul coup.
+        AppColors.light = AppThemeMode.instance.isLight;
         return MaterialApp.router(
           title: 'SAHA Santé',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.darkTheme,
+          // Un seul theme, deja resolu : `darkTheme`/`themeMode` baraient en double
+          // (le theme sombre de Material remplacerait les couleurs resolues,
+          // et les ecrans qui lisent AppColors seraient desynchronises).
+          theme: AppTheme.build(),
           locale: AppLocale.instance.locale,
           supportedLocales: const [
             Locale('fr', 'FR'),

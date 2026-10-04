@@ -165,7 +165,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     const SizedBox(height: 2),
                     Text(
                       frDateTime(parseDate(order['created_at'])),
-                      style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                     ),
                   ],
                 ),
@@ -214,7 +214,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     ),
                     Text(
                       available ? frAmount(price) : '—',
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -232,12 +232,12 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
               const SizedBox(width: 4),
               Text(
                 fulfillment,
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
               const Spacer(),
               Text(
                 frAmount(total),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.accentLight,
@@ -330,7 +330,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
               ],
             ),
             if (status == 'ready' && isPickup)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
                   'En attente du retrait par le client.',
@@ -382,7 +382,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
       ),
       child: TextField(
         onChanged: (v) => setState(() => _search = v),
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           hintText: 'Rechercher un médicament…',
           prefixIcon: Icon(Icons.search, size: 20, color: AppColors.textMuted),
           border: InputBorder.none,
@@ -422,7 +422,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     if (form.isNotEmpty) form,
                     if (price != null) frAmount(price),
                   ].join(' · '),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -735,3 +735,4 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
     );
   }
 }
+

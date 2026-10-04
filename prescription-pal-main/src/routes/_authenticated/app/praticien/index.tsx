@@ -169,7 +169,7 @@ function PractitionerDashboardPage() {
           </h1>
           <p className="text-sm text-foreground/60">{t("prac.subtitle")}</p>
         </div>
-        <label className="flex min-h-[44px] items-center gap-3 rounded-2xl bg-white/5 px-4 ring-1 ring-white/10">
+        <label className="flex min-h-[44px] items-center gap-3 rounded-2xl bg-muted px-4 ring-1 ring-ring">
           <span className="text-sm font-medium">{me.is_available ? t("prac.available") : t("prac.unavailable")}</span>
           <Switch checked={me.is_available} disabled={toggling} onCheckedChange={onToggle} aria-label={t("prac.available")} />
         </label>
@@ -208,7 +208,7 @@ function PractitionerDashboardPage() {
               </li>
             ))}
             {reminders.soon.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2">
+              <li key={a.id} className="flex items-center justify-between gap-2 rounded-xl bg-muted px-3 py-2">
                 <span>🔔 {fmt(a.scheduled_at)} — {a.patient_name}{a.at_home ? ` · ${t("prac.homeVisit")}` : ""}</span>
                 <Link to="/app/praticien/rdv/$id" params={{ id: a.id }} className="text-xs font-medium text-primary hover:underline">{t("prac.open")}</Link>
               </li>
@@ -225,7 +225,7 @@ function PractitionerDashboardPage() {
             type="button"
             onClick={() => setTab(k)}
             aria-pressed={tab === k}
-            className={`min-h-[48px] rounded-2xl px-1 text-sm font-semibold ring-1 transition ${tab === k ? "bg-primary text-primary-foreground ring-primary" : "bg-white/5 ring-white/10 hover:bg-white/10"}`}
+            className={`min-h-[48px] rounded-2xl px-1 text-sm font-semibold ring-1 transition ${tab === k ? "bg-primary text-primary-foreground ring-primary" : "bg-muted ring-ring hover:bg-secondary"}`}
           >
             {t(`prac.tab.${k}`)}
           </button>
@@ -250,14 +250,14 @@ function PractitionerDashboardPage() {
                       {p.pending > 0 && <> · <span className="text-amber-300">{t("prac.patients.pending", { count: p.pending })}</span></>}
                       {p.unconfirmed > 0 && <> · <span className="text-amber-300">{t("prac.patients.unconfirmed", { count: p.unconfirmed })}</span></>}
                     </div>
-                    <div className="mt-1 text-xs text-foreground/50">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       {p.next ? <>{t("prac.patients.next")} {fmt(p.next.scheduled_at)}</> : <>{t("prac.patients.last")} {fmt(p.last.completed_at ?? p.last.scheduled_at ?? p.last.requested_at)}</>}
                     </div>
                     <div className="mt-2"><PatientResponseBadge a={focus} /></div>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {phone && (
-                      <a href={`tel:${phone}`} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-medium hover:bg-white/20"><Phone className="h-4 w-4" />{t("prac.call")}</a>
+                      <a href={`tel:${phone}`} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-secondary px-3 text-xs font-medium hover:bg-secondary"><Phone className="h-4 w-4" />{t("prac.call")}</a>
                     )}
                     <RemindButton a={focus} onDone={refresh} />
                     <Link to="/app/praticien/rdv/$id" params={{ id: focus.id }} className="inline-flex min-h-[40px] items-center rounded-xl bg-primary px-3 text-xs font-medium text-primary-foreground">{t("prac.viewFile")}</Link>
@@ -286,7 +286,7 @@ function Kpi({ icon, label, value, tone, onClick }: { icon: React.ReactNode; lab
     <button
       type="button"
       onClick={onClick}
-      className={`glass flex min-h-[84px] flex-col justify-between rounded-2xl p-3 text-start ring-1 transition hover:ring-primary/50 ${tone === "warn" && value > 0 ? "ring-amber-400/50" : "ring-white/10"}`}
+      className={`glass flex min-h-[84px] flex-col justify-between rounded-2xl p-3 text-start ring-1 transition hover:ring-primary/50 ${tone === "warn" && value > 0 ? "ring-amber-400/50" : "ring-ring"}`}
     >
       <span className="flex items-center gap-2 text-xs text-foreground/70">{icon}{label}</span>
       <span className="font-display text-3xl">{value}</span>
@@ -298,7 +298,7 @@ function RouteBtn({ a }: { a: PractitionerAppointment }) {
   const { t } = useTranslation();
   const href = `https://www.google.com/maps/dir/?api=1&destination=${a.patient_lat},${a.patient_lng}`;
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/10 px-3 text-xs font-medium hover:bg-white/20">
+    <a href={href} target="_blank" rel="noreferrer" className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-secondary px-3 text-xs font-medium hover:bg-secondary">
       <Navigation className="h-3.5 w-3.5" /> {t("prac.route")}
     </a>
   );
@@ -344,13 +344,13 @@ function AppointmentCard({ a, onChanged }: { a: PractitionerAppointment; onChang
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{a.patient_name}</span>
-            <Badge className="border border-white/10 bg-white/10 text-foreground">{t(`appointments.status.${a.status}`, a.status)}</Badge>
-            {a.at_home && <Badge className="gap-1 border border-white/10 bg-white/10 text-foreground"><Home className="h-3 w-3" />{t("prac.homeVisit")}</Badge>}
+            <Badge className="border border-border bg-secondary text-foreground">{t(`appointments.status.${a.status}`, a.status)}</Badge>
+            {a.at_home && <Badge className="gap-1 border border-border bg-secondary text-foreground"><Home className="h-3 w-3" />{t("prac.homeVisit")}</Badge>}
             {triage?.urgency && <Badge className="border border-amber-400/40 bg-amber-500/15 text-foreground">{String(triage.urgency)}</Badge>}
           </div>
           <div className="mt-1 text-sm">{a.reason}</div>
           {a.symptoms && <p className="mt-1 line-clamp-3 text-xs text-foreground/70">{a.symptoms}</p>}
-          <div className="mt-1 text-xs text-foreground/50">
+          <div className="mt-1 text-xs text-muted-foreground">
             {t("prac.requestedAt")} {fmt(a.requested_at)}
             {a.scheduled_at && <> · {t("prac.scheduledAt")} {fmt(a.scheduled_at)}</>}
             {!a.scheduled_at && a.proposed_at && <> · {t("prac.proposedAt")} {fmt(a.proposed_at)}</>}
@@ -361,7 +361,7 @@ function AppointmentCard({ a, onChanged }: { a: PractitionerAppointment; onChang
         <div className="flex flex-wrap gap-1">
           {phone && (
             <>
-              <a href={`tel:${phone}`} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-medium hover:bg-white/20" aria-label={t("prac.call")}><Phone className="h-4 w-4" />{t("prac.call")}</a>
+              <a href={`tel:${phone}`} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-secondary px-3 text-xs font-medium hover:bg-secondary" aria-label={t("prac.call")}><Phone className="h-4 w-4" />{t("prac.call")}</a>
               <a href={`https://wa.me/${phone.replace(/^\+/, "")}`} target="_blank" rel="noreferrer" className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-emerald-500/15 px-3 text-xs font-medium hover:bg-emerald-500/25" aria-label="WhatsApp"><MessageCircle className="h-4 w-4" />WhatsApp</a>
             </>
           )}
@@ -379,7 +379,7 @@ function AppointmentCard({ a, onChanged }: { a: PractitionerAppointment; onChang
       )}
 
       {mode && (
-        <div className="mt-3 space-y-2 rounded-2xl bg-white/5 p-3">
+        <div className="mt-3 space-y-2 rounded-2xl bg-muted p-3">
           {mode !== "reject" ? (
             <label className="block text-sm">
               {mode === "accept" ? t("prac.pickDate") : t("prac.pickNewDate")}

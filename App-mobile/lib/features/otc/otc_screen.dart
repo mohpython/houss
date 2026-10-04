@@ -166,7 +166,7 @@ class _OtcScreenState extends State<OtcScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Commandez des médicaments sans ordonnance auprès d\'une pharmacie proche.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
@@ -174,7 +174,7 @@ class _OtcScreenState extends State<OtcScreen> {
                 if (_loading)
                   const Center(child: CircularProgressIndicator())
                 else if (_suggestions.isEmpty)
-                  const Text(
+                  Text(
                     'Aucune suggestion pour cette recherche.',
                     style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                   )
@@ -210,7 +210,7 @@ class _OtcScreenState extends State<OtcScreen> {
                               const SizedBox(width: 8),
                               IconButton(
                                 onPressed: _addRow,
-                                icon: const Icon(Icons.add_circle_outline, color: AppColors.accent),
+                                icon: Icon(Icons.add_circle_outline, color: AppColors.accent),
                               ),
                             ],
                           ],
@@ -274,7 +274,7 @@ class _Suggestions extends StatelessWidget {
             ),
             child: Text(
               s,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ),
         );
@@ -282,3 +282,4 @@ class _Suggestions extends StatelessWidget {
     );
   }
 }
+

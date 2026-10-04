@@ -200,17 +200,23 @@ class StatCard extends StatelessWidget {
     super.key,
     required this.label,
     required this.value,
-    this.color = AppColors.primaryLight,
+    // Nullable et non `= AppColors.primaryLight` : une valeur par defaut de
+    // parametre doit etre une constante, et les couleurs de l'app sont des
+    // accesseurs. La couleur de repli est donc resolue au moment du build.
+    this.color,
     this.icon,
   });
 
   final String label;
   final String value;
-  final Color color;
+  final Color? color;
   final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    // Meme raison que le parametre nullable : repli sur le vert courant, donc
+    // correct dans les deux themes.
+    final tint = color ?? AppColors.primaryLight;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
@@ -222,19 +228,19 @@ class StatCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 15, color: color, semanticLabel: label),
+            Icon(icon, size: 15, color: tint, semanticLabel: label),
             const SizedBox(height: 4),
           ],
           Text(
             value,
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: color),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: tint),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -248,15 +254,18 @@ class StatCard extends StatelessWidget {
 Widget actionButton(
   String label,
   VoidCallback? onPressed, {
-  Color color = AppColors.primary,
+  // Nullable pour la meme raison que `StatCard.color` : une valeur par defaut
+  // de parametre doit etre constante.
+  Color? color,
   IconData? icon,
   bool dense = false,
 }) {
+  final tint = color ?? AppColors.primary;
   return ElevatedButton(
     style: ElevatedButton.styleFrom(
-      backgroundColor: color,
+      backgroundColor: tint,
       foregroundColor: Colors.white,
-      disabledBackgroundColor: color.withAlpha(70),
+      disabledBackgroundColor: tint.withAlpha(70),
       elevation: 0,
       padding: EdgeInsets.symmetric(horizontal: dense ? 10 : 14, vertical: 8),
       minimumSize: const Size(0, 34),
@@ -306,7 +315,7 @@ Widget spaceHeader(String title, {String? subtitle, Widget? trailing}) {
         const SizedBox(height: 4),
         Text(
           subtitle,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
       ],
     ],
@@ -382,12 +391,12 @@ Widget errorView(String message, VoidCallback onRetry) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.cloud_off, size: 40, color: AppColors.textMuted),
+          Icon(Icons.cloud_off, size: 40, color: AppColors.textMuted),
           const SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           actionButton('Réessayer', onRetry, icon: Icons.refresh),
@@ -405,7 +414,7 @@ Widget emptyView(String message) {
       child: Text(
         message,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.textSecondary),
+        style: TextStyle(color: AppColors.textSecondary),
       ),
     ),
   );
@@ -420,3 +429,4 @@ void showSnack(BuildContext context, String message, {bool error = false}) {
     ),
   );
 }
+

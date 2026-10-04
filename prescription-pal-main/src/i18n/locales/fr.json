@@ -17,12 +17,13 @@
     "language": "Langue",
     "notifications": "Notifications",
     "markAllRead": "Tout marquer comme lu",
-    "noNotifications": "Aucune notification",
+    "noNotifications": "Aucune notification pour le moment",
     "home": "Accueil",
     "error": "Erreur",
     "updated": "Mis à jour",
     "call": "Appeler",
-    "open": "Ouvrir"
+    "open": "Ouvrir",
+    "unreadNotifications": "{{count}} notification(s) à lire"
   },
   "nav": {
     "home": "Accueil",
@@ -142,8 +143,8 @@
   },
   "home": {
     "greeting": "Bonjour",
-    "ready": "Prêt",
-    "quickAction": "Action rapide",
+    "ready": "Prêt à scanner",
+    "quickAction": "Accès rapide",
     "scanTitle": "Scanner une ordonnance",
     "scanDesc": "L'IA extrait vos médicaments en quelques secondes puis trouve la pharmacie qui a tout en stock.",
     "prescriptions": "Ordonnances",
@@ -343,7 +344,7 @@
     "deniedBody": "Autorisez les notifications pour ce site dans les réglages du navigateur, puis rechargez la page.",
     "notConfigured": "Le service de notifications n'est pas encore configuré côté serveur.",
     "notRegistered": "Notifications non enregistrées",
-    "notRegisteredBody": "Cet appareil n'est pas encore connu du serveur. Cliquez pour l'enregistrer et recevoir les notifications."
+    "notRegisteredBody": "Cet appareil n'est pas encore connu du serveur. Cliquez ici pour l'enregistrer et commencer à recevoir les notifications."
   },
   "whatsapp": {
     "fab": "Commander sur WhatsApp",

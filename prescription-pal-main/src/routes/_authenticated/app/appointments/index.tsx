@@ -101,7 +101,7 @@ function Appointments() {
         {rows === null && <ListSkeleton rows={3} />}
         {rows?.length === 0 && (
           <GlassCard className="p-8 text-center">
-            <CalendarDays className="mx-auto h-8 w-8 text-foreground/50" />
+            <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-2 text-sm text-foreground/60">{t("appointments.empty")}</p>
             <Link
               to="/app/health"
@@ -124,12 +124,12 @@ function Appointments() {
                 <div className="min-w-0">
                   <div className="font-semibold">{name}</div>
                   <div className="mt-0.5 text-xs text-foreground/60">{a.reason}</div>
-                  <div className="mt-1 text-xs text-foreground/50">
+                  <div className="mt-1 text-xs text-muted-foreground">
                     {fmt(a.scheduled_at ?? a.proposed_at ?? a.created_at)}
                     {a.at_home ? ` · ${t("appointments.atHome")}` : ""}
                   </div>
                 </div>
-                <Badge className="border border-white/10 bg-white/10 text-foreground">
+                <Badge className="border border-border bg-secondary text-foreground">
                   {t(`appointments.status.${a.status}`, a.status)}
                 </Badge>
               </div>
@@ -212,8 +212,8 @@ function Appointments() {
                 ))}
 
               {a.status === "completed" && a.report && (
-                <div className="mt-3 rounded-2xl bg-white/5 p-3 text-sm">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                <div className="mt-3 rounded-2xl bg-muted p-3 text-sm">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {t("appointments.report")}
                   </div>
                   <p className="mt-1 whitespace-pre-wrap">{a.report}</p>

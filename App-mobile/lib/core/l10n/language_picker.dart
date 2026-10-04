@@ -38,7 +38,7 @@ Future<void> showLanguageSheet(BuildContext context) {
                 ),
                 title: Text(lang.label),
                 trailing: selected
-                    ? const Icon(Icons.check_circle, color: AppColors.primary, size: 22)
+                    ? Icon(Icons.check_circle, color: AppColors.primary, size: 22)
                     : null,
                 onTap: () {
                   AppLocale.instance.setLang(lang);
@@ -71,11 +71,11 @@ class LanguageChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.language, size: 16, color: AppColors.textSecondary),
+            Icon(Icons.language, size: 16, color: AppColors.textSecondary),
             const SizedBox(width: 6),
             Text(
               AppLocale.instance.current.badge,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
