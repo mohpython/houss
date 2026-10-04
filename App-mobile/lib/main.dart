@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:saha_sante/app.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
+import 'package:saha_sante/core/services/push_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +37,9 @@ Future<void> main() async {
   appLinks.uriLinkStream.listen((uri) {
     AuthService.instance.handleAuthUri(uri);
   });
+
+  // Notifications push (FCM) : enregistrer le téléphone et écouter.
+  unawaited(PushService.instance.init());
 
   runApp(const SahaSanteApp());
 }

@@ -862,8 +862,14 @@ async function registerDevice(ctx: Ctx) {
     where: { token: data.token },
     select: { user_id: true },
   });
+  // Le jeton push appartient a l'appareil, pas a la personne. Sur un telephone
+  // partage (ou apres une reconnexion avec un autre compte) FCM renvoie le meme
+  // jeton : on le rattache au compte qui se connecte, sinon ce nouveau compte ne
+  // recevrait plus aucune notification.
   if (existing && existing.user_id !== userId) {
-    throw new ApiError(403, "Ce jeton d'appareil appartient à un autre compte.");
+    console.warn(
+      `[devices] jeton rattache a un nouveau compte (precedent ${existing.user_id} -> ${userId})`,
+    );
   }
   await prisma.device_tokens.upsert({
     where: { token: data.token },
@@ -873,7 +879,7 @@ async function registerDevice(ctx: Ctx) {
       platform: data.platform,
       language: data.language,
     },
-    update: { platform: data.platform, language: data.language },
+    update: { user_id: userId, platform: data.platform, language: data.language },
   });
   return json({ ok: true });
 }

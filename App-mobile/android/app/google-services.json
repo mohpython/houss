@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "991636499809",
+    "project_id": "sahasante",
+    "storage_bucket": "sahasante.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:991636499809:android:f15bda3f5a4f81e3ea6920",
+        "android_client_info": {
+          "package_name": "com.sahasantemali.saha_sante"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "991636499809-ncqkh7kq677p8tdpv70gkmiq84hamenn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUvIJVAo7PQy52KPkho1OsSamj5peW04s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "991636499809-ncqkh7kq677p8tdpv70gkmiq84hamenn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
