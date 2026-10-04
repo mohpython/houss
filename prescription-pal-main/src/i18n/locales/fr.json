@@ -341,7 +341,9 @@
     "openTab": "Ouvrir dans un onglet",
     "deniedTitle": "Notifications bloquées",
     "deniedBody": "Autorisez les notifications pour ce site dans les réglages du navigateur, puis rechargez la page.",
-    "notConfigured": "Le service de notifications n'est pas encore configuré côté serveur."
+    "notConfigured": "Le service de notifications n'est pas encore configuré côté serveur.",
+    "notRegistered": "Notifications non enregistrées",
+    "notRegisteredBody": "Cet appareil n'est pas encore connu du serveur. Cliquez pour l'enregistrer et recevoir les notifications."
   },
   "whatsapp": {
     "fab": "Commander sur WhatsApp",

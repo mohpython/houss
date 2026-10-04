@@ -23,6 +23,12 @@ export function isNative(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+/** Platform expected for a token registered from this client. */
+export function currentPlatform(): "android" | "ios" | "web" {
+  if (!isNative()) return "web";
+  return Capacitor.getPlatform() === "ios" ? "ios" : "android";
+}
+
 function inIframe(): boolean {
   try {
     return window.self !== window.top;
@@ -61,7 +67,9 @@ export function currentPushState(): PushState {
 
 
 async function saveToken(token: string, platform: "android" | "ios" | "web", language: string) {
-  localStorage.setItem(TOKEN_KEY, token);
+  // Le serveur d'abord : ecrire dans localStorage avant l'appel faisait qu'un
+  // POST en echec laissait un faux "active" definitif, sans jeton en base et
+  // donc sans aucune notification recue.
   await registerDeviceToken({
     data: {
       token,
@@ -69,6 +77,7 @@ async function saveToken(token: string, platform: "android" | "ios" | "web", lan
       language: language === "en" || language === "ar" ? language : "fr",
     },
   });
+  localStorage.setItem(TOKEN_KEY, token);
 }
 
 /* ---------------------------------- native --------------------------------- */
@@ -216,7 +225,8 @@ export async function refreshPushRegistration(language: string) {
   if (!isNative() && (!webPushSupported() || Notification.permission !== "granted")) return;
   try {
     await enablePush(language);
-  } catch {
-    /* ignore */
+  } catch (e) {
+    // Un echec ici est invisible : on le note plutot que de l'avaler.
+    console.warn("[push] rafraichissement du jeton impossible", e);
   }
 }

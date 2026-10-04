@@ -379,7 +379,9 @@
     "openTab": "Open in a tab",
     "deniedTitle": "Notifications blocked",
     "deniedBody": "Allow notifications for this site in your browser settings, then reload the page.",
-    "notConfigured": "The notification service is not configured on the server yet."
+    "notConfigured": "The notification service is not configured on the server yet.",
+    "notRegistered": "Notifications not registered",
+    "notRegisteredBody": "This device is not yet known to the server. Click to register it and receive notifications."
   },
   "whatsapp": {
     "fab": "Order on WhatsApp",
