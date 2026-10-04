@@ -95,6 +95,37 @@ const MESSAGES: Record<string, Record<PushLang, Copy>> = {
     en: { title: "Appointment reminder", body: "You have an appointment soon. Open the app for details." },
     ar: { title: "تذكير بالموعد", body: "لديك موعد قريباً. افتح التطبيق للتفاصيل." },
   },
+  // ---------------------------------------------------------------------
+  // Pharmacie : la commande prevenue en automatique jusqu'a la livraison.
+  // La pharmacie n'etait prevenue qu'une seule fois (commande deja payee a la
+  // creation) : ni le livreur, ni la remise, ni un changement d'endroit de
+  // livraison ne lui parvenaient. Ces types couvrent la chaine entiere.
+  // ---------------------------------------------------------------------
+  pharmacy_payment_received: {
+    fr: { title: "Paiement reçu", body: "La commande a été payée. Préparez-la pour la remise ou la livraison." },
+    en: { title: "Payment received", body: "The order has been paid. Prepare it for pickup or delivery." },
+    ar: { title: "تم استلام الدفع", body: "تم دفع الطلب. جهّزه للاستلام أو التوصيل." },
+  },
+  pharmacy_courier_assigned: {
+    fr: { title: "Livreur assigné", body: "Un livreur prend en charge la commande et connaît l'adresse de livraison." },
+    en: { title: "Courier assigned", body: "A courier is taking the order and knows the delivery address." },
+    ar: { title: "تعيين موزّع", body: "يتولى موزّع الطلب ويعرف عنوان التوصيل." },
+  },
+  pharmacy_order_picked_up: {
+    fr: { title: "Commande récupérée", body: "Le livreur a récupéré la commande." },
+    en: { title: "Order collected", body: "The courier collected the order from the pharmacy." },
+    ar: { title: "تم استلام الطلب", body: "استلم الموزّع الطلب من الصيدلية." },
+  },
+  pharmacy_order_delivered: {
+    fr: { title: "Commande livrée", body: "La commande a été livrée au patient." },
+    en: { title: "Order delivered", body: "The order has been delivered to the patient." },
+    ar: { title: "تم توصيل الطلب", body: "تم توصيل الطلب إلى المريض." },
+  },
+  delivery_place_updated: {
+    fr: { title: "Lieu de livraison modifié", body: "L'endroit de livraison de la commande a changé." },
+    en: { title: "Delivery place changed", body: "The delivery place for the order has changed." },
+    ar: { title: "تغيّر مكان التوصيل", body: "تغيّر مكان توصيل الطلب." },
+  },
   appointment_unanswered: {
     fr: { title: "Praticien sans réponse", body: "Une demande attend depuis plus de 24 h." },
     en: { title: "Unanswered practitioner", body: "A request has been waiting for over 24h." },
@@ -131,6 +162,10 @@ export function pushLink(type: string, data: Record<string, unknown>): string {
     return "/app/appointments";
   }
   if (!rid) return "/app";
+  // La destination ne se deduit pas du type seul : `delivery_place_updated`
+  // part a la pharmacie ET au livreur, et chacun doit atterrir sur son ecran.
+  if (data.for === "courier") return `/app/courier/deliveries/${rid}`;
+  if (data.for === "pharmacy") return pid ? `/app/pharmacy/${pid}/reservations` : "/app/pharmacy";
   if (type === "new_reservation") return pid ? `/app/pharmacy/${pid}/reservations` : "/app/pharmacy";
   if (type === "new_delivery") return `/app/courier/deliveries/${rid}`;
   if (type === "courier_assigned" || type === "courier_picked_up") {

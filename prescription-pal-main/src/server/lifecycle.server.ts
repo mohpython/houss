@@ -263,26 +263,45 @@ async function reservationAudience(r: Row, before: Row | null): Promise<string[]
   return [...users];
 }
 
-/** Port fidèle de private.reservations_notify (version avec paiement). */
+/** Champs qui definissent l'endroit de la livraison. */
+const DELIVERY_PLACE_FIELDS = [
+  "fulfillment_method",
+  "delivery_mode",
+  "neighborhood_id",
+  "patient_address",
+  "patient_lat",
+  "patient_lng",
+];
+
+/** Port fid��le de private.reservations_notify (version avec paiement). */
 async function reservationNotify(before: Row | null, r: Row) {
   const payload = { reservation_id: r.id, pharmacy_id: r.pharmacy_id };
   const patientId = r.patient_id as string;
+  const pharmacyIds = await pharmacyMemberIds(String(r.pharmacy_id));
 
-  const notifyPharmacy = async () => {
-    for (const uid of await pharmacyMemberIds(String(r.pharmacy_id))) {
-      await notify(uid, "new_reservation", payload);
+  /**
+   * Previens la pharmacie d'un evenement de commande. `for: "pharmacy"`
+   * indique a pushLink que la destination est l'ecran pharmacie et non celui
+   * du patient.
+   */
+  const notifyPharmacyType = async (type: string) => {
+    for (const uid of pharmacyIds) {
+      await notify(uid, type, { ...payload, for: "pharmacy" });
     }
-    await notify(patientId, "reservation_created", payload);
   };
 
   if (!before) {
     if (r.payment_status === "unpaid") return;
-    await notifyPharmacy();
+    await notifyPharmacyType("new_reservation");
+    await notify(patientId, "reservation_created", payload);
     return;
   }
 
   if (before.payment_status === "unpaid" && r.payment_status !== "unpaid") {
-    await notifyPharmacy();
+    // La pharmacie n'a pas ete prevenue a la creation (commande non payee) :
+    // c'est le paiement qui lui fait decouvrir la commande.
+    await notifyPharmacyType("pharmacy_payment_received");
+    await notify(patientId, "reservation_created", payload);
   }
   if (r.payment_status === "unpaid") return;
 
@@ -295,11 +314,28 @@ async function reservationNotify(before: Row | null, r: Row) {
   if (changed(before, r, "courier_id") && r.courier_id) {
     await notify(patientId, "courier_assigned", payload);
     await notify(await courierUserId(r.courier_id as string), "new_delivery", payload);
+    await notifyPharmacyType("pharmacy_courier_assigned");
   }
 
   if (changed(before, r, "delivery_status")) {
-    if (r.delivery_status === "picked_up") await notify(patientId, "courier_picked_up", payload);
-    else if (r.delivery_status === "delivered") await notify(patientId, "delivered", payload);
+    if (r.delivery_status === "picked_up") {
+      await notify(patientId, "courier_picked_up", payload);
+      await notifyPharmacyType("pharmacy_order_picked_up");
+    } else if (r.delivery_status === "delivered") {
+      await notify(patientId, "delivered", payload);
+      await notifyPharmacyType("pharmacy_order_delivered");
+    }
+  }
+
+  // Un endroit de livraison change apres coup : sans cela la pharmacie continue
+  // de preparer et le livreur continue de livrer au mauvais endroit. On previent
+  // les deux, chacun sur son ecran.
+  if (DELIVERY_PLACE_FIELDS.some((f) => changed(before, r, f))) {
+    await notifyPharmacyType("delivery_place_updated");
+    const courierId = await courierUserId(r.courier_id as string | null);
+    if (courierId) {
+      await notify(courierId, "delivery_place_updated", { ...payload, for: "courier" });
+    }
   }
 }
 
