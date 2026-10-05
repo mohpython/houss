@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:saha_sante/features/admin/admin_reviews_screen.dart';
 import 'package:saha_sante/features/auth/login_screen.dart';
 import 'package:saha_sante/features/auth/register_screen.dart';
 import 'package:saha_sante/features/health/health_screen.dart';
@@ -29,6 +30,7 @@ class AppRouter {
     '/scan',
     '/prescriptions',
     '/localisation',
+    '/admin/reviews',
     '/reservations',
     '/suivi',
     '/profil',
@@ -92,6 +94,10 @@ class AppRouter {
             builder: (context, state) => DeliveryLocationScreen(
               prescriptionId: state.pathParameters['prescriptionId'] ?? '',
             ),
+          ),
+          GoRoute(
+            path: '/admin/reviews',
+            builder: (context, state) => const AdminReviewsScreen(),
           ),
           GoRoute(
             path: '/reservations',

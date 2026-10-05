@@ -426,6 +426,46 @@ class ApiService {
     return _api.post('/admin/pharmacies/$pharmacyId', {'decision': decision});
   }
 
+  // --- Vérification des ordonnances (file IA) --------------------------------
+
+  /// Ordonnances signalées par l'IA, critiques en premier. Chaque ligne porte
+  /// la photo (URL signée), les motifs, les médicaments extraits et le patient.
+  Future<List<Map<String, dynamic>>> adminListReviews() async {
+    final data = await _api.get('/admin/reviews');
+    return ((data['reviews'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  /// Valide ou refuse une ordonnance (le patient est notifié).
+  Future<void> adminResolveReview(String prescriptionId, String decision) async {
+    await _api.post('/admin/reviews/$prescriptionId/resolve', {'decision': decision});
+  }
+
+  /// Demande une nouvelle photo au patient (notifié).
+  Future<void> adminRequestRetake(String prescriptionId, {String? note}) async {
+    await _api.post('/admin/reviews/$prescriptionId/retake', {
+      if (note != null && note.isNotEmpty) 'note': note,
+    });
+  }
+
+  /// Corrige l'extraction puis valide (le patient est notifié).
+  /// Seules les clés non nulles sont envoyées : `items` associe chaque
+  /// médicament à son id (`{ id, medicineNameRaw, strength, dosage,
+  /// quantity, duration }`, clés absentes = champ inchangé).
+  Future<void> adminEditExtraction({
+    required String prescriptionId,
+    String? prescriptionDate,
+    String? doctorName,
+    String? hospital,
+    List<Map<String, dynamic>>? items,
+  }) async {
+    await _api.post('/admin/reviews/$prescriptionId/edit', {
+      if (prescriptionDate != null) 'prescriptionDate': prescriptionDate,
+      if (doctorName != null) 'doctorName': doctorName,
+      if (hospital != null) 'hospital': hospital,
+      if (items != null) 'items': items,
+    });
+  }
+
   Future<void> adminCourierDecision(String courierId, String decision) async {
     await _api.post('/admin/couriers/$courierId', {'decision': decision});
   }

@@ -14,7 +14,7 @@ import { prisma } from "./db.server";
 import { isPrescriptionMime, normalizeMime, sniffMime } from "./file-type.server";
 import { checkEmailDeliverable } from "./email-check.server";
 import { basePrisma } from "./prisma-base.server";
-import { toPlain } from "./serialize";
+import { toDateOnly, toPlain } from "./serialize";
 import {
   addRole,
   bearerFromRequest,
@@ -1850,6 +1850,290 @@ async function adminOverview(ctx: Ctx) {
   );
 }
 
+/**
+ * File « Ordonnances à vérifier » pour l'app admin : mêmes données que
+ * `listPrescriptionReviews` (web), exposées en REST. Seule différence : les
+ * photos sont des URL signées absolues, car l'app ne partage pas la session
+ * web. Les critiques passent en premier, comme sur le site.
+ */
+async function adminListReviews(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+
+  const logs = await prisma.audit_logs.findMany({
+    where: {
+      entity: "prescription",
+      action: { in: ["prescription_flagged", "prescription_review_resolved"] },
+    },
+    select: { entity_id: true, meta: true, created_at: true, action: true },
+    orderBy: { created_at: "desc" },
+    take: 400,
+  });
+  const resolved = new Set(
+    logs
+      .filter((l) => l.action === "prescription_review_resolved")
+      .map((l) => l.entity_id),
+  );
+  const flagged = logs.filter(
+    (l) => l.action === "prescription_flagged" && !resolved.has(l.entity_id),
+  );
+  const unique = [...new Map(flagged.map((l) => [l.entity_id, l])).values()];
+  if (unique.length === 0) return json({ reviews: [] });
+
+  const order = { critical: 0, moderate: 1, minor: 2 } as const;
+  const ids = unique.map((l) => l.entity_id as string);
+  const rxs = await prisma.prescriptions.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      patient_id: true,
+      file_path: true,
+      file_mime: true,
+      ai_confidence: true,
+      ai_raw: true,
+      prescription_date: true,
+      prescription_date_raw: true,
+      doctor_name: true,
+      hospital: true,
+      patient_name: true,
+      status: true,
+      created_at: true,
+      review_severity: true,
+      review_reasons: true,
+      patient: { select: { email: true, phone: true } },
+      prescription_items: {
+        select: {
+          id: true,
+          medicine_name_raw: true,
+          strength: true,
+          dosage: true,
+          quantity: true,
+          duration: true,
+          instructions: true,
+        },
+      },
+    },
+  });
+
+  const rows = rxs.map((rx) => {
+    const log = unique.find((l) => l.entity_id === rx.id);
+    const meta = (log?.meta ?? {}) as {
+      reason?: string;
+      reasons?: string[];
+      severity?: "critical" | "moderate" | "minor";
+      details?: Record<string, unknown> | null;
+    };
+    const severity = (rx.review_severity as "critical" | "moderate" | "minor") ??
+      meta.severity ?? "moderate";
+    const reasons = (Array.isArray(rx.review_reasons) && rx.review_reasons.length
+      ? (rx.review_reasons as unknown[]).map(String)
+      : null) ?? meta.reasons ?? [meta.reason ?? "Document suspect"];
+    return {
+      id: rx.id,
+      reason: meta.reason ?? "Document suspect",
+      reasons: reasons.length ? reasons : [meta.reason ?? "Document suspect"],
+      details: meta.details ?? null,
+      severity,
+      flaggedAt: log?.created_at ?? rx.created_at,
+      imageUrl: createAbsoluteSignedUrl("prescriptions", rx.file_path, 3600),
+      fileMime: rx.file_mime,
+      confidence: rx.ai_confidence,
+      aiRaw: rx.ai_raw ? JSON.stringify(rx.ai_raw, null, 2) : null,
+      date: rx.prescription_date,
+      dateRaw: rx.prescription_date_raw,
+      doctor: rx.doctor_name,
+      hospital: rx.hospital,
+      patientName: rx.patient_name,
+      patientEmail: rx.patient?.email ?? null,
+      patientPhone: rx.patient?.phone ?? null,
+      items: rx.prescription_items ?? [],
+    };
+  });
+  rows.sort((a, b) => {
+    const sv = (order[a.severity] ?? 1) - (order[b.severity] ?? 1);
+    if (sv !== 0) return sv;
+    return new Date(a.flaggedAt).getTime() - new Date(b.flaggedAt).getTime();
+  });
+  return json({ reviews: toPlain(rows) });
+}
+
+/** L'admin valide ou refuse (notifie le patient, qui continue sa commande). */
+async function adminResolveReview(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const data = await body(
+    ctx,
+    z.object({ decision: z.enum(["approved", "rejected"]), note: z.string().trim().max(300).optional() }),
+  );
+
+  const rx = await prisma.prescriptions.findUnique({
+    where: { id },
+    select: { id: true, patient_id: true },
+  });
+  if (!rx) throw new ApiError(404, "Ordonnance introuvable");
+
+  await prisma.prescriptions.update({
+    where: { id: rx.id },
+    data: {
+      status: data.decision === "approved" ? "verified" : "failed",
+      review_status: "resolved",
+    },
+  });
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "prescription_review_resolved",
+      entity: "prescription",
+      entity_id: rx.id,
+      meta: { decision: data.decision, note: data.note ?? null, source: "mobile" },
+    },
+  });
+  await prisma.notifications.create({
+    data: {
+      user_id: rx.patient_id,
+      type: "prescription_review",
+      title: data.decision === "approved" ? "Ordonnance validée" : "Ordonnance refusée",
+      body: data.note ??
+        (data.decision === "approved"
+          ? "Votre ordonnance a été validée, vous pouvez continuer votre commande."
+          : "Votre ordonnance n'a pas été validée par notre équipe."),
+      data: { prescription_id: rx.id, decision: data.decision },
+    },
+  });
+  return json({ ok: true });
+}
+
+/** L'admin demande une nouvelle photo (le patient est notifié). */
+async function adminRequestRetake(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const data = await body(
+    ctx,
+    z.object({ note: z.string().trim().max(300).optional() }),
+  );
+
+  const rx = await prisma.prescriptions.findUnique({
+    where: { id },
+    select: { id: true, patient_id: true },
+  });
+  if (!rx) throw new ApiError(404, "Ordonnance introuvable");
+
+  await prisma.prescriptions.update({
+    where: { id: rx.id },
+    data: { review_status: "retake_requested" },
+  });
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "prescription_review_resolved",
+      entity: "prescription",
+      entity_id: rx.id,
+      meta: { decision: "retake_requested", note: data.note ?? null, source: "mobile" },
+    },
+  });
+  await prisma.notifications.create({
+    data: {
+      user_id: rx.patient_id,
+      type: "prescription_review",
+      title: "Nouvelle photo requise",
+      body: data.note ??
+        "Notre équipe vous demande de reprendre la photo de votre ordonnance. Ouvrez l'application et scannez à nouveau.",
+      data: { prescription_id: rx.id, action: "retake" },
+    },
+  });
+  return json({ ok: true });
+}
+
+/** L'admin corrige l'extraction (date, médecin, médicaments) puis valide. */
+async function adminEditExtraction(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const data = await body(
+    ctx,
+    z.object({
+      prescriptionDate: z.string().trim().max(20).optional(),
+      doctorName: z.string().trim().max(200).optional(),
+      hospital: z.string().trim().max(200).optional(),
+      items: z
+        .array(
+          z.object({
+            id: z.string().uuid(),
+            medicineNameRaw: z.string().trim().max(300).optional(),
+            strength: z.string().trim().max(100).optional(),
+            dosage: z.string().trim().max(200).optional(),
+            quantity: z.string().trim().max(100).optional(),
+            duration: z.string().trim().max(200).optional(),
+          }),
+        )
+        .max(50)
+        .optional(),
+    }),
+  );
+
+  const rx = await prisma.prescriptions.findUnique({
+    where: { id },
+    select: { id: true, patient_id: true },
+  });
+  if (!rx) throw new ApiError(404, "Ordonnance introuvable");
+
+  const patch = {
+    review_status: "corrected",
+    status: "verified" as const,
+    ...(data.prescriptionDate ? { prescription_date: toDateOnly(data.prescriptionDate) } : {}),
+    ...(data.doctorName !== undefined ? { doctor_name: data.doctorName } : {}),
+    ...(data.hospital !== undefined ? { hospital: data.hospital } : {}),
+  };
+  await prisma.prescriptions.update({ where: { id: rx.id }, data: patch });
+
+  if (data.items?.length) {
+    for (const item of data.items) {
+      const itemPatch = {
+        ...(item.medicineNameRaw !== undefined
+          ? { medicine_name_raw: item.medicineNameRaw, normalized_medicine_id: null }
+          : {}),
+        ...(item.strength !== undefined ? { strength: item.strength } : {}),
+        ...(item.dosage !== undefined ? { dosage: item.dosage } : {}),
+        ...(item.quantity !== undefined ? { quantity: item.quantity } : {}),
+        ...(item.duration !== undefined ? { duration: item.duration } : {}),
+      };
+      if (Object.keys(itemPatch).length > 0) {
+        await prisma.prescription_items.updateMany({
+          where: { id: item.id },
+          data: itemPatch,
+        });
+      }
+    }
+  }
+
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "prescription_review_resolved",
+      entity: "prescription",
+      entity_id: rx.id,
+      meta: {
+        decision: "corrected",
+        editedFields: Object.keys(patch).filter((k) => k !== "review_status" && k !== "status"),
+        itemsEdited: data.items?.length ?? 0,
+        source: "mobile",
+      },
+    },
+  });
+  await prisma.notifications.create({
+    data: {
+      user_id: rx.patient_id,
+      type: "prescription_review",
+      title: "Ordonnance validée",
+      body: "Notre équipe a corrigé et validé votre ordonnance. Vous pouvez continuer votre commande.",
+      data: { prescription_id: rx.id, decision: "approved" },
+    },
+  });
+  return json({ ok: true });
+}
+
 /** Comptes utilisateurs (profil, rôles, dernière connexion). */
 async function adminUsers(ctx: Ctx) {
   const userId = requireUser(ctx);
@@ -2585,6 +2869,10 @@ const ROUTES: Array<[string, string, Handler]> = [
   ["POST", "admin/pharmacies", adminCreatePharmacy],
   ["POST", "admin/pharmacies/:id", adminPharmacyDecision],
   ["POST", "admin/couriers/:id", adminCourierDecision],
+  ["GET", "admin/reviews", adminListReviews],
+  ["POST", "admin/reviews/:id/resolve", adminResolveReview],
+  ["POST", "admin/reviews/:id/retake", adminRequestRetake],
+  ["POST", "admin/reviews/:id/edit", adminEditExtraction],
 ];
 
 function match(method: string, segments: string[]) {

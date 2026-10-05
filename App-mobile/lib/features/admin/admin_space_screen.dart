@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/services/api_service.dart';
@@ -353,6 +354,8 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          _ReviewEntryCard(),
           const SizedBox(height: 16),
           sectionTitle('Dernières pharmacies'),
           const SizedBox(height: 8),
@@ -1064,6 +1067,63 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
                 Expanded(child: body),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Entrée vers la file « Ordonnances à vérifier » : les documents que l'IA a
+/// signalés comme douteux. Mêmes actions que la page web `/app/admin/reviews`.
+class _ReviewEntryCard extends StatelessWidget {
+  const _ReviewEntryCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => context.push('/admin/reviews'),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withAlpha(24),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.warning.withAlpha(110)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withAlpha(40),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.verified_user_outlined, color: AppColors.warning),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ordonnances à vérifier',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Documents signalés par l\'IA : valider, refuser ou corriger.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: AppColors.textMuted),
+            ],
           ),
         ),
       ),
