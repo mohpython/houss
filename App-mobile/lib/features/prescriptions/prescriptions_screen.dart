@@ -28,6 +28,33 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
   bool _loading = true;
   String? _error;
 
+  /// Reprise au tap sur une ordonnance :
+  /// - vérifiée -> choix du lieu de livraison (puis pharmacie) ;
+  /// - en vérification -> on explique l'attente (la notification préviendra) ;
+  /// - photo à reprendre / refusée -> retour au scan ;
+  /// - autre état -> rien (la commande passe par le scan).
+  void _openPrescription(Prescription item) {
+    if (item.status == PrescriptionStatus.verified) {
+      context.push('/localisation/${item.id}');
+      return;
+    }
+    if (item.reviewPending) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Votre ordonnance est en cours de vérification. '
+            'Vous serez notifié dès qu\'elle sera validée.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (item.reviewStatus == 'retake_requested' ||
+        item.status == PrescriptionStatus.failed) {
+      context.push('/scan');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -112,7 +139,11 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                                       itemCount: _items!.length,
                                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                                       itemBuilder: (context, index) {
-                                        return _PrescriptionCard(item: _items![index]);
+                                        final item = _items![index];
+                                        return _PrescriptionCard(
+                                          item: item,
+                                          onTap: () => _openPrescription(item),
+                                        );
                                       },
                                     ),
                         ),
@@ -177,13 +208,18 @@ class _Message extends StatelessWidget {
 
 class _PrescriptionCard extends StatelessWidget {
   final Prescription item;
+  final VoidCallback? onTap;
 
-  const _PrescriptionCard({required this.item});
+  const _PrescriptionCard({required this.item, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final date = _frDate(item.prescriptionDate ?? item.createdAt);
-    return Container(
+    // Tant que l'équipe n'a pas tranché, la carte l'affiche : le patient
+    // comprend pourquoi il ne peut pas encore commander.
+    final badgeLabel = item.reviewPending ? 'En vérification' : item.status.label;
+    final badgeColor = item.reviewPending ? AppColors.warning : item.status.color;
+    final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: AppTheme.glassCard,
       child: Row(
@@ -228,15 +264,25 @@ class _PrescriptionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: item.status.color.withAlpha(30),
+              color: badgeColor.withAlpha(30),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              item.status.label,
-              style: TextStyle(fontSize: 11, color: item.status.color, fontWeight: FontWeight.w600),
+              badgeLabel,
+              style: TextStyle(fontSize: 11, color: badgeColor, fontWeight: FontWeight.w600),
             ),
           ),
         ],
+      ),
+    );
+    final tap = onTap;
+    if (tap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: tap,
+        child: card,
       ),
     );
   }

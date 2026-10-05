@@ -11,6 +11,10 @@ class Reservation {
   final List<String> medicines;
   final double? totalPrice;
 
+  /// Ordonnance d'origine : sert à retrouver la commande déjà créée pour une
+  /// ordonnance (et ne pas en créer une seconde en retapant une notification).
+  final String? prescriptionId;
+
   const Reservation({
     required this.id,
     required this.pharmacyName,
@@ -23,6 +27,7 @@ class Reservation {
     this.fulfillmentMethod = 'delivery',
     this.pickupCode,
     this.pharmacyPhone,
+    this.prescriptionId,
   });
 
   final String paymentStatus;
@@ -56,6 +61,7 @@ class Reservation {
       fulfillmentMethod: fulfillmentMethod ?? this.fulfillmentMethod,
       pickupCode: pickupCode,
       pharmacyPhone: pharmacyPhone,
+      prescriptionId: prescriptionId,
     );
   }
 
@@ -83,6 +89,7 @@ class Reservation {
       paymentStatus: json['payment_status'] as String? ?? 'unpaid',
       fulfillmentMethod: json['fulfillment_method'] as String? ?? 'delivery',
       pickupCode: json['pickup_code'] as String?,
+      prescriptionId: json['prescription_id'] as String?,
       medicines: items.map((raw) {
         final item = (raw as Map<String, dynamic>)['prescription_items'] as Map<String, dynamic>?;
         final name = item?['medicine_name_raw'] as String? ?? '';

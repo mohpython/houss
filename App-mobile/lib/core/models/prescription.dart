@@ -13,6 +13,12 @@ class Prescription {
   final List<String> medicines;
   final String? imageUrl;
 
+  /// État de la vérification par l'équipe (`pending`, `resolved`,
+  /// `retake_requested`, `corrected`, ou null si jamais signalée).
+  final String? reviewStatus;
+  final String? reviewSeverity;
+  final List<String> reviewReasons;
+
   const Prescription({
     required this.id,
     this.doctorName,
@@ -23,7 +29,14 @@ class Prescription {
     this.aiConfidence,
     this.medicines = const [],
     this.imageUrl,
+    this.reviewStatus,
+    this.reviewSeverity,
+    this.reviewReasons = const [],
   });
+
+  /// Vrai tant que l'équipe n'a pas tranché : l'ordonnance ne peut pas encore
+  /// être envoyée à une pharmacie, le patient doit attendre la notification.
+  bool get reviewPending => reviewStatus == 'pending';
 
   static PrescriptionStatus _status(String? value) => switch (value) {
         'processing' => PrescriptionStatus.processing,
@@ -45,6 +58,12 @@ class Prescription {
       status: _status(json['status'] as String?),
       aiConfidence: (json['ai_confidence'] as num?)?.round(),
       imageUrl: json['file_url'] as String?,
+      reviewStatus: json['review_status'] as String?,
+      reviewSeverity: json['review_severity'] as String?,
+      reviewReasons: ((json['review_reasons'] as List?) ?? const [])
+          .map((r) => '$r')
+          .where((r) => r.isNotEmpty)
+          .toList(),
       medicines: items.map((raw) {
         final item = raw as Map<String, dynamic>;
         final parts = <String>[

@@ -519,6 +519,81 @@ async function getPrescription(ctx: Ctx) {
   });
 }
 
+/**
+ * L'app mobile signale une ordonnance que l'IA n'a pas pu lire : même effet
+ * que `flagPrescriptionForReview` (web), exposé en REST pour ne pas exiger de
+ * session web. L'ordonnance passe en revue, les admins sont prévenus, et le
+ * patient reçoit « Ordonnance validée » + redirection vers le choix du lieu
+ * dès que l'équipe tranche.
+ */
+async function flagPrescriptionReview(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const id = ctx.params[0];
+  const data = await body(
+    ctx,
+    z.object({
+      reasons: z.array(z.string().trim().min(1).max(300)).max(30).optional(),
+      severity: z.enum(["critical", "moderate", "minor"]).optional(),
+    }),
+  );
+
+  const rx = await prisma.prescriptions.findUnique({
+    where: { id },
+    select: { id: true, patient_id: true, review_status: true },
+  });
+  if (!rx || rx.patient_id !== userId) throw new ApiError(404, "Ordonnance introuvable");
+  // Un second signalement (double appui, nouvel écran) ne doit pas recréer
+  // des notifications : l'examen en cours reste l'unique référence.
+  if (rx.review_status === "pending") return json({ ok: true, already: true });
+
+  const reasons = data.reasons?.length ? data.reasons : ["Lecture IA impossible"];
+  const severity = data.severity ?? "moderate";
+  const summary = reasons.join(" · ").slice(0, 300);
+
+  await prisma.prescriptions.update({
+    where: { id: rx.id },
+    data: { review_severity: severity, review_status: "pending", review_reasons: reasons },
+  });
+
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "prescription_flagged",
+      entity: "prescription",
+      entity_id: rx.id,
+      meta: { reasons, severity, source: "mobile" },
+    },
+  });
+
+  const admins = await prisma.user_roles.findMany({
+    where: { role: "admin" },
+    select: { user_id: true },
+  });
+  if (admins.length) {
+    await prisma.notifications.createMany({
+      data: admins.map((a) => ({
+        user_id: a.user_id,
+        type: "prescription_review",
+        title: severity === "critical" ? "Ordonnance urgente à vérifier" : "Ordonnance à vérifier",
+        body: summary,
+        data: { prescription_id: rx.id, reasons, severity },
+      })),
+    });
+  }
+
+  await prisma.notifications.create({
+    data: {
+      user_id: rx.patient_id,
+      type: "prescription_review",
+      title: "Ordonnance en cours de vérification",
+      body: `Votre ordonnance a été transmise à notre équipe. Motif : ${summary}`,
+      data: { prescription_id: rx.id, reasons, severity },
+    },
+  });
+
+  return json({ ok: true, severity });
+}
+
 /** Téléversement d'une photo + création de l'ordonnance + extraction IA. */
 async function uploadPrescription(ctx: Ctx) {
   const userId = requireUser(ctx);
@@ -2453,6 +2528,7 @@ const ROUTES: Array<[string, string, Handler]> = [
   ["GET", "prescriptions", listPrescriptions],
   ["POST", "prescriptions", uploadPrescription],
   ["GET", "prescriptions/:id", getPrescription],
+  ["POST", "prescriptions/:id/flag-review", flagPrescriptionReview],
 
   ["GET", "reservations", listReservations],
   ["POST", "reservations/route", routePrescription],

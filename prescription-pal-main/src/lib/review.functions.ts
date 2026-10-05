@@ -440,7 +440,9 @@ export const editExtraction = createServerFn({ method: "POST" })
         type: "prescription_review",
         title: "Ordonnance validée",
         body: "Notre équipe a corrigé et validé votre ordonnance. Vous pouvez continuer votre commande.",
-        data: { prescription_id: rx.id },
+        // `decision` pilote le tap mobile (comme `resolvePrescriptionReview`) :
+        // sans elle l'app ne saurait pas ouvrir le choix du lieu de livraison.
+        data: { prescription_id: rx.id, decision: "approved" },
       },
     });
 

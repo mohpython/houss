@@ -29,7 +29,17 @@ String? _targetOf(String? type, Map<String, dynamic> data) {
     if (id != null && id.isNotEmpty) return '/suivi/$id';
     return '/suivi';
   }
-  if (type == 'prescription_review') return '/prescriptions';
+  if (type == 'prescription_review') {
+    final rxId = data['prescription_id'] as String?;
+    // « Ordonnance validée » (admin ou correction) : le message envoie vers le
+    // choix du lieu de livraison, qui route ensuite vers la pharmacie.
+    // « Nouvelle photo requise » : retour au scan. Refusée / autre : l'historique.
+    if (data['action'] == 'retake') return '/scan';
+    if (data['decision'] == 'approved' && rxId != null && rxId.isNotEmpty) {
+      return '/localisation/$rxId';
+    }
+    return '/prescriptions';
+  }
   if (type.startsWith('appointment')) return '/health';
   return null;
 }

@@ -80,6 +80,21 @@ class ApiService {
     );
   }
 
+  /// Signale une ordonnance que l'IA n'a pas pu lire : elle part en
+  /// vérification et le patient est notifié dès que l'équipe tranche
+  /// (validée -> choix du lieu de livraison, refusée / photo à reprendre).
+  /// Idempotent côté serveur : un second appel ne recrée rien.
+  Future<void> flagPrescriptionReview({
+    required String prescriptionId,
+    required List<String> reasons,
+    String severity = 'moderate',
+  }) async {
+    await _api.post('/prescriptions/$prescriptionId/flag-review', {
+      'reasons': reasons,
+      'severity': severity,
+    });
+  }
+
   // --- Commandes -----------------------------------------------------------
 
   Future<List<Reservation>> getReservations() async {

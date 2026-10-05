@@ -27,6 +27,10 @@ class _ScanScreenState extends State<ScanScreen> {
   /// un appui du patient. Sert a afficher « Recherche en cours... » plutot que
   /// de laisser croire a une action attendue.
   bool _autoRouting = false;
+  /// Vrai quand l'ordonnance affichee a ete transmise a l'equipe : le bouton
+  /// d'envoi disparait, car commander sans relecture serait un contournement
+  /// de la verification.
+  bool _reviewSent = false;
 
   Future<void> _pick(ImageSource source) async {
     if (_uploading || _sending) return;
@@ -51,6 +55,7 @@ class _ScanScreenState extends State<ScanScreen> {
       _photo = file;
       _result = null;
       _uploading = true;
+      _reviewSent = false;
     });
 
     try {
@@ -67,14 +72,18 @@ class _ScanScreenState extends State<ScanScreen> {
       // medicaments puis trouve la pharmacie qui a tout en stock ») mais qui
       // demandait jusqu'ici un clic supplementaire, et rien ne partait d'elle.
       //
-      // Deux cas sont laisses au choix du patient :
-      //  - la lecture est bloquee (needsReview) : on ne connait pas les
-      //    medicaments, un pharmacien doit relire avant de commander ;
-      //  - aucun medicament n'a ete identifie : il n'y a rien a commander.
-      if (result.error == null &&
-          !result.needsReview &&
-          result.prescription.medicines.isNotEmpty) {
-        await _sendToPharmacy(auto: true);
+      // Lecture bloquee (needsReview) : on ne connait pas les medicaments, donc
+      // on transmet l'ordonnance a l'equipe au lieu de rester sans rien faire.
+      // Le patient est notifie des que l'equipe tranche, et le message
+      // « Ordonnance validee » l'envoie vers le choix du lieu de livraison.
+      // Sans medicament identifie, il n'y a rien a commander : on laisse le
+      // patient reprendre une photo.
+      if (result.error == null && result.prescription.medicines.isNotEmpty) {
+        if (result.needsReview) {
+          await _flagForReview(result);
+        } else {
+          await _sendToPharmacy(auto: true);
+        }
       }
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -150,7 +159,34 @@ class _ScanScreenState extends State<ScanScreen> {
       _photo = null;
       _result = null;
       _autoRouting = false;
+      _reviewSent = false;
     });
+  }
+
+  /// Transmet a l'equipe une ordonnance que l'IA n'a pas pu lire. Le patient
+  /// n'a rien d'autre a faire : la notification « Ordonnance validee » le
+  /// renverra vers le choix du lieu de livraison des que l'equipe tranche.
+  Future<void> _flagForReview(ScanResult result) async {
+    setState(() => _sending = true);
+    try {
+      await ApiService.instance.flagPrescriptionReview(
+        prescriptionId: result.prescription.id,
+        reasons: result.reasons.isNotEmpty ? result.reasons : const ['Lecture IA impossible'],
+      );
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _reviewSent = true;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _sending = false);
+      _showError(e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _sending = false);
+      _showError('Transmission à l\'équipe impossible. Réessayez.');
+    }
   }
 
   void _showError(String message) {
@@ -369,6 +405,19 @@ class _ScanScreenState extends State<ScanScreen> {
                 message: result.reasons.join('\n'),
               ),
             ],
+            if (_reviewSent) ...[
+              const SizedBox(height: 12),
+              // Pas de `const` : la couleur vient d'un accesseur qui depend du
+              // theme, il n'est donc pas connu a la compilation.
+              _Notice(
+                icon: Icons.mark_email_read_outlined,
+                color: AppColors.primaryDeep,
+                title: 'Ordonnance transmise à notre équipe',
+                message: 'Vous recevrez une notification dès que la vérification '
+                    'sera terminée. Elle vous enverra vers le choix du lieu de '
+                    'livraison pour continuer votre commande.',
+              ),
+            ],
             if (_autoRouting) ...[
               const SizedBox(height: 12),
               // Pas de `const` : la couleur vient d'un accesseur qui depend du
@@ -382,33 +431,38 @@ class _ScanScreenState extends State<ScanScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              height: 56,
-              decoration: AppTheme.gradientButton,
-              child: ElevatedButton.icon(
-                onPressed: _sending ? null : () => _sendToPharmacy(),
-                icon: _sending
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.local_pharmacy, color: Colors.white),
-                label: Text(
-                  _autoRouting
-                      ? 'Recherche en cours...'
-                      : 'Envoyer à une pharmacie',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            // Tant que l'equipe n'a pas relu l'ordonnance, on ne propose pas
+            // d'envoyer : commander sans relecture contournerait la
+            // verification (le serveur routerait quand meme, avec des
+            // medicaments incertains).
+            if (!_reviewSent)
+              Container(
+                width: double.infinity,
+                height: 56,
+                decoration: AppTheme.gradientButton,
+                child: ElevatedButton.icon(
+                  onPressed: _sending ? null : () => _sendToPharmacy(),
+                  icon: _sending
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.local_pharmacy, color: Colors.white),
+                  label: Text(
+                    _autoRouting
+                        ? 'Recherche en cours...'
+                        : 'Envoyer à une pharmacie',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
+            if (!_reviewSent) const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               height: 52,
