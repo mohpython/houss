@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { resolveRxDate, rxDateStatus } from "./date-utils";
-import { generateText, Output, NoObjectGeneratedError } from "ai";
+import { generateText, Output, NoObjectGeneratedError, APICallError } from "ai";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db.server";
 import { readObject } from "@/server/storage.server";
@@ -246,6 +246,10 @@ export async function runPrescriptionVisionAi(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages: [{ role: "user", content: userContent as any }],
     output: Output.object({ schema: ExtractionSchema }),
+    // Les 429 (quota Google saturé en rafale de tests) sont transitoires :
+    // on insiste avec backoff exponentiel au lieu d'échouer après 3 essais
+    // rapprochés (« Failed after 3 attempt ... Too many Request »).
+    maxRetries: 4,
   });
 
   // Le modèle renvoie parfois des fractions (0-1) au lieu de pourcentages
@@ -257,6 +261,21 @@ export async function runPrescriptionVisionAi(
     output.authenticity_score *= 100;
   }
   return output;
+}
+
+/**
+ * Traduit les erreurs brutes du fournisseur IA en messages actionnables.
+ * Sans cela, un quota 429 affiche « Failed after 3 attempt last error AI
+ * APICallError: Too many Request » : incompréhensible et non actionnable.
+ * Exporté pour les autres appels IA (OTC, triage) qui liront le même message.
+ */
+export function friendlyAiError(err: unknown): Error {
+  if (APICallError.isInstance(err) && err.statusCode === 429) {
+    return new Error(
+      "Trop de demandes en ce moment : le service de lecture est saturé. Attendez une minute puis réessayez.",
+    );
+  }
+  return err instanceof Error ? err : new Error("Extraction impossible");
 }
 
 /**
@@ -280,8 +299,16 @@ export async function extractPrescriptionCore(
 
   await prisma.prescriptions.update({ where: { id: rx.id }, data: { status: "processing" } });
 
+  let output: PrescriptionAiOutput;
   try {
-    const output = await runPrescriptionVisionAi(fileBytes, rx.file_mime);
+    output = await runPrescriptionVisionAi(fileBytes, rx.file_mime);
+  } catch (err) {
+    // 429 quota, coupure réseau, modèle indisponible : message actionnable
+    // au lieu du brut « Failed after 3 attempt ... APICallError ».
+    throw friendlyAiError(err);
+  }
+
+  try {
 
     if (!output.is_prescription || output.authenticity_score < 50) {
       await prisma.prescriptions.update({
