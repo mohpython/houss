@@ -15,12 +15,14 @@ import {
   Calendar,
   Check,
   Pill,
+  Bike,
 } from "lucide-react";
 import { uploadPrescriptionFile } from "@/integrations/storage/client";
 import { useServerFn } from "@tanstack/react-start";
 import { extractPrescription } from "@/lib/pharmacy.functions";
 import { createPrescriptionFromUpload, setPrescriptionDate } from "@/lib/prescriptions.functions";
-import { autoRouteReservation } from "@/lib/delivery.functions";
+import { quoteReservation, createReservation } from "@/lib/delivery.functions";
+import { formatAmount } from "@/lib/payment-config";
 import { flagPrescriptionForReview } from "@/lib/review.functions";
 import { toast } from "sonner";
 import { Capacitor } from "@capacitor/core";
@@ -58,6 +60,35 @@ type CorrectionState = {
   reasons: string[];
 };
 
+/** Devis d'une pharmacie pour l'ordonnance (étape 2), sans rien créer. */
+type Quote = {
+  pharmacyId: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  distanceKm: number;
+  matchedCount: number;
+  missingCount: number;
+  isFull: boolean;
+  itemsTotal: number;
+  deliveryFee: number;
+  totalAmount: number;
+  matched: { itemId: string; name: string; price: number | null }[];
+  missing: { itemId: string; name: string }[];
+  missingItems: {
+    itemId: string;
+    name: string;
+    alternatives: {
+      pharmacyId: string;
+      name: string;
+      address: string | null;
+      phone: string | null;
+      distanceKm: number;
+      price: number | null;
+    }[];
+  }[];
+};
+
 function Scan() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -71,12 +102,18 @@ function Scan() {
   const [review, setReview] = useState<string | null>(null);
   const [correction, setCorrection] = useState<CorrectionState | null>(null);
   const [manualDate, setManualDate] = useState("");
-  /** Prescription waiting for the patient to choose a delivery location. */
+  /** Prescription en cours de parcours (étapes 1 à 3). */
   const [pendingRx, setPendingRx] = useState<string | null>(null);
   const [deliveryLoc, setDeliveryLoc] = useState<DeliveryLocation | null>(null);
-  const [routing, setRouting] = useState(false);
+  /** Étape 1 : domicile (livrée) ou retrait (par un livreur / soi-même). */
+  const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">("delivery");
+  /** Étape 2 : devis classés, sans rien créer. */
+  const [quotes, setQuotes] = useState<Quote[] | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [creatingId, setCreatingId] = useState<string | null>(null);
   const extract = useServerFn(extractPrescription);
-  const autoRoute = useServerFn(autoRouteReservation);
+  const quoteFn = useServerFn(quoteReservation);
+  const createFn = useServerFn(createReservation);
   const flagForReview = useServerFn(flagPrescriptionForReview);
   const createFromUpload = useServerFn(createPrescriptionFromUpload);
   const saveRxDate = useServerFn(setPrescriptionDate);
@@ -133,68 +170,89 @@ function Scan() {
     }
   };
 
-  /** Find the pharmacy that can fulfil the prescription, then open checkout. */
-  const routeTo = async (rxId: string, loc: DeliveryLocation) => {
-    setRouting(true);
-    setPhase(3);
-    try {
-      const routed = await autoRoute({
-        data:
-          loc.mode === "neighborhood"
-            ? {
-                prescriptionId: rxId,
-                neighborhoodId: loc.neighborhoodId,
-                patientAddress: loc.detail?.trim() || undefined,
-              }
-            : {
-                prescriptionId: rxId,
-                patientLat: loc.lat,
-                patientLng: loc.lng,
-                patientAddress: loc.detail?.trim() || undefined,
-              },
-      });
-      setPhase(4);
-      setPendingRx(null);
-      router.navigate({
-        to: "/app/reservations/$id/checkout",
-        params: { id: routed.reservationId },
-      });
-    } catch (err) {
-      // La recherche a echoue : on rend la main plutot que de laisser le
-      // patient sur un ecran bloque. Le lieu retenu reste propose, il peut
-      // relancer ou choisir un autre quartier.
-      setPhase(2);
-      setDeliveryLoc(loc);
-      setPendingRx(rxId);
-      toast.error(err instanceof Error ? err.message : t("scan.error"));
-    } finally {
-      setRouting(false);
-    }
+  /** Lieu + mode sous forme d'entrée serveur (devis puis création). */
+  const locData = (loc: DeliveryLocation) =>
+    loc.mode === "neighborhood"
+      ? {
+          neighborhoodId: loc.neighborhoodId,
+          patientAddress: loc.detail?.trim() || undefined,
+        }
+      : {
+          patientLat: loc.lat,
+          patientLng: loc.lng,
+          patientAddress: loc.detail?.trim() || undefined,
+        };
+
+  /**
+   * Étape 1 : extraction OK. Le lieu (GPS présélectionné si connu) et le mode
+   * (domicile / retrait) se choisissent sur le même écran, puis un seul clic
+   * lance l'étape 2 (liste des pharmacies classées).
+   */
+  const continueToStep1 = async (rxId: string) => {
+    const pos = await getGeo();
+    setDeliveryLoc(pos ? { mode: "gps", lat: pos.lat, lng: pos.lng } : null);
+    setFulfillment("delivery");
+    setQuotes(null);
+    setPendingRx(rxId);
+    setPhase(2);
   };
 
-  const confirmDelivery = async () => {
+  /** Étape 2 : devis classés (100% en premier), avec prix et suggestions. */
+  const loadQuotes = async () => {
     if (!pendingRx || !deliveryLoc) return;
-    await routeTo(pendingRx, deliveryLoc);
+    setQuoting(true);
+    setPhase(3);
+    try {
+      const res = (await quoteFn({
+        data: { prescriptionId: pendingRx, ...locData(deliveryLoc), fulfillmentMethod: fulfillment },
+      })) as { quotes: Quote[] };
+      setQuotes(res.quotes);
+    } catch (err) {
+      // La recherche a échoué : on rend la main plutôt que de laisser le
+      // patient sur un écran bloqué. Lieu et mode restent proposés.
+      setPhase(2);
+      toast.error(err instanceof Error ? err.message : t("scan.error"));
+    } finally {
+      setQuoting(false);
+    }
   };
 
   /**
-   * Extraction terminee : la pharmacie est cherchee automatiquement, sans
-   * attendre un clic de plus du patient.
-   *
-   * Le lieu de livraison reste demande quand la position est inconnue (GPS
-   * refuse, indisponible, ou navigateur sans geolocalisation) : choisir son
-   * quartier conditionne le choix de la pharmacie, on ne peut pas le deviner.
+   * Choix de la pharmacie : la commande est créée chez elle (le stock est
+   * relu à la création), puis ouvre l'étape 3 (paiement).
    */
-  const continueToRouting = async (rxId: string) => {
-    const pos = await getGeo();
-    if (!pos) {
-      setDeliveryLoc(null);
-      setPendingRx(rxId);
-      return;
+  const choosePharmacy = async (pharmacyId: string) => {
+    if (!pendingRx || !deliveryLoc || creatingId) return;
+    setCreatingId(pharmacyId);
+    try {
+      const created = (await createFn({
+        data: {
+          prescriptionId: pendingRx,
+          pharmacyId,
+          ...locData(deliveryLoc),
+          fulfillmentMethod: fulfillment,
+        },
+      })) as { reservationId: string };
+      setPhase(4);
+      setPendingRx(null);
+      setQuotes(null);
+      router.navigate({
+        to: "/app/reservations/$id/checkout",
+        params: { id: created.reservationId },
+      });
+    } catch (err) {
+      // Stock épuisé entre-temps le plus souvent : le patient relance
+      // l'étape 2, qui recalcule les disponibilités.
+      toast.error(err instanceof Error ? err.message : t("scan.error"));
+    } finally {
+      setCreatingId(null);
     }
-    const loc: DeliveryLocation = { mode: "gps", lat: pos.lat, lng: pos.lng };
-    setDeliveryLoc(loc);
-    await routeTo(rxId, loc);
+  };
+
+  /** Retour à l'étape 1 (lieu / mode) depuis la liste des pharmacies. */
+  const backToStep1 = () => {
+    setQuotes(null);
+    setPhase(2);
   };
 
   const submitManualDate = async () => {
@@ -225,7 +283,7 @@ function Scan() {
 
     toast.success(t("rxDate.saved"));
     setCorrection(null);
-    await continueToRouting(correction.rxId);
+    await continueToStep1(correction.rxId);
   };
 
   const run = async (file: File) => {
@@ -283,7 +341,7 @@ function Scan() {
         return;
       }
 
-      await continueToRouting(rxId);
+      await continueToStep1(rxId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("scan.error");
       if (rxId) {
@@ -329,6 +387,10 @@ function Scan() {
     setCorrection(null);
     setPendingRx(null);
     setDeliveryLoc(null);
+    setFulfillment("delivery");
+    setQuotes(null);
+    setQuoting(false);
+    setCreatingId(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
   };
@@ -453,7 +515,7 @@ function Scan() {
             </div>
           )}
 
-          {pendingRx && !correction && !review && !failed && (
+          {pendingRx && !correction && !review && !failed && !quotes && (
             <div className="mt-6 space-y-4">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2">
@@ -465,16 +527,130 @@ function Scan() {
               <DeliveryLocationPicker
                 value={deliveryLoc}
                 onChange={setDeliveryLoc}
-                disabled={routing}
+                disabled={quoting}
               />
+              <p className="text-sm text-foreground/70">{t("pay.fulfillment")}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(["delivery", "pickup"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setFulfillment(m)}
+                    aria-pressed={fulfillment === m}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm transition-colors ${
+                      fulfillment === m
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border text-foreground/60"
+                    }`}
+                  >
+                    {m === "delivery" ? <Bike className="h-4 w-4" /> : <Store className="h-4 w-4" />}
+                    {m === "delivery" ? t("pay.deliverHome") : t("pay.pickupSelf")}
+                  </button>
+                ))}
+              </div>
               <Button
-                onClick={confirmDelivery}
-                disabled={routing || !deliveryLoc}
+                onClick={loadQuotes}
+                disabled={quoting || !deliveryLoc}
                 className="w-full rounded-full"
                 size="lg"
               >
                 <Check className="mr-2 h-4 w-4" />
-                {routing ? t("auto.step3") : t("delivery.confirm")}
+                {quoting ? t("auto.step3") : t("pharmacies.seePharmacies")}
+              </Button>
+            </div>
+          )}
+
+          {pendingRx && quotes && !correction && !review && !failed && (
+            <div className="mt-6 space-y-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <Store className="h-5 w-5 text-accent" />
+                  <h3 className="font-display text-lg">{t("pharmacies.title")}</h3>
+                </div>
+                <p className="mt-1 text-sm text-foreground/70">{t("pharmacies.hint")}</p>
+              </div>
+              {quotes.length === 0 && (
+                <p className="rounded-2xl border border-border p-4 text-center text-sm text-foreground/70">
+                  {t("pharmacies.empty")}
+                </p>
+              )}
+              {quotes.map((q) => (
+                <div
+                  key={q.pharmacyId}
+                  className={`rounded-2xl border p-4 ${
+                    q.isFull ? "border-success/40 bg-success/5" : "border-border"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold">{q.name}</p>
+                      <p className="text-xs text-foreground/60">
+                        {q.distanceKm} km
+                        {q.address ? ` · ${q.address}` : ""}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        q.isFull
+                          ? "bg-success/15 text-success"
+                          : "bg-warning/15 text-warning"
+                      }`}
+                    >
+                      {q.isFull
+                        ? t("pharmacies.full")
+                        : `${q.matchedCount}/${q.matchedCount + q.missingCount}`}
+                    </span>
+                  </div>
+                  <dl className="mt-2 space-y-0.5 text-sm tabular-nums">
+                    <div className="flex justify-between">
+                      <dt className="text-foreground/60">{t("pay.items")}</dt>
+                      <dd>{formatAmount(q.itemsTotal)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-foreground/60">{t("pay.delivery")}</dt>
+                      <dd>{formatAmount(q.deliveryFee)}</dd>
+                    </div>
+                    <div className="flex justify-between font-semibold">
+                      <dt>{t("pay.total")}</dt>
+                      <dd>{formatAmount(q.totalAmount)}</dd>
+                    </div>
+                  </dl>
+                  {q.missing.length > 0 && (
+                    <div className="mt-2 text-xs text-foreground/70">
+                      <p className="font-semibold">{t("pharmacies.missing")}</p>
+                      <ul className="mt-1 space-y-1">
+                        {q.missingItems.map((m) => (
+                          <li key={m.itemId}>
+                            • {m.name}
+                            {m.alternatives.length > 0 && (
+                              <span className="text-foreground/60">
+                                {" "}
+                                — {t("pharmacies.availableAt")}{" "}
+                                {m.alternatives
+                                  .map(
+                                    (a) =>
+                                      `${a.name} (${formatAmount(a.price)} · ${a.distanceKm} km)`,
+                                  )
+                                  .join(", ")}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <Button
+                    onClick={() => choosePharmacy(q.pharmacyId)}
+                    disabled={creatingId !== null}
+                    className="mt-3 w-full rounded-full"
+                  >
+                    <Check className="mr-2 h-4 w-4" />
+                    {creatingId === q.pharmacyId ? t("auto.step4") : t("pharmacies.choose")}
+                  </Button>
+                </div>
+              ))}
+              <Button onClick={backToStep1} variant="ghost" className="w-full rounded-full">
+                {t("pharmacies.retry")}
               </Button>
             </div>
           )}

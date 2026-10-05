@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/services/api_service.dart';
-import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 
@@ -23,12 +22,8 @@ class _ScanScreenState extends State<ScanScreen> {
   ScanResult? _result;
   bool _uploading = false;
   bool _sending = false;
-  /// Vrai quand la recherche de pharmacie est declenchee par l'app et non par
-  /// un appui du patient. Sert a afficher « Recherche en cours... » plutot que
-  /// de laisser croire a une action attendue.
-  bool _autoRouting = false;
   /// Vrai quand l'ordonnance affichee a ete transmise a l'equipe : le bouton
-  /// d'envoi disparait, car commander sans relecture serait un contournement
+  /// de suite disparait, car commander sans relecture serait un contournement
   /// de la verification.
   bool _reviewSent = false;
 
@@ -66,11 +61,8 @@ class _ScanScreenState extends State<ScanScreen> {
         _uploading = false;
       });
 
-      // La lecture IA a abouti : on cherche la pharmacie tout de suite, sans
-      // attendre que le patient pense a appuyer sur « Envoyer a une pharmacie ».
-      // C'est ce que la promesse de l'ecran annonce deja (« l'IA extrait vos
-      // medicaments puis trouve la pharmacie qui a tout en stock ») mais qui
-      // demandait jusqu'ici un clic supplementaire, et rien ne partait d'elle.
+      // Lecture OK : on passe à l'étape 1 (lieu + domicile/retrait sur le
+      // même écran), puis l'étape 2 listera les pharmacies classées.
       //
       // Lecture bloquee (needsReview) : on ne connait pas les medicaments, donc
       // on transmet l'ordonnance a l'equipe au lieu de rester sans rien faire.
@@ -81,8 +73,8 @@ class _ScanScreenState extends State<ScanScreen> {
       if (result.error == null && result.prescription.medicines.isNotEmpty) {
         if (result.needsReview) {
           await _flagForReview(result);
-        } else {
-          await _sendToPharmacy(auto: true);
+        } else if (mounted) {
+          context.push('/localisation/${result.prescription.id}');
         }
       }
     } on ApiException catch (e) {
@@ -96,71 +88,19 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  /// Cherche la pharmacie qui peut servir l'ordonnance et ouvre le suivi.
-  ///
-  /// [auto] vaut `true` quand l'appel enchaine directement apres la lecture IA.
-  /// Les messages diffèrent pour que l'echec soit comprensible : declenche tout
-  /// seul, le patient n'a vu aucun bouton, il faut donc lui dire ce qui s'est
-  /// passe et qu'il peut relancer. Le bouton reste de toute facon present.
-  Future<void> _sendToPharmacy({bool auto = false}) async {
-    final result = _result;
-    if (result == null || _sending) return;
-    setState(() {
-      _sending = true;
-      _autoRouting = auto;
-    });
-    try {
-      // La position est facultative : sans GPS, le serveur choisit par defaut.
-      // `LocationService.current` renvoie `null` au lieu de lever, donc la
-      // recherche automatique ne depend pas de la localisation.
-      final position = await LocationService.current();
-      final routing = await ApiService.instance.routePrescription(
-        prescriptionId: result.prescription.id,
-        lat: position?.latitude,
-        lng: position?.longitude,
-      );
-      if (!mounted) return;
-      setState(() => _sending = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Commande envoyée à ${routing.pharmacyName}')),
-      );
-      context.push('/suivi/${routing.reservationId}');
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _sending = false;
-        // Le bouton redevient « Envoyer a une pharmacie » : la recherche
-        // automatique a echoue, c'est au patient de relancer s'il veut.
-        _autoRouting = false;
-      });
-      if (auto) {
-        _showError('Aucune pharmacie trouvee automatiquement. '
-            'Verifiez votre position ou reessayez ci-dessous.');
-      } else {
-        _showError(e.message);
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _sending = false;
-        _autoRouting = false;
-      });
-      if (auto) {
-        _showError('Recherche de la pharmacie impossible. '
-            'Verifiez votre connexion ou reessayez ci-dessous.');
-      } else {
-        _showError('Envoi à une pharmacie impossible. Réessayez.');
-      }
-    }
-  }
-
   void _reset() {
     setState(() {
       _photo = null;
       _result = null;
-      _autoRouting = false;
       _reviewSent = false;
     });
+  }
+
+  /// Étape 1 : lieu de livraison + domicile/retrait pour l'ordonnance lue.
+  void _goToLocation() {
+    final result = _result;
+    if (result == null) return;
+    context.push('/localisation/${result.prescription.id}');
   }
 
   /// Transmet a l'equipe une ordonnance que l'IA n'a pas pu lire. Le patient
@@ -418,42 +358,25 @@ class _ScanScreenState extends State<ScanScreen> {
                     'livraison pour continuer votre commande.',
               ),
             ],
-            if (_autoRouting) ...[
-              const SizedBox(height: 12),
-              // Pas de `const` : la couleur vient d'un accesseur qui depend du
-              // theme, il n'est donc pas connu a la compilation.
-              _Notice(
-                icon: Icons.storefront,
-                color: AppColors.primaryDeep,
-                title: 'Recherche de la pharmacie',
-                message: 'Nous cherchons la pharmacie la plus proche qui a '
-                    'vos medicaments en stock.',
-              ),
-            ],
             const SizedBox(height: 24),
             // Tant que l'equipe n'a pas relu l'ordonnance, on ne propose pas
-            // d'envoyer : commander sans relecture contournerait la
-            // verification (le serveur routerait quand meme, avec des
-            // medicaments incertains).
+            // de continuer : commander sans relecture contournerait la
+            // verification, avec des medicaments incertains.
             if (!_reviewSent)
               Container(
                 width: double.infinity,
                 height: 56,
                 decoration: AppTheme.gradientButton,
                 child: ElevatedButton.icon(
-                  onPressed: _sending ? null : () => _sendToPharmacy(),
+                  onPressed: _sending ? null : _goToLocation,
                   icon: _sending
                       ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.local_pharmacy, color: Colors.white),
-                  label: Text(
-                    _autoRouting
-                        ? 'Recherche en cours...'
-                        : 'Envoyer à une pharmacie',
-                  ),
+                      : const Icon(Icons.arrow_forward, color: Colors.white),
+                  label: const Text('Choisir la livraison'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,

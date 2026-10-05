@@ -108,6 +108,51 @@ class ApiService {
     return _api.get('/reservations/$id');
   }
 
+  /// Étape 2 du parcours ordonnance : pharmacies classées avec prix et
+  /// suggestions, SANS rien créer. Le patient choisit, puis
+  /// [createReservation] crée la commande.
+  Future<List<Map<String, dynamic>>> quoteReservations({
+    required String prescriptionId,
+    double? lat,
+    double? lng,
+    String? address,
+    String? neighborhoodId,
+    String fulfillmentMethod = 'delivery',
+  }) async {
+    final data = await _api.post('/reservations/quotes', {
+      'prescription_id': prescriptionId,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (address != null && address.isNotEmpty) 'address': address,
+      if (neighborhoodId != null) 'neighborhood_id': neighborhoodId,
+      'fulfillment_method': fulfillmentMethod,
+    });
+    return ((data['quotes'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  /// Crée la commande chez la pharmacie choisie (le stock est relu à la
+  /// création : si elle n'a plus rien, la création est refusée).
+  Future<RoutingResult> createReservation({
+    required String prescriptionId,
+    required String pharmacyId,
+    double? lat,
+    double? lng,
+    String? address,
+    String? neighborhoodId,
+    String fulfillmentMethod = 'delivery',
+  }) async {
+    final data = await _api.post('/reservations/create', {
+      'prescription_id': prescriptionId,
+      'pharmacy_id': pharmacyId,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (address != null && address.isNotEmpty) 'address': address,
+      if (neighborhoodId != null) 'neighborhood_id': neighborhoodId,
+      'fulfillment_method': fulfillmentMethod,
+    });
+    return RoutingResult.fromJson(data);
+  }
+
   /// Envoie l'ordonnance à la pharmacie la plus proche qui a les médicaments.
   Future<RoutingResult> routePrescription({
     required String prescriptionId,

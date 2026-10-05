@@ -114,11 +114,55 @@ export type AutoRouteResult = {
   missingItems: MissingItem[];
 };
 
+export type FulfillmentMethod = "delivery" | "pickup";
+
+export type QuoteInput = AutoRouteInput & {
+  /** Choisi à l'étape 1 (lieu + mode) : le retrait ne facture aucun frais. */
+  fulfillmentMethod?: FulfillmentMethod;
+};
+
+export type PharmacyQuote = {
+  pharmacyId: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  lat: number;
+  lng: number;
+  distanceKm: number;
+  matchedCount: number;
+  missingCount: number;
+  /** Vrai quand la pharmacie a 100% des médicaments en stock. */
+  isFull: boolean;
+  itemsTotal: number;
+  deliveryFee: number;
+  totalAmount: number;
+  matched: { itemId: string; name: string; price: number | null }[];
+  missing: { itemId: string; name: string }[];
+  /** Pour chaque manquant : jusqu'à 3 autres officines qui l'ont en stock. */
+  missingItems: MissingItem[];
+};
+
+export type QuoteResult = {
+  quotes: PharmacyQuote[];
+};
+
+/** Nombre de pharmacies proposées à l'étape 2 (les mieux classées). */
+const MAX_QUOTES = 10;
+
+type ScoredPharmacy = {
+  pharmacy: { id: string; name: string; lat: number | null; lng: number | null; address: string | null; phone: string | null };
+  matched: { itemId: string; name: string; price: number | null }[];
+  missing: { itemId: string; name: string }[];
+  distanceKm: number;
+};
+
 /**
- * Picks the closest approved pharmacy holding 100% of the prescribed items in
- * stock and creates the reservation. Throws when no pharmacy can serve it.
+ * Classe les pharmacies agréées pour une ordonnance, sans rien créer :
+ * les 100% en premier (plus proche d'abord), puis celles qui en ont le plus.
+ * C'est l'étape 2 du parcours (le patient choisit), l'étape 1 ayant déjà fixé
+ * le lieu de livraison et le mode (domicile / retrait).
  */
-export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteResult> {
+export async function quotePharmaciesCore(input: QuoteInput): Promise<QuoteResult> {
   const rx = await prisma.prescriptions.findUnique({
     where: { id: input.prescriptionId },
     select: { id: true, patient_id: true, prescription_date: true },
@@ -181,19 +225,10 @@ export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteRes
   });
   const invLines = inv as unknown as Array<InventoryLine & { pharmacy_id: string }>;
 
-  type Matched = { itemId: string; name: string; price: number | null };
-
-  type ScoreEntry = {
-    pharmacy: (typeof pharmacies)[number];
-    matched: Matched[];
-    missing: { itemId: string; name: string }[];
-    distanceKm: number;
-  };
-
-  const scored: ScoreEntry[] = pharmacies.map((p) => {
+  const scored: ScoredPharmacy[] = pharmacies.map((p) => {
     const pInv = invLines.filter((i) => i.pharmacy_id === p.id);
     const avail = matchItemsToInventory(items!, pInv);
-    const matched: Matched[] = avail
+    const matched = avail
       .filter((a) => a.available)
       .map((a) => ({ itemId: a.itemId, name: a.name, price: a.price }));
     const missing = avail
@@ -207,15 +242,14 @@ export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteRes
     };
   });
 
-  const fullMatches = scored.filter((s) => s.missing.length === 0);
-  fullMatches.sort(
-    (a, b) => a.distanceKm - b.distanceKm || a.pharmacy.id.localeCompare(b.pharmacy.id),
-  );
-
-  // Priorité : pharmacie la plus proche ayant 100% des médicaments.
-  // Sinon, celle qui en a le plus (à nombre égal, la plus proche).
+  // Priorité : 100% en premier (plus proche d'abord), sinon le plus fourni.
+  const fullMatches = scored
+    .filter((s) => s.missing.length === 0)
+    .sort(
+      (a, b) => a.distanceKm - b.distanceKm || a.pharmacy.id.localeCompare(b.pharmacy.id),
+    );
   const partialMatches = scored
-    .filter((s) => s.matched.length > 0)
+    .filter((s) => s.missing.length > 0 && s.matched.length > 0)
     .sort(
       (a, b) =>
         b.matched.length - a.matched.length ||
@@ -223,16 +257,48 @@ export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteRes
         a.pharmacy.id.localeCompare(b.pharmacy.id),
     );
 
-  const best = fullMatches[0] ?? partialMatches[0];
-  if (!best) {
+  const ranked = [...fullMatches, ...partialMatches].slice(0, MAX_QUOTES);
+  if (ranked.length === 0) {
     throw new Error("Aucune pharmacie partenaire n'a vos médicaments en stock");
   }
 
-  // For each missing medicine, list the other partner pharmacies that have it
-  // (even far away) so the patient can order it there himself.
-  const missingItems: MissingItem[] = best.missing.map((m) => {
+  const fulfillment: FulfillmentMethod = input.fulfillmentMethod ?? "delivery";
+  const fee = fulfillment === "pickup" ? 0 : DELIVERY_FEE;
+
+  const quotes: PharmacyQuote[] = ranked.map((s) => {
+    const itemsTotal = s.matched.reduce((sum, m) => sum + (m.price ?? 0), 0);
+    return {
+      pharmacyId: s.pharmacy.id,
+      name: s.pharmacy.name,
+      address: s.pharmacy.address,
+      phone: s.pharmacy.phone,
+      lat: s.pharmacy.lat!,
+      lng: s.pharmacy.lng!,
+      distanceKm: Math.round(s.distanceKm * 10) / 10,
+      matchedCount: s.matched.length,
+      missingCount: s.missing.length,
+      isFull: s.missing.length === 0,
+      itemsTotal,
+      deliveryFee: fee,
+      totalAmount: itemsTotal + fee,
+      matched: s.matched,
+      missing: s.missing,
+      missingItems: alternativesFor(s, scored),
+    };
+  });
+
+  return { quotes };
+}
+
+/**
+ * Pour chaque médicament manquant : jusqu'à 3 autres officines partenaires
+ * qui l'ont en stock (les plus proches), pour que le patient sache où le
+ * trouver lui-même.
+ */
+function alternativesFor(entry: ScoredPharmacy, scored: ScoredPharmacy[]): MissingItem[] {
+  return entry.missing.map((m) => {
     const alternatives: MissingAlternative[] = scored
-      .filter((s) => s.pharmacy.id !== best.pharmacy.id)
+      .filter((s) => s.pharmacy.id !== entry.pharmacy.id)
       .map((s) => ({ s, hit: s.matched.find((x) => x.itemId === m.itemId) }))
       .filter((x) => !!x.hit)
       .sort((a, b) => a.s.distanceKm - b.s.distanceKm)
@@ -249,10 +315,33 @@ export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteRes
       }));
     return { itemId: m.itemId, name: m.name, alternatives };
   });
+}
 
-  const itemsTotal = best.matched.reduce((sum, m) => sum + (m.price ?? 0), 0);
-  const deliveryFee = DELIVERY_FEE;
-  const totalAmount = itemsTotal + deliveryFee;
+export type CreateReservationInput = AutoRouteInput & {
+  pharmacyId: string;
+  fulfillmentMethod?: FulfillmentMethod;
+};
+
+/**
+ * Crée la commande chez la pharmacie choisie à l'étape 2. Le stock est
+ * relu au moment de la création (il a pu changer depuis le devis) : si la
+ * pharmacie n'a plus rien, la création est refusée et le patient doit
+ * relancer l'étape 2.
+ */
+export async function createReservationCore(
+  input: CreateReservationInput,
+): Promise<AutoRouteResult> {
+  const { quotes } = await quotePharmaciesCore(input);
+  const best = quotes.find((q) => q.pharmacyId === input.pharmacyId);
+  if (!best || best.matched.length === 0) {
+    throw new Error(
+      "Cette pharmacie n'a plus vos médicaments en stock. Relancez la recherche.",
+    );
+  }
+
+  const fulfillment: FulfillmentMethod = input.fulfillmentMethod ?? "delivery";
+  const deliveryFee = fulfillment === "pickup" ? 0 : DELIVERY_FEE;
+  const totalAmount = best.itemsTotal + deliveryFee;
 
   let res: { id: string };
   try {
@@ -260,19 +349,20 @@ export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteRes
       data: {
         prescription_id: input.prescriptionId,
         patient_id: input.patientId,
-        pharmacy_id: best.pharmacy.id,
+        pharmacy_id: best.pharmacyId,
         status: "pending",
         notes: input.notes ?? null,
-        is_partial: best.missing.length > 0,
-        missing_items: JSON.parse(JSON.stringify(missingItems)) as Prisma.InputJsonValue,
+        is_partial: best.missingCount > 0,
+        missing_items: JSON.parse(JSON.stringify(best.missingItems)) as Prisma.InputJsonValue,
         patient_lat: input.patientLat,
         patient_lng: input.patientLng,
         patient_address: input.patientAddress ?? null,
         neighborhood_id: input.neighborhoodId ?? null,
         delivery_mode: input.deliveryMode ?? "gps",
+        fulfillment_method: fulfillment,
         delivery_status: "unassigned",
         source: input.source ?? "app",
-        items_total: itemsTotal,
+        items_total: best.itemsTotal,
         delivery_fee: deliveryFee,
         total_amount: totalAmount,
         payment_status: "unpaid",
@@ -300,10 +390,11 @@ export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteRes
       entity: "reservation",
       entity_id: res.id,
       meta: {
-        pharmacy_id: best.pharmacy.id,
+        pharmacy_id: best.pharmacyId,
         matched: best.matched.length,
         missing: best.missing.length,
         distance_km: best.distanceKm,
+        fulfillment_method: fulfillment,
         source: input.source ?? "app",
       },
     },
@@ -311,18 +402,31 @@ export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteRes
 
   return {
     reservationId: res.id,
-    pharmacyName: best.pharmacy.name,
-    pharmacyPhone: best.pharmacy.phone,
-    pharmacyAddress: best.pharmacy.address,
-    matchedCount: best.matched.length,
-    missingCount: best.missing.length,
-    isPartial: best.missing.length > 0,
+    pharmacyName: best.name,
+    pharmacyPhone: best.phone,
+    pharmacyAddress: best.address,
+    matchedCount: best.matchedCount,
+    missingCount: best.missingCount,
+    isPartial: best.missingCount > 0,
     distanceKm: best.distanceKm,
-    itemsTotal,
+    itemsTotal: best.itemsTotal,
     deliveryFee,
     totalAmount,
-    missingItems,
+    missingItems: best.missingItems,
   };
+}
+
+/**
+ * Picks the closest approved pharmacy holding 100% of the prescribed items in
+ * stock and creates the reservation. Throws when no pharmacy can serve it.
+ *
+ * Flux historiques (OTC, bot WhatsApp, anciennes app) : devis + creation chez
+ * la mieux classee en une fois. Le parcours ordonnance en 3 etapes appelle
+ * lui quotePharmaciesCore puis createReservationCore separement.
+ */
+export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteResult> {
+  const { quotes } = await quotePharmaciesCore(input);
+  return createReservationCore({ ...input, pharmacyId: quotes[0].pharmacyId });
 }
 
 /** Assigns the closest online approved courier. Returns null when none is available. */

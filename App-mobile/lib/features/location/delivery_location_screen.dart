@@ -44,7 +44,10 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
   // Quartiers.
   List<Map<String, dynamic>>? _neighborhoods;
   Map<String, dynamic>? _selected;
-  bool _routing = false;
+
+  /// Étape 1 : domicile (livrée) ou retrait. Transmis à l'étape 2 (devis)
+  /// puis appliqué à la création : le retrait ne facture aucun frais.
+  String _fulfillment = 'delivery';
 
   @override
   void initState() {
@@ -123,53 +126,31 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
   }
 
   bool get _canConfirm {
-    if (_routing) return false;
     if (_mode == _Mode.gps) return _position != null;
     return _selected != null;
   }
 
-  Future<void> _confirm() async {
+  /// Étape 1 validée : on passe à l'étape 2 (pharmacies classées) en lui
+  /// transmettant lieu + mode dans l'URL, pour que chaque écran reste
+  /// ouvrable par lien (notification, historique).
+  void _confirm() {
     if (!_canConfirm) return;
-    setState(() => _routing = true);
     final detail = _detailController.text.trim();
-    try {
-      final routing = _mode == _Mode.gps
-          ? await ApiService.instance.routePrescription(
-              prescriptionId: widget.prescriptionId,
-              lat: _position!.latitude,
-              lng: _position!.longitude,
-              address: detail.isEmpty ? null : detail,
-            )
-          : await ApiService.instance.routePrescription(
-              prescriptionId: widget.prescriptionId,
-              neighborhoodId: _selected!['id'] as String,
-              address: detail.isEmpty ? null : detail,
-            );
-      if (!mounted) return;
-      setState(() => _routing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Commande envoyée à ${routing.pharmacyName}')),
-      );
-      context.pushReplacement('/suivi/${routing.reservationId}');
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _routing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _routing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(L10n.t(context, 'delivery.error')),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+    final params = <String, String>{
+      'fulfillment': _fulfillment,
+      if (detail.isNotEmpty) 'address': detail,
+    };
+    if (_mode == _Mode.gps) {
+      params['mode'] = 'gps';
+      params['lat'] = '${_position!.latitude}';
+      params['lng'] = '${_position!.longitude}';
+    } else {
+      params['mode'] = 'neighborhood';
+      params['neighborhoodId'] = _selected!['id'] as String;
     }
+    context.push(
+      '/pharmacies/${widget.prescriptionId}?${Uri(queryParameters: params).query}',
+    );
   }
 
   void _setMode(_Mode mode) {
@@ -218,47 +199,65 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
                 const SizedBox(height: 20),
                 if (_checking)
                   const Expanded(child: Center(child: CircularProgressIndicator()))
-                else ...[
-                  _Tabs(mode: _mode, onChanged: _setMode),
-                  const SizedBox(height: 16),
-                  if (_mode == _Mode.gps) _gpsPanel() else _neighborhoodPanel(),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _detailController,
-                    maxLength: 200,
-                    decoration: InputDecoration(
-                      labelText: L10n.t(context, 'delivery.detail'),
-                      hintText: L10n.t(context, 'delivery.detailHint'),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton.icon(
-                      onPressed: _canConfirm ? _confirm : null,
-                      icon: _routing
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                else
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _Tabs(mode: _mode, onChanged: _setMode),
+                          const SizedBox(height: 16),
+                          if (_mode == _Mode.gps) _gpsPanel() else _neighborhoodPanel(),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _detailController,
+                            maxLength: 200,
+                            decoration: InputDecoration(
+                              labelText: L10n.t(context, 'delivery.detail'),
+                              hintText: L10n.t(context, 'delivery.detailHint'),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                            )
-                          : const Icon(Icons.check, color: Colors.white),
-                      label: Text(
-                        _routing
-                            ? L10n.t(context, 'delivery.routing')
-                            : L10n.t(context, 'delivery.confirm'),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            L10n.t(context, 'delivery.fulfillment'),
+                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              _Tab(
+                                icon: Icons.two_wheeler,
+                                label: L10n.t(context, 'delivery.homeDelivery'),
+                                selected: _fulfillment == 'delivery',
+                                onTap: () => setState(() => _fulfillment = 'delivery'),
+                              ),
+                              const SizedBox(width: 8),
+                              _Tab(
+                                icon: Icons.storefront,
+                                label: L10n.t(context, 'delivery.pickupSelf'),
+                                selected: _fulfillment == 'pickup',
+                                onTap: () => setState(() => _fulfillment = 'pickup'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton.icon(
+                              onPressed: _canConfirm ? _confirm : null,
+                              icon: const Icon(Icons.storefront, color: Colors.white),
+                              label: Text(L10n.t(context, 'delivery.seePharmacies')),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                ],
               ],
             ),
           ),

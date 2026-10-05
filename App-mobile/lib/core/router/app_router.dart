@@ -8,6 +8,7 @@ import 'package:saha_sante/features/home/home_screen.dart';
 import 'package:saha_sante/features/home/patient_main_screen.dart';
 import 'package:saha_sante/features/location/delivery_location_screen.dart';
 import 'package:saha_sante/features/notifications/notifications_screen.dart';
+import 'package:saha_sante/features/pharmacy_choice/pharmacy_quotes_screen.dart';
 import 'package:saha_sante/features/otc/otc_screen.dart';
 import 'package:saha_sante/features/prescriptions/prescriptions_screen.dart';
 import 'package:saha_sante/features/profile/profile_screen.dart';
@@ -30,6 +31,7 @@ class AppRouter {
     '/scan',
     '/prescriptions',
     '/localisation',
+    '/pharmacies',
     '/admin/reviews',
     '/reservations',
     '/suivi',
@@ -94,6 +96,21 @@ class AppRouter {
             builder: (context, state) => DeliveryLocationScreen(
               prescriptionId: state.pathParameters['prescriptionId'] ?? '',
             ),
+          ),
+          GoRoute(
+            path: '/pharmacies/:prescriptionId',
+            builder: (context, state) {
+              final q = state.uri.queryParameters;
+              return PharmacyQuotesScreen(
+                prescriptionId: state.pathParameters['prescriptionId'] ?? '',
+                mode: q['mode'] ?? '',
+                lat: double.tryParse(q['lat'] ?? ''),
+                lng: double.tryParse(q['lng'] ?? ''),
+                address: q['address'],
+                neighborhoodId: q['neighborhoodId'],
+                fulfillment: q['fulfillment'] ?? 'delivery',
+              );
+            },
           ),
           GoRoute(
             path: '/admin/reviews',

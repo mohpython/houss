@@ -44,6 +44,92 @@ export const autoRouteReservation = createServerFn({ method: "POST" })
   });
 
 /**
+ * Étape 2 du parcours ordonnance : pharmacies classées pour l'ordonnance
+ * (100% en premier, puis les plus fournies), avec prix et suggestions, SANS
+ * rien créer. Le patient choisit, puis `createReservation` crée la commande.
+ */
+export const quoteReservation = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        prescriptionId: z.string().uuid(),
+        patientLat: z.number().min(-90).max(90).optional(),
+        patientLng: z.number().min(-180).max(180).optional(),
+        patientAddress: z.string().max(500).optional(),
+        neighborhoodId: z.string().uuid().optional(),
+        fulfillmentMethod: z.enum(["delivery", "pickup"]).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+    const { quotePharmaciesCore, resolveDeliveryTarget } = await import("./routing-core.server");
+    const target = await resolveDeliveryTarget({
+      lat: data.patientLat,
+      lng: data.patientLng,
+      address: data.patientAddress,
+      neighborhoodId: data.neighborhoodId,
+    });
+    return quotePharmaciesCore({
+      prescriptionId: data.prescriptionId,
+      patientId: userId,
+      patientLat: target.lat,
+      patientLng: target.lng,
+      patientAddress: target.address,
+      neighborhoodId: target.neighborhoodId,
+      deliveryMode: target.deliveryMode,
+      fulfillmentMethod: data.fulfillmentMethod ?? "delivery",
+      source: "app",
+    });
+  });
+
+/**
+ * Étape 2 (suite) : crée la commande chez la pharmacie choisie par le
+ * patient. Le stock est relu à la création : si la pharmacie n'a plus rien,
+ * la création est refusée et le patient relance l'étape 2.
+ */
+export const createReservation = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        prescriptionId: z.string().uuid(),
+        pharmacyId: z.string().uuid(),
+        patientLat: z.number().min(-90).max(90).optional(),
+        patientLng: z.number().min(-180).max(180).optional(),
+        patientAddress: z.string().max(500).optional(),
+        neighborhoodId: z.string().uuid().optional(),
+        fulfillmentMethod: z.enum(["delivery", "pickup"]).optional(),
+        notes: z.string().max(500).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+    const { createReservationCore, resolveDeliveryTarget } = await import("./routing-core.server");
+    const target = await resolveDeliveryTarget({
+      lat: data.patientLat,
+      lng: data.patientLng,
+      address: data.patientAddress,
+      neighborhoodId: data.neighborhoodId,
+    });
+    return createReservationCore({
+      prescriptionId: data.prescriptionId,
+      patientId: userId,
+      patientLat: target.lat,
+      patientLng: target.lng,
+      patientAddress: target.address,
+      neighborhoodId: target.neighborhoodId,
+      deliveryMode: target.deliveryMode,
+      pharmacyId: data.pharmacyId,
+      fulfillmentMethod: data.fulfillmentMethod ?? "delivery",
+      notes: data.notes ?? null,
+      source: "app",
+    });
+  });
+
+/**
  * Assigns the closest online approved courier to a reservation.
  */
 export const assignCourier = createServerFn({ method: "POST" })

@@ -791,6 +791,84 @@ async function routePrescription(ctx: Ctx) {
   return json(toPlain(result));
 }
 
+/**
+ * Étape 2 du parcours ordonnance (mobile) : pharmacies classées avec prix
+ * et suggestions, SANS rien créer. Le patient choisit, puis
+ * `POST /reservations/create` crée la commande.
+ */
+async function quoteReservations(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const data = await body(
+    ctx,
+    z.object({
+      prescription_id: z.string().uuid(),
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
+      address: z.string().trim().max(300).optional(),
+      neighborhood_id: z.string().uuid().optional(),
+      fulfillment_method: z.enum(["delivery", "pickup"]).optional(),
+    }),
+  );
+  const { quotePharmaciesCore, resolveDeliveryTarget } = await import("@/lib/routing-core.server");
+  const target = await resolveDeliveryTarget({
+    lat: data.lat ?? null,
+    lng: data.lng ?? null,
+    address: data.address ?? null,
+    neighborhoodId: data.neighborhood_id ?? null,
+  });
+  const result = await quotePharmaciesCore({
+    prescriptionId: data.prescription_id,
+    patientId: userId,
+    patientLat: target.lat,
+    patientLng: target.lng,
+    patientAddress: target.address,
+    neighborhoodId: target.neighborhoodId,
+    deliveryMode: target.deliveryMode,
+    fulfillmentMethod: data.fulfillment_method ?? "delivery",
+    source: "mobile",
+  });
+  return json(toPlain(result));
+}
+
+/** Étape 2 (suite, mobile) : crée la commande chez la pharmacie choisie. */
+async function createReservation(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const data = await body(
+    ctx,
+    z.object({
+      prescription_id: z.string().uuid(),
+      pharmacy_id: z.string().uuid(),
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
+      address: z.string().trim().max(300).optional(),
+      neighborhood_id: z.string().uuid().optional(),
+      fulfillment_method: z.enum(["delivery", "pickup"]).optional(),
+      notes: z.string().trim().max(500).optional(),
+    }),
+  );
+  const { createReservationCore, resolveDeliveryTarget } = await import("@/lib/routing-core.server");
+  const target = await resolveDeliveryTarget({
+    lat: data.lat ?? null,
+    lng: data.lng ?? null,
+    address: data.address ?? null,
+    neighborhoodId: data.neighborhood_id ?? null,
+  });
+  const result = await createReservationCore({
+    prescriptionId: data.prescription_id,
+    patientId: userId,
+    patientLat: target.lat,
+    patientLng: target.lng,
+    patientAddress: target.address,
+    neighborhoodId: target.neighborhoodId,
+    deliveryMode: target.deliveryMode,
+    pharmacyId: data.pharmacy_id,
+    fulfillmentMethod: data.fulfillment_method ?? "delivery",
+    notes: data.notes ?? null,
+    source: "mobile",
+  });
+  return json(toPlain(result));
+}
+
 /** Choix livraison / retrait (avant paiement). */
 async function setFulfillment(ctx: Ctx) {
   const userId = requireUser(ctx);
@@ -2816,6 +2894,8 @@ const ROUTES: Array<[string, string, Handler]> = [
 
   ["GET", "reservations", listReservations],
   ["POST", "reservations/route", routePrescription],
+  ["POST", "reservations/quotes", quoteReservations],
+  ["POST", "reservations/create", createReservation],
   ["GET", "reservations/:id", getReservation],
   ["POST", "reservations/:id/fulfillment", setFulfillment],
   ["POST", "reservations/:id/pay", declarePayment],

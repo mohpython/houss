@@ -644,5 +644,16 @@
     "keepLocation": "Garder le même lieu de livraison",
     "nowhere": "Aucune pharmacie partenaire n'a : {{names}}. À acheter en pharmacie de ville.",
     "created": "Commande complémentaire créée"
+  },
+  "pharmacies": {
+    "seePharmacies": "Voir les pharmacies",
+    "title": "Choisissez votre pharmacie",
+    "hint": "Classées par stock : celles qui ont tout en premier, avec les prix.",
+    "full": "Tout en stock",
+    "missing": "Manquant :",
+    "availableAt": "Aussi chez",
+    "choose": "Choisir",
+    "retry": "Modifier le lieu ou le mode",
+    "empty": "Aucune pharmacie n'a vos médicaments en stock."
   }
 }

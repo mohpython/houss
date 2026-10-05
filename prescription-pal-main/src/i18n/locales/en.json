@@ -682,5 +682,16 @@
     "keepLocation": "Keep the same delivery place",
     "nowhere": "No partner pharmacy has: {{names}}. Buy them at a local pharmacy.",
     "created": "Additional order created"
+  },
+  "pharmacies": {
+    "seePharmacies": "See pharmacies",
+    "title": "Choose your pharmacy",
+    "hint": "Ranked by stock: full matches first, with prices.",
+    "full": "Full stock",
+    "missing": "Missing:",
+    "availableAt": "Also at",
+    "choose": "Choose",
+    "retry": "Change location or method",
+    "empty": "No pharmacy has your medicines in stock."
   }
 }
