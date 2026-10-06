@@ -73,7 +73,7 @@ class _PharmacyQuotesScreenState extends State<PharmacyQuotesScreen> {
       for (final o in orders) {
         if (o.prescriptionId == widget.prescriptionId &&
             o.status != ReservationStatus.cancelled) {
-          context.go('/suivi/${o.id}');
+          context.pushReplacement('/suivi/${o.id}');
           return;
         }
       }

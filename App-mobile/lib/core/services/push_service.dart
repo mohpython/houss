@@ -115,22 +115,12 @@ class PushService {
     _go();
   }
 
-  /// Au démarrage à froid, la notification est reçue avant le premier rendu : le
-  /// routeur n'est pas encore attaché à un widget. On tente la navigation puis on
-  /// la rejoue après la première frame (aller-retour idempotent).
+  /// Ouvre le fil via [AppRouter.openNotifications] : on
+  /// empile quand la pile existe, on part de l'accueil au
+  /// demarrage a froid. Plus de double appel, plus de go()
+  /// qui remplacait toute la pile : le bouton retour revient
+  /// toujours en arriere au lieu de sortir de l'application.
   void _go() {
-    try {
-      AppRouter.router.go('/notifications');
-    } catch (e) {
-      debugPrint('push: navigation reportée : $e');
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        AppRouter.router.go('/notifications');
-      } catch (e) {
-        debugPrint('push: navigation impossible : $e');
-      }
-    });
+    AppRouter.openNotifications();
   }
 }

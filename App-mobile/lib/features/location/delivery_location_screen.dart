@@ -81,7 +81,7 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
         }
       }
       if (existing != null) {
-        context.go('/suivi/${existing.id}');
+        context.pushReplacement('/suivi/${existing.id}');
         return;
       }
     } on ApiException {

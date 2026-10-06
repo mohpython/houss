@@ -82,6 +82,27 @@ class L10n {
     return s;
   }
 
+  /// Même recherche sans contexte (modèles, libellés de statut) : l'écran
+  /// appelant doit déjà se reconstruire au changement de langue (via
+  /// [bind]), sinon le libellé garderait l'ancienne langue.
+  static String c(String key) {
+    final table = _tables[AppLocale.instance.current] ?? _tables[SahaLang.fr]!;
+    return table[key] ?? _tables[SahaLang.fr]![key] ?? key;
+  }
+
+  /// Date courte localisée (« 5 oct. 2026 », « 5 Oct 2026 »...), via les clés
+  /// `month.1`..`month.12`. Remplace les 3 copies locales de `_frDate`.
+  static String date(DateTime d) {
+    return '${d.day} ${c('month.${d.month}')} ${d.year}';
+  }
+
+  /// Date + heure localisées. Remplace les copies locales de `_frDateTime`.
+  static String dateTime(DateTime d) {
+    final h = d.hour.toString().padLeft(2, '0');
+    final m = d.minute.toString().padLeft(2, '0');
+    return '${date(d)} $h:$m';
+  }
+
   static const _tables = <SahaLang, Map<String, String>>{
     SahaLang.fr: {
       'brand': 'SAHA Santé',

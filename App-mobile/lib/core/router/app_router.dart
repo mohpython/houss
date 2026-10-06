@@ -41,6 +41,34 @@ class AppRouter {
     '/health',
   ];
 
+  /// Ouvre le fil des notifications sans casser la pile de
+  /// navigation (cause de « le retour sort de l'app ») :
+  ///
+  /// - App en cours : on empile le fil, le bouton retour
+  ///   revient a l'ecran precedent.
+  /// - Demarrage a froid (notification systeme tappee avant
+  ///   le premier rendu) : la pile n'existe pas encore, on
+  ///   part de l'accueil puis on empile le fil ; le retour
+  ///   atterrit sur l'accueil, pas sur une sortie.
+  static Future<void> openNotifications() async {
+    final nav = _rootNavigatorKey.currentState;
+    if (nav != null && nav.canPop()) {
+      router.push('/notifications');
+      return;
+    }
+    try {
+      router.go('/app');
+    } catch (e) {
+      debugPrint('push: ouverture du fil reportee : $e');
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        router.push('/notifications');
+      } catch (e) {
+        debugPrint('push: ouverture du fil impossible : $e');
+      }
+    });
+  }
   static GoRouter? _instance;
 
   static GoRouter get router => _instance ??= GoRouter(
