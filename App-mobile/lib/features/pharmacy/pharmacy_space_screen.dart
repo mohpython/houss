@@ -3,6 +3,7 @@ import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/features/spaces/space_widgets.dart';
 
 /// Espace Pharmacie : commandes reçues, paiements, expédition et stock.
@@ -56,7 +57,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger votre espace pharmacie.';
+        _error = L10n.c('ph.loadFailed');
         _loading = false;
       });
     }
@@ -72,7 +73,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     } catch (_) {
-      if (mounted) showSnack(context, 'Action impossible pour le moment.', error: true);
+      if (mounted) showSnack(context, L10n.c('adm.actionFailed'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -83,7 +84,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
   /// Aperçu de l'ordonnance jointe à la commande.
   void _showRx(String? url) {
     if (url == null || url.isEmpty) {
-      showSnack(context, 'Aucune ordonnance jointe.', error: true);
+      showSnack(context, L10n.c('ph.noRxAttached'), error: true);
       return;
     }
     showDialog<void>(
@@ -102,9 +103,9 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     icon: const Icon(Icons.close, color: Colors.white, size: 20),
                   ),
-                  const Text(
-                    'Ordonnance',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  Text(
+                    L10n.t(context, 'rx.fallbackTitle'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -114,11 +115,11 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                 child: Image.network(
                   url,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Padding(
-                    padding: EdgeInsets.all(24),
+                  errorBuilder: (_, __, ___) => Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Text(
-                      'Image indisponible',
-                      style: TextStyle(color: Colors.white70),
+                      L10n.t(context, 'rev.imageUnavailable'),
+                      style: const TextStyle(color: Colors.white70),
                     ),
                   ),
                 ),
@@ -138,7 +139,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
     final status = order['status'] as String?;
     final payment = order['payment_status'] as String?;
     final isPickup = order['fulfillment_method'] == 'pickup';
-    final fulfillment = isPickup ? 'Retrait' : 'Livraison';
+    final fulfillment = isPickup ? L10n.c('ph.pickup') : L10n.c('ph.delivery');
     final total = (order['total_amount'] as num?) ?? 0;
     final items = ((order['reservation_items'] as List?) ?? const [])
         .cast<Map<String, dynamic>>();
@@ -159,7 +160,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      patient.isEmpty ? 'Patient' : patient,
+                      patient.isEmpty ? L10n.c('ph.patient') : patient,
                       style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
@@ -171,19 +172,19 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                 ),
               ),
               statusChip(
-                reservationLabels[status] ?? '$status',
+                resLabel('$status'),
                 statusColor(status),
               ),
             ],
           ),
           if (items.isNotEmpty) ...[
             const SizedBox(height: 10),
-            sectionTitle('Articles'),
+            sectionTitle(L10n.c('ph.items')),
             const SizedBox(height: 6),
             ...items.map((it) {
               final pi = it['prescription_items'] as Map<String, dynamic>?;
               if (pi == null) return const SizedBox.shrink();
-              final name = (pi['medicine_name_raw'] as String?) ?? 'Article';
+              final name = (pi['medicine_name_raw'] as String?) ?? L10n.c('ph.itemFallback');
               // `quantity` est un texte libre venant de l'IA (ex. « 2 »,
               // « 1 comprimé »). Le caster en `num?` plante la carte et vide
               // l'onglet Commandes : on accepte nombre ou texte libre.
@@ -202,7 +203,9 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        '$name $qtyLabel${available ? '' : ' — manquant'}',
+                        available
+                            ? '$name $qtyLabel'
+                            : L10n.tArgs(context, 'ph.itemMissing', {'item': '$name $qtyLabel'}),
                         style: available
                             ? const TextStyle(fontSize: 13)
                             : TextStyle(
@@ -252,7 +255,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                 Icon(Icons.payments_outlined, size: 14, color: statusColor(payment)),
                 const SizedBox(width: 4),
                 Text(
-                  paymentLabels[payment] ?? payment,
+                  payLabel(payment),
                   style: TextStyle(
                     fontSize: 12,
                     color: statusColor(payment),
@@ -270,7 +273,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
               children: [
                 if (rxUrl != null)
                   actionButton(
-                    'Ordonnance',
+                    L10n.c('rx.fallbackTitle'),
                     _on(() async => _showRx(rxUrl)),
                     color: AppColors.accent,
                     icon: Icons.description_outlined,
@@ -278,7 +281,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                   ),
                 if (pendingPayment) ...[
                   actionButton(
-                    'Paiement reçu',
+                    L10n.c('ph.paymentReceived'),
                     _on(() =>
                         ApiService.instance.pharmacyDecision(id, payment: 'verify')),
                     color: AppColors.success,
@@ -286,7 +289,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     dense: true,
                   ),
                   actionButton(
-                    'Paiement refusé',
+                    L10n.c('st.pay.failed'),
                     _on(() =>
                         ApiService.instance.pharmacyDecision(id, payment: 'reject')),
                     color: Colors.red.shade700,
@@ -295,7 +298,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                 ],
                 if (status == 'pending') ...[
                   actionButton(
-                    'Accepter',
+                    L10n.c('ph.accept'),
                     _on(() =>
                         ApiService.instance.pharmacyDecision(id, decision: 'accepted')),
                     color: AppColors.success,
@@ -303,7 +306,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     dense: true,
                   ),
                   actionButton(
-                    'Refuser',
+                    L10n.c('rev.reject'),
                     _on(() =>
                         ApiService.instance.pharmacyDecision(id, decision: 'rejected')),
                     color: Colors.red.shade700,
@@ -313,7 +316,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                 ],
                 if (status == 'accepted')
                   actionButton(
-                    'Marquer prête',
+                    L10n.c('ph.markReady'),
                     _on(() =>
                         ApiService.instance.pharmacyDecision(id, decision: 'ready')),
                     icon: Icons.inventory_2_outlined,
@@ -321,7 +324,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                   ),
                 if (status == 'ready' && !isPickup)
                   actionButton(
-                    'Assigner un livreur',
+                    L10n.c('ph.assignCourier'),
                     _on(() => ApiService.instance.pharmacyAssignCourier(id)),
                     color: AppColors.accent,
                     icon: Icons.delivery_dining,
@@ -333,7 +336,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
               Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  'En attente du retrait par le client.',
+                  L10n.c('ph.awaitPickup'),
                   style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
               ),
@@ -353,7 +356,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
             SizedBox(
               height: 240,
               child: emptyView(
-                'Aucune commande pour le moment.\n\nLes commandes réglées par le patient apparaîtront ici.',
+                L10n.c('ph.noOrders'),
               ),
             ),
           ],
@@ -383,7 +386,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
       child: TextField(
         onChanged: (v) => setState(() => _search = v),
         decoration: InputDecoration(
-          hintText: 'Rechercher un médicament…',
+          hintText: L10n.c('ph.searchMedicine'),
           prefixIcon: Icon(Icons.search, size: 20, color: AppColors.textMuted),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 12),
@@ -400,7 +403,11 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
     final form = (med['form'] as String?) ?? '';
     final stockColor =
         qty == 0 ? Colors.red.shade600 : qty <= 5 ? AppColors.warning : AppColors.success;
-    final stockLabel = qty == 0 ? 'Rupture' : qty <= 5 ? 'Bas · $qty' : '$qty en stock';
+    final stockLabel = qty == 0
+        ? L10n.c('ph.outOfStock')
+        : qty <= 5
+            ? L10n.tArgs(context, 'ph.lowStock', {'qty': '$qty'})
+            : L10n.tArgs(context, 'ph.inStock', {'qty': '$qty'});
 
     return SpaceCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -455,8 +462,8 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
               height: 220,
               child: emptyView(
                 q.isEmpty
-                    ? 'Aucun médicament en stock.\nAppuyez sur « Ajouter » pour remplir votre inventaire.'
-                    : 'Aucun résultat pour « $_search ».',
+                    ? L10n.c('ph.noStock')
+                    : L10n.tArgs(context, 'ph.noSearchResult', {'q': _search}),
               ),
             ),
           ],
@@ -496,28 +503,28 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
             TextField(
               controller: qtyCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: 'Quantité en stock'),
+              decoration: InputDecoration(hintText: L10n.c('ph.stockQty')),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: priceCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: 'Prix (FCFA)'),
+              decoration: InputDecoration(hintText: L10n.c('ph.priceHint')),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop('delete'),
-            child: Text('Retirer', style: TextStyle(color: Colors.red.shade400)),
+            child: Text(L10n.c('adm.remove'), style: TextStyle(color: Colors.red.shade400)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
+            child: Text(L10n.c('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop('save'),
-            child: const Text('Enregistrer'),
+            child: Text(L10n.c('common.save')),
           ),
         ],
       ),
@@ -535,11 +542,11 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
     final qty = int.tryParse(qtyText);
     final price = priceText.isEmpty ? null : double.tryParse(priceText);
     if (qty == null) {
-      showSnack(context, 'Quantité invalide.', error: true);
+      showSnack(context, L10n.c('ph.invalidQty'), error: true);
       return;
     }
     if (priceText.isNotEmpty && price == null) {
-      showSnack(context, 'Prix invalide.', error: true);
+      showSnack(context, L10n.c('ph.invalidPrice'), error: true);
       return;
     }
     await _act(() => ApiService.instance.pharmacyUpdateStock(
@@ -560,44 +567,44 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          'Ajouter au stock',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        title: Text(
+          L10n.t(context, 'ph.addStock'),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: const InputDecoration(hintText: 'Nom (ex : paracetamol)'),
+              decoration: InputDecoration(hintText: L10n.c('ph.nameHint')),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: strengthCtrl,
-              decoration: const InputDecoration(hintText: 'Dosage (ex : 500 mg)'),
+              decoration: InputDecoration(hintText: L10n.c('ph.dosageHint')),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: qtyCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: 'Quantité'),
+              decoration: InputDecoration(hintText: L10n.c('common.quantity')),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: priceCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: 'Prix (FCFA)'),
+              decoration: InputDecoration(hintText: L10n.c('ph.priceHint')),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
+            child: Text(L10n.c('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Ajouter'),
+            child: Text(L10n.c('ph.add')),
           ),
         ],
       ),
@@ -616,11 +623,11 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
     final qty = int.tryParse(qtyText);
     final price = priceText.isEmpty ? null : double.tryParse(priceText);
     if (name.isEmpty || qty == null) {
-      showSnack(context, 'Nom et quantité sont obligatoires.', error: true);
+      showSnack(context, L10n.c('ph.nameQtyRequired'), error: true);
       return;
     }
     if (priceText.isNotEmpty && price == null) {
-      showSnack(context, 'Prix invalide.', error: true);
+      showSnack(context, L10n.c('ph.invalidPrice'), error: true);
       return;
     }
     await _act(() => ApiService.instance.pharmacyAddStock(
@@ -633,6 +640,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     final pharmacy = (_me?['pharmacy'] as Map<String, dynamic>?);
     final stats = (_me?['stats'] as Map<String, dynamic>?);
     final openOrders = _orders
@@ -654,7 +662,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 spaceHeader(
-                  'Espace Pharmacie',
+                  L10n.t(context, 'ph.title'),
                   subtitle: pharmacy == null
                       ? null
                       : address.isEmpty
@@ -666,7 +674,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                   children: [
                     Expanded(
                       child: StatCard(
-                        label: 'Commandes',
+                        label: L10n.c('ph.orders'),
                         value: '$openOrders',
                         icon: Icons.receipt_long,
                       ),
@@ -674,7 +682,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: StatCard(
-                        label: 'Références',
+                        label: L10n.c('ph.references'),
                         value: '${stats?['stock'] ?? 0}',
                         color: AppColors.accentLight,
                         icon: Icons.storage_outlined,
@@ -683,7 +691,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: StatCard(
-                        label: 'Stock bas',
+                        label: L10n.c('ph.lowStockStat'),
                         value: '${stats?['low_stock'] ?? 0}',
                         color: AppColors.warning,
                         icon: Icons.warning_amber_outlined,
@@ -693,7 +701,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                 ),
                 const SizedBox(height: 14),
                 segmentedTabs(
-                  labels: const ['Commandes', 'Stock'],
+                  labels: [L10n.c('ph.orders'), L10n.c('ph.stockTab')],
                   icons: const [Icons.receipt_long_outlined, Icons.storage_outlined],
                   selected: _tab,
                   onChanged: (i) => setState(() => _tab = i),
@@ -729,7 +737,7 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
-              label: const Text('Ajouter'),
+              label: Text(L10n.c('ph.add')),
             )
           : null,
     );

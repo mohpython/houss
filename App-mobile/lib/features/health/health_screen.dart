@@ -7,6 +7,7 @@ import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 /// Montant en FCFA, arrondi et séparé par milliers (« 10 000 FCFA »).
@@ -22,23 +23,22 @@ String _frAmount(num amount) {
 
 /// Libellés de repli : le triage renvoie un code de spécialité sans sa
 /// traduction (contrairement à /practitioners).
-const _specialtyLabels = <String, String>{
-  'general': 'Médecine générale',
-  'cardiology': 'Cardiologie',
-  'pediatrics': 'Pédiatrie',
-  'infectious': 'Maladies infectieuses',
-  'gynecology': 'Gynécologie-obstétrique',
-  'dermatology': 'Dermatologie',
-  'diabetology': 'Diabétologie',
-  'ophthalmology': 'Ophtalmologie',
-  'ent': 'ORL',
-  'injection': 'Injections et perfusions',
-  'wound_care': 'Soins de plaies et pansements',
-  'vaccination': 'Vaccination',
-  'nursing': 'Soins infirmiers à domicile',
-};
-
-String _specialtyLabel(String value) => _specialtyLabels[value] ?? value;
+String _specialtyLabel(String value) => switch (value) {
+      'general' => L10n.c('spec.general'),
+      'cardiology' => L10n.c('spec.cardiology'),
+      'pediatrics' => L10n.c('spec.pediatrics'),
+      'infectious' => L10n.c('spec.infectious'),
+      'gynecology' => L10n.c('spec.gynecology'),
+      'dermatology' => L10n.c('spec.dermatology'),
+      'diabetology' => L10n.c('spec.diabetology'),
+      'ophthalmology' => L10n.c('spec.ophthalmology'),
+      'ent' => L10n.c('spec.ent'),
+      'injection' => L10n.c('spec.injection'),
+      'wound_care' => L10n.c('spec.woundCare'),
+      'vaccination' => L10n.c('spec.vaccination'),
+      'nursing' => L10n.c('spec.nursing'),
+      _ => value,
+    };
 
 class HealthScreen extends StatefulWidget {
   const HealthScreen({super.key});
@@ -94,7 +94,7 @@ class _HealthScreenState extends State<HealthScreen> {
         _triage = null;
         _selectedSpecialty = null;
         // Les spécialités proposées viennent des praticiens réellement inscrits.
-        _specialties = {for (final p in data) _specialtyLabel(p.specialty)}.toList()..sort();
+        _specialties = {for (final p in data) p.specialty}.toList()..sort();
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -106,7 +106,7 @@ class _HealthScreenState extends State<HealthScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger les praticiens.';
+        _error = L10n.c('he.loadFailed');
         _loading = false;
       });
     }
@@ -116,7 +116,7 @@ class _HealthScreenState extends State<HealthScreen> {
     final symptoms = _symptomsController.text.trim();
     if (symptoms.length < 5) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Décrivez un peu plus vos symptômes')),
+        SnackBar(content: Text(L10n.c('he.describeMore'))),
       );
       return;
     }
@@ -148,7 +148,7 @@ class _HealthScreenState extends State<HealthScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _analyzing = false);
-      _showError('L\'analyse des symptômes a échoué. Réessayez.');
+      _showError(L10n.c('he.analyzeFailed'));
     }
   }
 
@@ -162,7 +162,7 @@ class _HealthScreenState extends State<HealthScreen> {
     var list = _practitioners ?? const <Practitioner>[];
     if (_homeVisit) list = list.where((p) => p.homeVisits).toList();
     if (_selectedSpecialty != null) {
-      list = list.where((p) => _specialtyLabel(p.specialty) == _selectedSpecialty).toList();
+      list = list.where((p) => p.specialty == _selectedSpecialty).toList();
     }
     return list;
   }
@@ -189,7 +189,7 @@ class _HealthScreenState extends State<HealthScreen> {
               backgroundColor: AppColors.surface,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               title: Text(
-                'Rendez-vous avec ${practitioner.displayName}',
+                L10n.tArgs(context, 'he.appointmentWith', {'name': practitioner.displayName}),
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
               ),
               content: SingleChildScrollView(
@@ -200,13 +200,13 @@ class _HealthScreenState extends State<HealthScreen> {
                     TextField(
                       controller: reasonController,
                       maxLines: 3,
-                      decoration: const InputDecoration(hintText: 'Motif de la consultation'),
+                      decoration: InputDecoration(hintText: L10n.c('he.reasonHint')),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(hintText: 'Téléphone'),
+                      decoration: InputDecoration(hintText: L10n.c('common.phone')),
                     ),
                     if (practitioner.homeVisits)
                       Row(
@@ -216,7 +216,7 @@ class _HealthScreenState extends State<HealthScreen> {
                             onChanged: (v) => setDialogState(() => atHome = v ?? false),
                             activeColor: AppColors.accent,
                           ),
-                          const Expanded(child: Text('Consultation à domicile')),
+                          Expanded(child: Text(L10n.c('he.homeConsult'))),
                         ],
                       ),
                   ],
@@ -225,11 +225,11 @@ class _HealthScreenState extends State<HealthScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Annuler'),
+                  child: Text(L10n.c('common.cancel')),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Demander'),
+                  child: Text(L10n.c('he.ask')),
                 ),
               ],
             );
@@ -258,19 +258,20 @@ class _HealthScreenState extends State<HealthScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Demande envoyée à ${practitioner.displayName}'),
+          content: Text(L10n.tArgs(context, 'he.requestSent', {'name': practitioner.displayName})),
           backgroundColor: AppColors.success,
         ),
       );
     } on ApiException catch (e) {
       _showError(e.message);
     } catch (_) {
-      _showError('La demande de rendez-vous a échoué. Réessayez.');
+      _showError(L10n.c('he.requestFailed'));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     final practitioners = _visible;
 
     return Scaffold(
@@ -290,15 +291,15 @@ class _HealthScreenState extends State<HealthScreen> {
                     ),
                     const NotificationBell(),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Consultation',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    Text(
+                      L10n.t(context, 'he.title'),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Décrivez vos symptômes pour être orienté vers le bon praticien.',
+                  L10n.t(context, 'he.subtitle'),
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 24),
@@ -308,16 +309,16 @@ class _HealthScreenState extends State<HealthScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Symptômes',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      Text(
+                        L10n.t(context, 'he.symptoms'),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _symptomsController,
                         maxLines: 4,
-                        decoration: const InputDecoration(
-                          hintText: 'J\'ai de la fièvre et des maux de tête depuis 2 jours...',
+                        decoration: InputDecoration(
+                          hintText: L10n.c('he.symptomsHint'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -328,7 +329,7 @@ class _HealthScreenState extends State<HealthScreen> {
                             onChanged: (v) => setState(() => _homeVisit = v ?? false),
                             activeColor: AppColors.accent,
                           ),
-                          const Expanded(child: Text('Visite à domicile uniquement')),
+                          Expanded(child: Text(L10n.t(context, 'he.homeOnly'))),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -344,7 +345,7 @@ class _HealthScreenState extends State<HealthScreen> {
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
                               : const Icon(Icons.auto_awesome, size: 18),
-                          label: const Text('Analyser mes symptômes'),
+                          label: Text(L10n.t(context, 'he.analyze')),
                         ),
                       ),
                     ],
@@ -356,9 +357,9 @@ class _HealthScreenState extends State<HealthScreen> {
                 ],
                 const SizedBox(height: 24),
                 if (_specialties.isNotEmpty) ...[
-                  const Text(
-                    'Spécialités',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Text(
+                    L10n.t(context, 'he.specialties'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 14),
                   Wrap(
@@ -378,7 +379,7 @@ class _HealthScreenState extends State<HealthScreen> {
                             ),
                           ),
                           child: Text(
-                            s,
+                            _specialtyLabel(s),
                             style: TextStyle(
                               fontSize: 13,
                               color: selected ? AppColors.primaryLight : AppColors.textPrimary,
@@ -412,15 +413,15 @@ class _HealthScreenState extends State<HealthScreen> {
                         TextButton.icon(
                           onPressed: _loadPractitioners,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('Réessayer'),
+                          label: Text(L10n.t(context, 'common.retry')),
                         ),
                       ],
                     ),
                   )
                 else ...[
-                  const Text(
-                    'Praticiens disponibles',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Text(
+                    L10n.t(context, 'he.available'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 14),
                   if (practitioners.isEmpty)
@@ -429,7 +430,7 @@ class _HealthScreenState extends State<HealthScreen> {
                       padding: const EdgeInsets.all(20),
                       decoration: AppTheme.glassCard,
                       child: Text(
-                        'Aucun praticien ne correspond à cette recherche.',
+                        L10n.t(context, 'he.noMatch'),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                       ),
@@ -460,12 +461,13 @@ class _TriageCard extends StatelessWidget {
 
   const _TriageCard({required this.triage});
 
-  static const _urgencyLabels = <String, String>{
-    'low': 'Peu urgent',
-    'medium': 'À voir rapidement',
-    'high': 'Urgent',
-    'emergency': 'Urgence — appelez les secours',
-  };
+  static String _urgencyLabel(String? urgency) => switch (urgency) {
+        'low' => L10n.c('urg.low'),
+        'medium' => L10n.c('urg.medium'),
+        'high' => L10n.c('urg.high'),
+        'emergency' => L10n.c('urg.emergency'),
+        _ => L10n.c('urg.unknown'),
+      };
 
   Color get _urgencyColor {
     return switch (triage['urgency'] as String?) {
@@ -494,9 +496,9 @@ class _TriageCard extends StatelessWidget {
             children: [
               Icon(Icons.auto_awesome, size: 18, color: AppColors.accent),
               const SizedBox(width: 8),
-              const Text(
-                'Orientation proposée',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              Text(
+                L10n.t(context, 'he.orientation'),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               Container(
@@ -506,7 +508,7 @@ class _TriageCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  _urgencyLabels[triage['urgency'] as String?] ?? 'À évaluer',
+                  _urgencyLabel(triage['urgency'] as String?),
                   style: TextStyle(fontSize: 11, color: _urgencyColor, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -529,13 +531,13 @@ class _TriageCard extends StatelessWidget {
           if (conditions.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              'Pistes possibles : ${conditions.join(', ')}',
+              L10n.tArgs(context, 'he.possiblePaths', {'list': conditions.join(', ')}),
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
           ],
           const SizedBox(height: 10),
           Text(
-            'Cette orientation ne remplace pas un avis médical.',
+            L10n.t(context, 'he.disclaimer'),
             style: TextStyle(fontSize: 11, color: AppColors.textMuted),
           ),
         ],
@@ -618,7 +620,7 @@ class _PractitionerCard extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                'Visite à domicile possible',
+                L10n.t(context, 'he.homeVisitPossible'),
                 style: TextStyle(fontSize: 12, color: AppColors.success),
               ),
             ),
@@ -628,7 +630,7 @@ class _PractitionerCard extends StatelessWidget {
             height: 44,
             child: OutlinedButton(
               onPressed: onBook,
-              child: const Text('Prendre rendez-vous'),
+              child: Text(L10n.t(context, 'he.book')),
             ),
           ),
         ],

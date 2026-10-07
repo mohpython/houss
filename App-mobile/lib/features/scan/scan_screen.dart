@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 
 class ScanScreen extends StatefulWidget {
@@ -38,8 +39,8 @@ class _ScanScreenState extends State<ScanScreen> {
       );
     } catch (_) {
       _showError(source == ImageSource.camera
-          ? 'Impossible d\'ouvrir l\'appareil photo. Vérifiez les autorisations.'
-          : 'Impossible d\'ouvrir la galerie. Vérifiez les autorisations.');
+          ? L10n.c('scan.cameraDenied')
+          : L10n.c('scan.galleryDenied'));
       return;
     }
     if (picked == null) return;
@@ -84,7 +85,7 @@ class _ScanScreenState extends State<ScanScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _uploading = false);
-      _showError('Envoi de l\'ordonnance impossible. Réessayez.');
+      _showError(L10n.c('scan.uploadFailed'));
     }
   }
 
@@ -111,7 +112,7 @@ class _ScanScreenState extends State<ScanScreen> {
     try {
       await ApiService.instance.flagPrescriptionReview(
         prescriptionId: result.prescription.id,
-        reasons: result.reasons.isNotEmpty ? result.reasons : const ['Lecture IA impossible'],
+        reasons: result.reasons.isNotEmpty ? result.reasons : [L10n.c('scan.aiUnreadable')],
       );
       if (!mounted) return;
       setState(() {
@@ -125,7 +126,7 @@ class _ScanScreenState extends State<ScanScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _sending = false);
-      _showError('Transmission à l\'équipe impossible. Réessayez.');
+      _showError(L10n.c('scan.reviewFailed'));
     }
   }
 
@@ -138,6 +139,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     return Scaffold(
       body: Container(
         decoration: AppTheme.subtleGradient,
@@ -175,14 +177,14 @@ class _ScanScreenState extends State<ScanScreen> {
           child: const Icon(Icons.camera_alt, size: 72, color: Colors.white),
         ),
         const SizedBox(height: 40),
-        const Text(
-          'Scanner votre ordonnance',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+        Text(
+          L10n.t(context, 'scan.title'),
+          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
         Text(
-          'Prenez une photo nette de l\'ordonnance. Notre IA identifiera les médicaments demandés.',
+          L10n.t(context, 'scan.subtitle'),
           style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
           textAlign: TextAlign.center,
         ),
@@ -194,7 +196,7 @@ class _ScanScreenState extends State<ScanScreen> {
           child: ElevatedButton.icon(
             onPressed: () => _pick(ImageSource.camera),
             icon: const Icon(Icons.camera_alt, color: Colors.white),
-            label: const Text('Prendre une photo'),
+            label: Text(L10n.t(context, 'scan.takePhoto')),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.transparent,
               shadowColor: Colors.transparent,
@@ -210,7 +212,7 @@ class _ScanScreenState extends State<ScanScreen> {
           child: OutlinedButton.icon(
             onPressed: () => _pick(ImageSource.gallery),
             icon: const Icon(Icons.photo_library),
-            label: const Text('Choisir depuis la galerie'),
+            label: Text(L10n.t(context, 'scan.fromGallery')),
           ),
         ),
       ],
@@ -227,17 +229,17 @@ class _ScanScreenState extends State<ScanScreen> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Votre ordonnance',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  L10n.t(context, 'scan.yourRx'),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
               ),
               if (!_uploading && !_sending)
                 TextButton.icon(
                   onPressed: _reset,
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Reprendre'),
+                  label: Text(L10n.t(context, 'scan.retake')),
                 ),
             ],
           ),
@@ -262,7 +264,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
                   Text(
-                    'Lecture de l\'ordonnance en cours…',
+                    L10n.t(context, 'scan.reading'),
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ],
@@ -273,15 +275,15 @@ class _ScanScreenState extends State<ScanScreen> {
               _Notice(
                 icon: Icons.error_outline,
                 color: Colors.redAccent,
-                title: 'Lecture impossible',
+                title: L10n.c('scan.readFailed'),
                 message: result.error!,
               )
             else if (medicines.isEmpty)
               _Notice(
                 icon: Icons.help_outline,
                 color: AppColors.warning,
-                title: 'Aucun médicament identifié',
-                message: 'Reprenez une photo plus nette, ou commandez sans ordonnance.',
+                title: L10n.c('scan.noMedicine'),
+                message: L10n.c('scan.noMedicineHint'),
               )
             else
               Container(
@@ -295,9 +297,9 @@ class _ScanScreenState extends State<ScanScreen> {
                       children: [
                         Icon(Icons.auto_awesome, size: 18, color: AppColors.accent),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Médicaments identifiés',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        Text(
+                          L10n.t(context, 'scan.medicinesFound'),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                         const Spacer(),
                         if (result.prescription.aiConfidence != null)
@@ -341,7 +343,7 @@ class _ScanScreenState extends State<ScanScreen> {
               _Notice(
                 icon: Icons.verified_user_outlined,
                 color: AppColors.warning,
-                title: 'Vérification par un pharmacien',
+                title: L10n.c('scan.pharmacistReview'),
                 message: result.reasons.join('\n'),
               ),
             ],
@@ -352,10 +354,8 @@ class _ScanScreenState extends State<ScanScreen> {
               _Notice(
                 icon: Icons.mark_email_read_outlined,
                 color: AppColors.primaryDeep,
-                title: 'Ordonnance transmise à notre équipe',
-                message: 'Vous recevrez une notification dès que la vérification '
-                    'sera terminée. Elle vous enverra vers le choix du lieu de '
-                    'livraison pour continuer votre commande.',
+                title: L10n.c('scan.transmitted'),
+                message: L10n.c('scan.transmittedMsg'),
               ),
             ],
             const SizedBox(height: 24),
@@ -376,7 +376,7 @@ class _ScanScreenState extends State<ScanScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.arrow_forward, color: Colors.white),
-                  label: const Text('Choisir la livraison'),
+                  label: Text(L10n.t(context, 'scan.chooseDelivery')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
@@ -392,7 +392,7 @@ class _ScanScreenState extends State<ScanScreen> {
               child: OutlinedButton.icon(
                 onPressed: _sending ? null : () => _pick(ImageSource.camera),
                 icon: const Icon(Icons.camera_alt, size: 18),
-                label: const Text('Reprendre une photo'),
+                label: Text(L10n.t(context, 'scan.retakePhoto')),
               ),
             ),
           ],

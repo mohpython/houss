@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:saha_sante/core/config/app_config.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 
 /// Erreur renvoyée par l'API, avec un message déjà traduit en français.
 class ApiException implements Exception {
@@ -108,16 +109,16 @@ class ApiClient {
     try {
       res = await run().timeout(_timeout);
     } on SocketException {
-      throw ApiException('Pas de connexion internet. Vérifiez votre réseau.');
+      throw ApiException(L10n.c('api.noConnection'));
     } catch (_) {
-      throw ApiException('Le serveur ne répond pas. Réessayez dans un instant.');
+      throw ApiException(L10n.c('api.serverDown'));
     }
 
     Map<String, dynamic> body;
     try {
       body = res.body.isEmpty ? {} : jsonDecode(res.body) as Map<String, dynamic>;
     } catch (_) {
-      throw ApiException('Réponse inattendue du serveur.', res.statusCode);
+      throw ApiException(L10n.c('api.unexpected'), res.statusCode);
     }
 
     if (res.statusCode >= 200 && res.statusCode < 300) return body;
@@ -126,7 +127,7 @@ class ApiClient {
     // incorrects » : il ne doit pas fermer la session en cours.
     if (res.statusCode == 401 && !path.startsWith('/auth/')) onUnauthorized?.call();
     throw ApiException(
-      (body['error'] as String?) ?? 'Une erreur est survenue (${res.statusCode}).',
+      (body['error'] as String?) ?? L10n.c('api.error').replaceAll('{code}', '${res.statusCode}'),
       res.statusCode,
     );
   }

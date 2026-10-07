@@ -7,6 +7,7 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 class OtcScreen extends StatefulWidget {
@@ -93,7 +94,7 @@ class _OtcScreenState extends State<OtcScreen> {
     final medicines = _controllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
     if (medicines.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ajoutez au moins un médicament')),
+        SnackBar(content: Text(L10n.c('otc.addAtLeast'))),
       );
       return;
     }
@@ -109,7 +110,7 @@ class _OtcScreenState extends State<OtcScreen> {
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Commande envoyée à ${routing.pharmacyName}')),
+        SnackBar(content: Text(L10n.tArgs(context, 'otc.orderSent', {'name': routing.pharmacyName}))),
       );
       context.push('/suivi/${routing.reservationId}');
     } on ApiException catch (e) {
@@ -119,7 +120,7 @@ class _OtcScreenState extends State<OtcScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      _showError('Commande impossible pour le moment. Réessayez.');
+      _showError(L10n.c('otc.orderFailed'));
     }
   }
 
@@ -143,6 +144,7 @@ class _OtcScreenState extends State<OtcScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     return Scaffold(
       body: Container(
         decoration: AppTheme.subtleGradient,
@@ -161,15 +163,15 @@ class _OtcScreenState extends State<OtcScreen> {
                     ),
                     const NotificationBell(),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Sans ordonnance',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    Text(
+                      L10n.t(context, 'otc.title'),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Commandez des médicaments sans ordonnance auprès d\'une pharmacie proche.',
+                  L10n.t(context, 'otc.subtitle'),
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 24),
@@ -177,7 +179,7 @@ class _OtcScreenState extends State<OtcScreen> {
                   const Center(child: CircularProgressIndicator())
                 else if (_suggestions.isEmpty)
                   Text(
-                    'Aucune suggestion pour cette recherche.',
+                    L10n.t(context, 'otc.noSuggestion'),
                     style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                   )
                 else
@@ -198,7 +200,7 @@ class _OtcScreenState extends State<OtcScreen> {
                               child: TextField(
                                 controller: _controllers[index],
                                 decoration: InputDecoration(
-                                  hintText: 'Nom du médicament',
+                                  hintText: L10n.c('otc.nameHint'),
                                   suffixIcon: index == 0
                                       ? null
                                       : IconButton(
@@ -234,7 +236,7 @@ class _OtcScreenState extends State<OtcScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.search, color: Colors.white),
-                    label: const Text('Trouver une pharmacie'),
+                    label: Text(L10n.t(context, 'otc.findPharmacy')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,

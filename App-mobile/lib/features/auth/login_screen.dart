@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on ApiException catch (e) {
       _showError(e.message);
     } catch (_) {
-      _showError('Connexion impossible. Réessayez.');
+      if (mounted) _showError(L10n.t(context, 'errLogin'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on ApiException catch (e) {
       _showError(e.message);
     } catch (_) {
-      _showError('Code invalide. Réessayez.');
+      if (mounted) _showError(L10n.t(context, 'errCode'));
     } finally {
       if (mounted) setState(() => _otpLoading = false);
     }

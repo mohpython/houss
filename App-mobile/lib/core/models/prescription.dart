@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 
 enum PrescriptionStatus { uploaded, processing, extracted, verified, failed }
 
@@ -81,11 +82,11 @@ class Prescription {
 extension PrescriptionStatusX on PrescriptionStatus {
   String get label {
     return switch (this) {
-      PrescriptionStatus.uploaded => 'Téléchargée',
-      PrescriptionStatus.processing => 'Analyse en cours',
-      PrescriptionStatus.extracted => 'Extraite',
-      PrescriptionStatus.verified => 'Vérifiée',
-      PrescriptionStatus.failed => 'Échouée',
+      PrescriptionStatus.uploaded => L10n.c('st.rx.uploaded'),
+      PrescriptionStatus.processing => L10n.c('st.rx.processing'),
+      PrescriptionStatus.extracted => L10n.c('st.rx.extracted'),
+      PrescriptionStatus.verified => L10n.c('st.rx.verified'),
+      PrescriptionStatus.failed => L10n.c('st.rx.failed'),
     };
   }
 

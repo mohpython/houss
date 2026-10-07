@@ -3,6 +3,7 @@ import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/features/spaces/space_widgets.dart';
 
 /// Espace Praticien : demandes de rendez-vous, acceptation et suivi.
@@ -49,7 +50,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger vos rendez-vous.';
+        _error = L10n.c('pr.loadFailed');
         _loading = false;
       });
     }
@@ -64,7 +65,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     } catch (_) {
-      if (mounted) showSnack(context, 'Action impossible pour le moment.', error: true);
+      if (mounted) showSnack(context, L10n.c('adm.actionFailed'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -106,23 +107,23 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          'Refuser le rendez-vous',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        title: Text(
+          L10n.t(context, 'pr.rejectTitle'),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         content: TextField(
           controller: ctrl,
           maxLines: 3,
-          decoration: const InputDecoration(hintText: 'Motif du refus (facultatif)'),
+          decoration: InputDecoration(hintText: L10n.c('pr.rejectReasonHint')),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
+            child: Text(L10n.c('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Refuser', style: TextStyle(color: Colors.red.shade400)),
+            child: Text(L10n.c('rev.reject'), style: TextStyle(color: Colors.red.shade400)),
           ),
         ],
       ),
@@ -156,12 +157,12 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
             children: [
               Expanded(
                 child: Text(
-                  (a['patient_name'] as String?) ?? 'Patient',
+                  (a['patient_name'] as String?) ?? L10n.c('ph.patient'),
                   style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
                 ),
               ),
               statusChip(
-                appointmentLabels[status] ?? '$status',
+                appLabel('$status'),
                 statusColor(status),
               ),
             ],
@@ -186,7 +187,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
                       Icon(Icons.home_outlined, size: 13, color: AppColors.accentLight),
                       SizedBox(width: 3),
                       Text(
-                        'À domicile',
+                        L10n.c('pr.atHome'),
                         style: TextStyle(fontSize: 11.5, color: AppColors.accentLight),
                       ),
                     ],
@@ -213,7 +214,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
           if (rejection.isNotEmpty && status == 'rejected') ...[
             const SizedBox(height: 6),
             Text(
-              'Motif : $rejection',
+              L10n.tArgs(context, 'pr.reason', {'reason': rejection}),
               style: TextStyle(fontSize: 12, color: Colors.red.shade400),
             ),
           ],
@@ -227,13 +228,13 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
               children: [
                 if (status == 'requested') ...[
                   actionButton(
-                    'Accepter',
+                    L10n.c('ph.accept'),
                     _busy ? null : () => _pickAndRespond(a, 'accept'),
                     icon: Icons.event_available_outlined,
                     dense: true,
                   ),
                   actionButton(
-                    'Refuser',
+                    L10n.c('rev.reject'),
                     _busy ? null : () => _rejectFlow(a),
                     color: Colors.red.shade700,
                     icon: Icons.close,
@@ -241,14 +242,14 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
                   ),
                 ] else ...[
                   actionButton(
-                    'Reprogrammer',
+                    L10n.c('pr.reschedule'),
                     _busy ? null : () => _pickAndRespond(a, 'reschedule'),
                     color: AppColors.accent,
                     icon: Icons.edit_calendar_outlined,
                     dense: true,
                   ),
                   actionButton(
-                    'Terminer',
+                    L10n.c('pr.complete'),
                     _busy
                         ? null
                         : () => _act(() => ApiService.instance
@@ -268,6 +269,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     final me = _me;
     final type = roleInfo((me?['type'] as String?) ?? '');
 
@@ -282,7 +284,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 spaceHeader(
-                  'Espace Praticien',
+                  L10n.t(context, 'pr.title'),
                   subtitle: me == null
                       ? null
                       : '${me['full_name'] ?? type.$1}',
@@ -292,7 +294,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
                   children: [
                     Expanded(
                       child: StatCard(
-                        label: 'Demandes',
+                        label: L10n.c('pr.requests'),
                         value: '${_counts['requested'] ?? 0}',
                         icon: Icons.mark_unread_chat_alt_outlined,
                       ),
@@ -300,7 +302,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: StatCard(
-                        label: 'Aujourd’hui',
+                        label: L10n.c('pr.today'),
                         value: '${_counts['today'] ?? 0}',
                         color: AppColors.warning,
                         icon: Icons.today_outlined,
@@ -309,7 +311,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: StatCard(
-                        label: 'À venir',
+                        label: L10n.c('pr.upcoming'),
                         value: '${_counts['upcoming'] ?? 0}',
                         color: AppColors.accentLight,
                         icon: Icons.upcoming_outlined,
@@ -318,7 +320,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: StatCard(
-                        label: 'Terminés',
+                        label: L10n.c('pr.done'),
                         value: '${_counts['completed'] ?? 0}',
                         color: AppColors.success,
                         icon: Icons.check_circle_outline,
@@ -337,7 +339,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
                             })
                           : me == null
                               ? emptyView(
-                                  'Aucun profil praticien lié à ce compte.\n\nContactez l’administration pour relié votre profil.',
+                                  L10n.c('pr.noProfile'),
                                 )
                               : _appointments.isEmpty
                                   ? RefreshIndicator(
@@ -348,7 +350,7 @@ class _PractitionerSpaceScreenState extends State<PractitionerSpaceScreen> {
                                           SizedBox(
                                             height: 220,
                                             child: emptyView(
-                                              'Aucun rendez-vous pour le moment.\n\nLes demandes des patients apparaîtront ici.',
+                                              L10n.c('pr.noAppointments'),
                                             ),
                                           ),
                                         ],

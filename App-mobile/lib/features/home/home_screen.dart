@@ -56,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger les pharmacies.';
+        _error = L10n.c('home.loadFailed');
         _loading = false;
       });
     }
@@ -245,7 +245,7 @@ class _MessageCard extends StatelessWidget {
           TextButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
-            label: const Text('Réessayer'),
+            label: Text(L10n.c('common.retry')),
           ),
         ],
       ),

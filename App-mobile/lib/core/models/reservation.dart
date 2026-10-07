@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 
 enum ReservationStatus { pending, accepted, ready, inTransit, completed, cancelled }
 
@@ -103,12 +104,12 @@ class Reservation {
 extension ReservationStatusX on ReservationStatus {
   String get label {
     return switch (this) {
-      ReservationStatus.pending => 'En attente',
-      ReservationStatus.accepted => 'Acceptée',
-      ReservationStatus.ready => 'Prête',
-      ReservationStatus.inTransit => 'En livraison',
-      ReservationStatus.completed => 'Livrée',
-      ReservationStatus.cancelled => 'Annulée',
+      ReservationStatus.pending => L10n.c('st.res.pending'),
+      ReservationStatus.accepted => L10n.c('st.res.accepted'),
+      ReservationStatus.ready => L10n.c('st.res.ready'),
+      ReservationStatus.inTransit => L10n.c('st.res.inTransit'),
+      ReservationStatus.completed => L10n.c('st.res.completed'),
+      ReservationStatus.cancelled => L10n.c('st.res.cancelled'),
     };
   }
 

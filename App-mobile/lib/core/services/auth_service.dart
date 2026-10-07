@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:saha_sante/core/api/api_client.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/services/unread_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,7 +34,7 @@ class AppUser {
   }
 
   String get displayName =>
-      (fullName != null && fullName!.trim().isNotEmpty) ? fullName! : (email ?? phone ?? 'Mon compte');
+      (fullName != null && fullName!.trim().isNotEmpty) ? fullName! : (email ?? phone ?? L10n.c('pf.myAccount'));
 }
 
 /// Session : jeton conservé sur l'appareil, restauré au démarrage.

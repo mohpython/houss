@@ -8,6 +8,7 @@ import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 
 /// Montant en FCFA, arrondi et séparé par milliers (« 4 000 FCFA »).
 String _frAmount(num amount) {
@@ -28,12 +29,13 @@ String _hour(DateTime? date) {
 
 DateTime? _date(Object? value) => DateTime.tryParse(value as String? ?? '');
 
-const _paymentLabels = <String, String>{
-  'unpaid': 'Non réglé',
-  'pending_verification': 'En attente de confirmation',
-  'paid': 'Réglé',
-  'failed': 'Paiement refusé',
-};
+String _payLabel(String status) => switch (status) {
+      'unpaid' => L10n.c('st.pay.unpaid'),
+      'pending_verification' => L10n.c('trk.payPending'),
+      'paid' => L10n.c('st.pay.paid'),
+      'failed' => L10n.c('st.pay.failed'),
+      _ => status,
+    };
 
 const _methodLabels = <String, String>{
   'orange_money': 'Orange Money',
@@ -143,7 +145,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger le suivi de la commande.';
+        _error = L10n.c('trk.loadFailed');
         _loading = false;
       });
     }
@@ -214,7 +216,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
         );
         _busy = false;
       });
-      _showError('Impossible de changer le mode de remise. Réessayez.');
+      _showError(L10n.c('trk.modeFailed'));
     }
   }
 
@@ -224,11 +226,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
     final phone = _phoneController.text.trim();
     final reference = _referenceController.text.trim();
     if (phone.length < 8) {
-      _showError('Saisissez le numéro de téléphone utilisé pour le paiement');
+      _showError(L10n.c('trk.errPhone'));
       return;
     }
     if (reference.length < 4) {
-      _showError('Saisissez la référence de la transaction (4 caractères minimum)');
+      _showError(L10n.c('trk.errRef'));
       return;
     }
 
@@ -246,7 +248,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       _referenceController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Paiement déclaré, en attente de confirmation par la pharmacie'),
+          content: Text(L10n.c('trk.payDeclared')),
           backgroundColor: AppColors.success,
         ),
       );
@@ -257,7 +259,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
-      _showError('La déclaration de paiement a échoué. Réessayez.');
+      _showError(L10n.c('trk.payDeclareFailed'));
     }
   }
 
@@ -269,19 +271,19 @@ class _TrackingScreenState extends State<TrackingScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          'Annuler la commande ?',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          L10n.c('trk.cancelTitle'),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
-        content: const Text('La pharmacie sera prévenue et la commande ne sera pas préparée.'),
+        content: Text(L10n.c('trk.cancelBody')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Non, garder'),
+            child: Text(L10n.c('trk.cancelKeep')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Annuler la commande'),
+            child: Text(L10n.c('trk.cancelConfirm')),
           ),
         ],
       ),
@@ -295,7 +297,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Commande annulée')),
+        SnackBar(content: Text(L10n.c('trk.cancelled'))),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -304,7 +306,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
-      _showError('L\'annulation a échoué. Réessayez.');
+      _showError(L10n.c('trk.cancelFailed'));
     }
   }
 
@@ -322,25 +324,25 @@ class _TrackingScreenState extends State<TrackingScreen> {
     return [
       _TrackingItem(
         icon: Icons.receipt,
-        status: 'Commande reçue',
+        status: L10n.c('trk.step.received'),
         time: _hour(createdAt),
         active: createdAt != null,
       ),
       _TrackingItem(
         icon: Icons.local_pharmacy,
-        status: 'Préparation en pharmacie',
+        status: L10n.c('trk.step.preparing'),
         time: _hour(acceptedAt),
         active: acceptedAt != null,
       ),
       _TrackingItem(
         icon: pickup ? Icons.storefront : Icons.two_wheeler,
-        status: pickup ? 'Prête à retirer' : 'En cours de livraison',
+        status: pickup ? L10n.c('trk.step.readyPickup') : L10n.c('trk.step.delivering'),
         time: _hour(readyAt),
         active: readyAt != null || enRoute,
       ),
       _TrackingItem(
         icon: Icons.home,
-        status: pickup ? 'Retirée' : 'Livrée',
+        status: pickup ? L10n.c('trk.step.pickedUp') : L10n.c('trk.step.delivered'),
         time: _hour(deliveredAt),
         active: deliveredAt != null,
       ),
@@ -349,6 +351,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     final reservation = _reservation;
     final raw = _raw ?? const <String, dynamic>{};
     final canPop = Navigator.of(context).canPop();
@@ -380,10 +383,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
                           icon: const Icon(Icons.arrow_back),
                         ),
                       const NotificationBell(),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Suivi de livraison',
-                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                          L10n.t(context, 'trk.title'),
+                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -391,8 +394,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   const SizedBox(height: 6),
                   Text(
                     reservation == null
-                        ? 'Vos commandes en cours'
-                        : 'Commande n° ${reservation.id.split('-').first.toUpperCase()}',
+                        ? L10n.t(context, 'trk.ongoing')
+                        : L10n.tArgs(
+                            context,
+                            'trk.orderNo',
+                            {'num': reservation.id.split('-').first.toUpperCase()},
+                          ),
                     style: TextStyle(color: AppColors.textMuted),
                   ),
                   const SizedBox(height: 28),
@@ -405,14 +412,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     _Message(
                       icon: Icons.wifi_off,
                       text: _error!,
-                      actionLabel: 'Réessayer',
+                      actionLabel: L10n.t(context, 'common.retry'),
                       onTap: _load,
                     )
                   else if (_empty || reservation == null)
                     _Message(
                       icon: Icons.local_shipping_outlined,
-                      text: 'Aucune commande à suivre pour l\'instant.',
-                      actionLabel: 'Scanner une ordonnance',
+                      text: L10n.t(context, 'trk.empty'),
+                      actionLabel: L10n.t(context, 'trk.scanAction'),
                       onTap: () => context.push('/scan'),
                     )
                   else ...[
@@ -445,19 +452,23 @@ class _TrackingScreenState extends State<TrackingScreen> {
                       _Notice(
                         icon: Icons.hourglass_bottom,
                         color: AppColors.warning,
-                        title: 'Paiement déclaré',
-                        message: 'Votre paiement '
-                            '${_methodLabels[raw['payment_method'] as String?] ?? 'mobile money'} '
-                            'a bien été enregistré. La pharmacie doit maintenant confirmer '
-                            'qu\'elle l\'a reçu avant de préparer la commande.',
+                        title: L10n.t(context, 'trk.payDeclaredTitle'),
+                        message: L10n.tArgs(
+                          context,
+                          'trk.payRegistered',
+                          {
+                            'method': _methodLabels[raw['payment_method'] as String?] ??
+                                'mobile money',
+                          },
+                        ),
                       ),
                     ] else if (paymentStatus == 'failed' && active) ...[
                       const SizedBox(height: 20),
-                      const _Notice(
+                      _Notice(
                         icon: Icons.error_outline,
                         color: Colors.redAccent,
-                        title: 'Paiement refusé',
-                        message: 'La pharmacie n\'a pas retrouvé votre paiement. Contactez-la pour régulariser.',
+                        title: L10n.t(context, 'st.pay.failed'),
+                        message: L10n.t(context, 'trk.payRefusedMsg'),
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -485,7 +496,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => context.push('/reservations'),
                         icon: const Icon(Icons.list_alt, size: 18),
-                        label: const Text('Toutes mes commandes'),
+                        label: Text(L10n.t(context, 'trk.allOrders')),
                       ),
                     ),
                     if (canCancel) ...[
@@ -496,9 +507,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _busy ? null : _cancel,
                           icon: const Icon(Icons.close, size: 18, color: Colors.redAccent),
-                          label: const Text(
-                            'Annuler la commande',
-                            style: TextStyle(color: Colors.redAccent),
+                          label: Text(
+                            L10n.t(context, 'trk.cancelConfirm'),
+                            style: const TextStyle(color: Colors.redAccent),
                           ),
                         ),
                       ),
@@ -654,7 +665,9 @@ class _DetailCard extends StatelessWidget {
           Divider(color: AppColors.border, height: 1),
           const SizedBox(height: 16),
           _Line(
-            label: reservation.isPickup ? 'Retrait en pharmacie' : 'Livraison à domicile',
+            label: reservation.isPickup
+                ? L10n.t(context, 'trk.pickup')
+                : L10n.t(context, 'trk.delivery'),
             value: reservation.totalPrice == null ? '—' : _frAmount(reservation.totalPrice!),
             highlight: true,
           ),
@@ -663,14 +676,18 @@ class _DetailCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Médicaments ${_frAmount(itemsTotal)} + livraison ${_frAmount(deliveryFee)}',
+                L10n.tArgs(
+                  context,
+                  'trk.itemsPlusFee',
+                  {'items': _frAmount(itemsTotal), 'fee': _frAmount(deliveryFee)},
+                ),
                 style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
             ),
           const SizedBox(height: 10),
           _Line(
-            label: 'Paiement',
-            value: _paymentLabels[reservation.paymentStatus] ?? reservation.paymentStatus,
+            label: L10n.t(context, 'common.payment'),
+            value: _payLabel(reservation.paymentStatus),
           ),
           if (reservation.pickupCode != null && reservation.pickupCode!.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -687,7 +704,7 @@ class _DetailCard extends StatelessWidget {
                   Icon(Icons.qr_code_2, size: 20, color: AppColors.accent),
                   const SizedBox(width: 12),
                   Text(
-                    'Code de retrait',
+                    L10n.t(context, 'trk.pickupCode'),
                     style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
                   const Spacer(),
@@ -723,11 +740,11 @@ class _DetailCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        courier!['full_name'] as String? ?? 'Livreur',
+                        courier!['full_name'] as String? ?? L10n.t(context, 'role.courier'),
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                       Text(
-                        (courier!['phone'] as String?) ?? 'Votre livreur est en route',
+                        (courier!['phone'] as String?) ?? L10n.t(context, 'trk.courierEnRoute'),
                         style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                       ),
                     ],
@@ -761,15 +778,16 @@ class _FulfillmentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Comment récupérer vos médicaments ?',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          Text(
+            L10n.t(context, 'trk.howToGet'),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 14),
           _Option(
             icon: Icons.two_wheeler,
-            title: 'Livraison à domicile',
-            subtitle: '+ ${_frAmount(AppConfig.deliveryFee)} de frais',
+            title: L10n.t(context, 'trk.delivery'),
+            subtitle:
+                L10n.tArgs(context, 'trk.deliveryFee', {'fee': _frAmount(AppConfig.deliveryFee)}),
             selected: method == 'delivery',
             // Le bouton n'est pas bloque pendant l'appel : la selection est
             // deja affichee, et la commande de l'utilisateur prime sur la
@@ -779,8 +797,8 @@ class _FulfillmentCard extends StatelessWidget {
           const SizedBox(height: 10),
           _Option(
             icon: Icons.storefront,
-            title: 'Je récupère en pharmacie',
-            subtitle: 'Sans frais de livraison',
+            title: L10n.t(context, 'trk.pickupTitle'),
+            subtitle: L10n.t(context, 'trk.noFee'),
             selected: method == 'pickup',
             onTap: () => onChanged('pickup'),
           ),
@@ -882,29 +900,33 @@ class _PaymentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Récapitulatif',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          Text(
+            L10n.t(context, 'trk.summary'),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 14),
-          _Line(label: 'Médicaments', value: _frAmount(itemsTotal)),
+          _Line(label: L10n.t(context, 'trk.medicines'), value: _frAmount(itemsTotal)),
           const SizedBox(height: 8),
           _Line(
-            label: 'Livraison',
-            value: deliveryFee > 0 ? _frAmount(deliveryFee) : 'Offerte (retrait)',
+            label: L10n.t(context, 'trk.deliveryLabel'),
+            value: deliveryFee > 0 ? _frAmount(deliveryFee) : L10n.t(context, 'trk.freePickup'),
           ),
           const SizedBox(height: 12),
           Divider(color: AppColors.border, height: 1),
           const SizedBox(height: 12),
-          _Line(label: 'Total à payer', value: _frAmount(total), highlight: true),
+          _Line(
+            label: L10n.t(context, 'trk.totalToPay'),
+            value: _frAmount(total),
+            highlight: true,
+          ),
           const SizedBox(height: 20),
-          const Text(
-            'Paiement mobile money',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          Text(
+            L10n.t(context, 'trk.mobileMoney'),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
           Text(
-            'La pharmacie ne prépare la commande qu\'une fois le paiement déclaré.',
+            L10n.t(context, 'trk.payFirst'),
             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
           const SizedBox(height: 14),
@@ -942,7 +964,7 @@ class _PaymentCard extends StatelessWidget {
                   Icon(Icons.smartphone, size: 18, color: AppColors.accent),
                   const SizedBox(width: 12),
                   Text(
-                    'Numéro marchand',
+                    L10n.t(context, 'trk.merchantNumber'),
                     style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
                   const Spacer(),
@@ -967,7 +989,7 @@ class _PaymentCard extends StatelessWidget {
             keyboardType: TextInputType.phone,
             enabled: !busy,
             decoration: InputDecoration(
-              hintText: 'Votre numéro de téléphone',
+              hintText: L10n.t(context, 'trk.yourPhone'),
               prefixIcon: Icon(Icons.call, size: 18, color: AppColors.textMuted),
             ),
           ),
@@ -977,7 +999,7 @@ class _PaymentCard extends StatelessWidget {
             textCapitalization: TextCapitalization.characters,
             enabled: !busy,
             decoration: InputDecoration(
-              hintText: 'Référence de la transaction',
+              hintText: L10n.t(context, 'trk.transactionRef'),
               prefixIcon: Icon(Icons.confirmation_number_outlined, size: 18, color: AppColors.textMuted),
             ),
           ),
@@ -995,7 +1017,9 @@ class _PaymentCard extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.lock_outline, size: 18, color: Colors.white),
-              label: Text('Payer · ${_frAmount(total)}'),
+              label: Text(
+                L10n.tArgs(context, 'trk.payWith', {'amount': _frAmount(total)}),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,

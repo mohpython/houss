@@ -8,6 +8,7 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/features/spaces/space_widgets.dart';
 
 /// Espace Administration : vue d'ensemble, validations et comptes.
@@ -78,7 +79,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger les données d’administration.';
+        _error = L10n.c('adm.loadFailed');
         _loading = false;
       });
     }
@@ -101,7 +102,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     } catch (_) {
-      if (mounted) showSnack(context, 'Action impossible pour le moment.', error: true);
+      if (mounted) showSnack(context, L10n.c('adm.actionFailed'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -129,7 +130,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           _lng = pos.longitude;
         }
         if (mounted && pos == null) {
-          showSnack(context, 'Position indisponible — Bamako conservée.', error: true);
+          showSnack(context, L10n.c('adm.gpsUnavailable'), error: true);
         }
       }
       final nearbyF = ApiService.instance.adminPharmaciesNearby(
@@ -167,7 +168,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
         _searchingNearby = false;
         _locating = false;
       });
-      showSnack(context, 'Recherche des pharmacies alentour impossible.', error: true);
+      showSnack(context, L10n.c('adm.searchFailed'), error: true);
     }
   }
 
@@ -186,7 +187,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: InfoWindow(
             title: '${p['name']}',
-            snippet: st == 'approved' ? 'Partenaire' : (statusLabels[st] ?? st ?? ''),
+            snippet: st == 'approved' ? L10n.c('adm.partner') : reviewLabel(st ?? ''),
           ),
         ),
       );
@@ -204,7 +205,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
           infoWindow: InfoWindow(
             title: '${pl['name']}',
-            snippet: 'À ajouter comme partenaire',
+            snippet: L10n.c('adm.toAdd'),
           ),
         ),
       );
@@ -230,7 +231,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     final lat = (pl['lat'] as num?)?.toDouble();
     final lng = (pl['lng'] as num?)?.toDouble();
     if (lat == null || lng == null) {
-      showSnack(context, 'Emplacement inconnu pour cette pharmacie.', error: true);
+      showSnack(context, L10n.c('adm.unknownLocation'), error: true);
       return;
     }
     setState(() => _busy = true);
@@ -248,8 +249,8 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
       showSnack(
         context,
         res['created'] == true
-            ? '« ${pl['name']} » ajoutée comme partenaire.'
-            : '« ${pl['name']} » est déjà enregistrée.',
+            ? L10n.tArgs(context, 'adm.addedPartner', {'name': '${pl['name']}'})
+            : L10n.tArgs(context, 'adm.alreadyPartner', {'name': '${pl['name']}'}),
       );
       final acc = res['account'] as Map<String, dynamic>?;
       if (acc != null && mounted) _showPharmacyAccount(acc);
@@ -258,7 +259,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     } catch (_) {
-      if (mounted) showSnack(context, 'Ajout impossible pour le moment.', error: true);
+      if (mounted) showSnack(context, L10n.c('adm.addFailed'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -281,7 +282,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             children: [
               Expanded(
                 child: StatCard(
-                  label: 'Pharmacies',
+                  label: L10n.c('adm.pharmacies'),
                   value: '${_counts['pharmacies'] ?? 0}',
                   color: AppColors.accentLight,
                   icon: Icons.local_pharmacy_outlined,
@@ -290,7 +291,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: StatCard(
-                  label: 'Livreurs',
+                  label: L10n.c('adm.couriers'),
                   value: '${_counts['couriers'] ?? 0}',
                   icon: Icons.delivery_dining,
                 ),
@@ -298,7 +299,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: StatCard(
-                  label: 'Actives',
+                  label: L10n.c('adm.active'),
                   value: '${_counts['active'] ?? 0}',
                   color: AppColors.warning,
                   icon: Icons.receipt_long,
@@ -307,7 +308,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: StatCard(
-                  label: 'Livrées',
+                  label: L10n.c('adm.deliveredCount'),
                   value: '${_counts['delivered'] ?? 0}',
                   color: AppColors.success,
                   icon: Icons.check_circle_outline,
@@ -320,7 +321,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             children: [
               Expanded(
                 child: StatCard(
-                  label: 'Patients',
+                  label: L10n.c('adm.patients'),
                   value: '${_counts['patients'] ?? 0}',
                   icon: Icons.group_outlined,
                 ),
@@ -328,7 +329,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: StatCard(
-                  label: 'Praticiens',
+                  label: L10n.c('adm.practitioners'),
                   value: '${_counts['practitioners'] ?? 0}',
                   color: AppColors.success,
                   icon: Icons.medical_services_outlined,
@@ -337,7 +338,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: StatCard(
-                  label: 'RDV en attente',
+                  label: L10n.c('adm.pendingAppts'),
                   value: '${_counts['appointments_pending'] ?? 0}',
                   color: AppColors.warning,
                   icon: Icons.event_outlined,
@@ -346,7 +347,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: StatCard(
-                  label: 'Comptes',
+                  label: L10n.c('adm.accounts'),
                   value: '${_counts['users'] ?? 0}',
                   color: AppColors.accentLight,
                   icon: Icons.badge_outlined,
@@ -357,7 +358,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           const SizedBox(height: 16),
           _ReviewEntryCard(),
           const SizedBox(height: 16),
-          sectionTitle('Dernières pharmacies'),
+          sectionTitle(L10n.c('adm.latestPharmacies')),
           const SizedBox(height: 8),
           ..._pharmacies.take(6).map(_pharmacyCard),
         ],
@@ -387,7 +388,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
                   style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
                 ),
               ),
-              statusChip(statusLabels[status] ?? status, statusColor(status)),
+              statusChip(reviewLabel(status), statusColor(status)),
             ],
           ),
           const SizedBox(height: 4),
@@ -410,7 +411,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             Padding(
               padding: EdgeInsets.only(top: 3),
               child: Text(
-                '⚠ Emplacement manquant — à localiser sur la carte',
+                L10n.c('adm.missingLocation'),
                 style: TextStyle(fontSize: 11, color: AppColors.warning),
               ),
             ),
@@ -420,7 +421,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               spacing: 8,
               children: [
                 actionButton(
-                  'Approuver',
+                  L10n.c('adm.approve'),
                   _busy
                       ? null
                       : () => _act(() async {
@@ -434,7 +435,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
                   dense: true,
                 ),
                 actionButton(
-                  'Rejeter',
+                  L10n.c('adm.reject'),
                   _busy
                       ? null
                       : () => _act(() => ApiService.instance
@@ -448,7 +449,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           if (status == 'approved' && p['has_account'] != true) ...[
             const SizedBox(height: 10),
             actionButton(
-              'Créer le compte pharmacie',
+              L10n.c('adm.createAccount'),
               _busy
                   ? null
                   : () => _act(() async {
@@ -481,7 +482,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     final id = p['id'] as String;
     final email = _emailCtrl(id).text.trim();
     if (email.isEmpty) {
-      showSnack(context, 'Saisissez l’email du gérant à attribuer.', error: true);
+      showSnack(context, L10n.c('adm.enterManagerEmail'), error: true);
       return;
     }
     await _act(() async {
@@ -490,8 +491,8 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
       showSnack(
         context,
         status == 'invited'
-            ? 'Aucun compte pour cet email — pharmacie réservée jusqu’à la création de son compte.'
-            : 'Gérant attribué : ce compte a maintenant accès à l’espace pharmacie.',
+            ? L10n.c('adm.noAccountForEmail')
+            : L10n.c('adm.ownerAssigned'),
       );
     });
     _emailCtrl(id).clear();
@@ -503,20 +504,20 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Retirer le gérant ?'),
+        title: Text(L10n.c('adm.removeManagerTitle')),
         content: Text(
           (email != null && email.isNotEmpty)
-              ? '« $email » perdra l’accès à cette pharmacie.'
-              : 'Ce compte perdra l’accès à cette pharmacie.',
+              ? L10n.tArgs(context, 'adm.loseAccessEmail', {'email': email})
+              : L10n.c('adm.loseAccess'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Annuler'),
+            child: Text(L10n.c('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Retirer'),
+            child: Text(L10n.c('adm.remove')),
           ),
         ],
       ),
@@ -524,7 +525,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     if (confirmed != true || !mounted) return;
     await _act(() async {
       await ApiService.instance.adminRemoveOwner(id);
-      if (mounted) showSnack(context, 'Gérant retiré.');
+      if (mounted) showSnack(context, L10n.c('adm.managerRemoved'));
     });
   }
 
@@ -546,7 +547,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'Gérant : $ownerEmail',
+                  L10n.tArgs(context, 'adm.managerLine', {'email': ownerEmail}),
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.success,
@@ -558,7 +559,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           ),
           const SizedBox(height: 6),
           actionButton(
-            'Retirer le gérant',
+            L10n.c('adm.removeManager'),
             _busy ? null : () => _removeOwner(p, ownerEmail),
             color: Colors.red.shade700,
             dense: true,
@@ -577,7 +578,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'Réservée — en attente du compte : $claimEmail',
+                  L10n.tArgs(context, 'adm.reservedFor', {'email': claimEmail}),
                   style: TextStyle(fontSize: 12, color: AppColors.warning),
                 ),
               ),
@@ -585,7 +586,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           ),
           const SizedBox(height: 6),
           actionButton(
-            'Annuler la réservation',
+            L10n.c('adm.cancelReservation'),
             _busy ? null : () => _removeOwner(p, claimEmail),
             color: Colors.red.shade700,
             dense: true,
@@ -603,7 +604,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             autocorrect: false,
             decoration: InputDecoration(
               isDense: true,
-              hintText: 'Email du gérant',
+              hintText: L10n.c('adm.managerEmailHint'),
               prefixIcon: Icon(Icons.alternate_email, size: 18, color: AppColors.textMuted),
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(vertical: 12),
@@ -613,7 +614,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
         ),
         const SizedBox(width: 8),
         actionButton(
-          'Attribuer',
+          L10n.c('adm.assign'),
           _busy ? null : () => _assignOwner(p),
           icon: Icons.person_add_alt_1,
           dense: true,
@@ -630,20 +631,20 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(password != null ? 'Compte pharmacie créé' : 'Compte rattaché'),
+        title: Text(password != null ? L10n.c('adm.accountCreated') : L10n.c('adm.accountLinked')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               password != null
-                  ? 'Transmettez ces identifiants à la pharmacie :'
-                  : 'Ce compte existait déjà et vient d’être rattaché :',
+                  ? L10n.c('adm.sendCredentials')
+                  : L10n.c('adm.accountExisted'),
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 10),
             Text(
-              'Identifiant',
+              L10n.c('adm.identifier'),
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
             SelectableText(
@@ -657,7 +658,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             if (password != null) ...[
               const SizedBox(height: 8),
               Text(
-                'Mot de passe',
+                L10n.c('adm.password'),
                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
               SelectableText(
@@ -671,7 +672,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             ],
             const SizedBox(height: 10),
             Text(
-              'La pharmacie se connectera avec ces identifiants (espace Pharmacien).',
+              L10n.c('adm.loginHint'),
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
           ],
@@ -679,7 +680,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('J’ai noté'),
+            child: Text(L10n.c('adm.gotIt')),
           ),
         ],
       ),
@@ -708,9 +709,9 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               ),
               if (partner)
                 status == 'approved'
-                    ? statusChip('Partenaire', AppColors.success, icon: Icons.verified)
+                    ? statusChip(L10n.c('adm.partner'), AppColors.success, icon: Icons.verified)
                     : statusChip(
-                        statusLabels[status] ?? status ?? 'Enregistrée',
+                        status != null ? reviewLabel(status) : L10n.c('adm.registered'),
                         statusColor(status),
                       )
               else
@@ -737,12 +738,12 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               const Spacer(),
               if (partner)
                 Text(
-                  'Déjà enregistrée',
+                  L10n.c('adm.alreadyRegistered'),
                   style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                 )
               else
                 actionButton(
-                  'Ajouter partenaire',
+                  L10n.c('adm.addPartner'),
                   _busy ? null : () => _addPartner(pl),
                   icon: Icons.add_business_outlined,
                   dense: true,
@@ -759,7 +760,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
       children: [
         Flexible(
           child: actionButton(
-            _locating ? 'Localisation…' : 'Autour de moi',
+            _locating ? L10n.c('adm.locating') : L10n.c('adm.aroundMe'),
             (_searchingNearby || _locating) ? null : () => _searchNearby(gps: true),
             icon: Icons.my_location,
             dense: true,
@@ -798,7 +799,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
         ),
         const Spacer(),
         actionButton(
-          'Actualiser',
+          L10n.c('adm.refresh'),
           _searchingNearby ? null : () => _searchNearby(),
           icon: Icons.refresh,
           dense: true,
@@ -837,18 +838,26 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             const LinearProgressIndicator(),
           ],
           const SizedBox(height: 14),
-          sectionTitle('Partenaires à proximité (${_nearby.length})'),
+          sectionTitle(
+            L10n.tArgs(context, 'adm.nearbyPartners', {'count': '${_nearby.length}'}),
+          ),
           const SizedBox(height: 8),
           ..._nearby.map(_pharmacyCard),
           if (candidates.isNotEmpty) ...[
             const SizedBox(height: 8),
-            sectionTitle('Autres pharmacies autour — Google Maps (${candidates.length})'),
+            sectionTitle(
+              L10n.tArgs(context, 'adm.otherNearby', {'count': '${candidates.length}'}),
+            ),
             const SizedBox(height: 8),
             ...candidates.map(_placeCard),
           ],
           if (!_searchingNearby && _nearbyLoaded && _nearby.isEmpty && candidates.isEmpty)
             emptyView(
-              'Aucune pharmacie dans un rayon de ${_radiusKm.toStringAsFixed(0)} km. Élargissez le rayon.',
+              L10n.tArgs(
+                context,
+                'adm.noPharmacyInRadius',
+                {'radius': _radiusKm.toStringAsFixed(0)},
+              ),
             ),
           const SizedBox(height: 24),
         ],
@@ -878,7 +887,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
                   style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
                 ),
               ),
-              statusChip(statusLabels[status] ?? status, statusColor(status)),
+              statusChip(reviewLabel(status), statusColor(status)),
             ],
           ),
           const SizedBox(height: 4),
@@ -888,7 +897,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
                 Icon(Icons.circle, size: 8, color: AppColors.success),
                 const SizedBox(width: 4),
                 Text(
-                  'En ligne',
+                  L10n.c('adm.online'),
                   style: TextStyle(fontSize: 12, color: AppColors.success),
                 ),
                 const SizedBox(width: 10),
@@ -916,7 +925,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               spacing: 8,
               children: [
                 actionButton(
-                  'Approuver',
+                  L10n.c('adm.approve'),
                   _busy
                       ? null
                       : () => _act(() => ApiService.instance
@@ -926,7 +935,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
                   dense: true,
                 ),
                 actionButton(
-                  'Rejeter',
+                  L10n.c('adm.reject'),
                   _busy
                       ? null
                       : () => _act(() => ApiService.instance
@@ -943,7 +952,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
   }
 
   Widget _couriersView() {
-    if (_couriers.isEmpty) return emptyView('Aucun livreur inscrit.');
+    if (_couriers.isEmpty) return emptyView(L10n.c('adm.noCouriers'));
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -997,7 +1006,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           ),
           if (lastLogin != null)
             Text(
-              'Dernière connexion : ${frDateTime(lastLogin)}',
+              L10n.tArgs(context, 'adm.lastLogin', {'date': frDateTime(lastLogin)}),
               style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
         ],
@@ -1006,7 +1015,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
   }
 
   Widget _usersView() {
-    if (_users.isEmpty) return emptyView('Aucun compte.');
+    if (_users.isEmpty) return emptyView(L10n.c('adm.noAccounts'));
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -1018,6 +1027,7 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     final body = _loading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
@@ -1043,12 +1053,17 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 spaceHeader(
-                  'Espace Administration',
-                  subtitle: 'Pilotage de la plateforme SAHA Santé',
+                  L10n.t(context, 'adm.title'),
+                  subtitle: L10n.t(context, 'adm.subtitle'),
                 ),
                 const SizedBox(height: 14),
                 segmentedTabs(
-                  labels: const ['Vue', 'Pharmacies', 'Livreurs', 'Comptes'],
+                  labels: [
+                    L10n.t(context, 'adm.tabOverview'),
+                    L10n.t(context, 'adm.pharmacies'),
+                    L10n.t(context, 'adm.couriers'),
+                    L10n.t(context, 'adm.accounts'),
+                  ],
                   icons: const [
                     Icons.dashboard_outlined,
                     Icons.local_pharmacy_outlined,
@@ -1106,18 +1121,18 @@ class _ReviewEntryCard extends StatelessWidget {
                 child: Icon(Icons.verified_user_outlined, color: AppColors.warning),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ordonnances à vérifier',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      L10n.t(context, 'rev.title'),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Documents signalés par l\'IA : valider, refuser ou corriger.',
-                      style: TextStyle(fontSize: 12),
+                      L10n.t(context, 'rev.entrySubtitle'),
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),

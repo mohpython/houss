@@ -6,26 +6,16 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
-
-/// Date et heure au format français, sans dépendre des données de locale d'intl.
-String _frDateTime(DateTime date) {
-  const months = [
-    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
-    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
-  ];
-  final heure = date.hour.toString().padLeft(2, '0');
-  final minute = date.minute.toString().padLeft(2, '0');
-  return '${date.day} ${months[date.month - 1]} ${date.year} à $heure:$minute';
-}
+import 'package:saha_sante/core/l10n/app_locale.dart';
 
 /// Rappelle l'étape de paiement : sans elle, la pharmacie ne voit pas
 /// encore la commande.
 String? _paymentHint(Reservation item) {
   if (item.status == ReservationStatus.cancelled) return null;
   return switch (item.paymentStatus) {
-    'unpaid' => 'À régler',
-    'pending_verification' => 'Paiement à confirmer',
-    'failed' => 'Paiement refusé',
+    'unpaid' => L10n.c('res.toPay'),
+    'pending_verification' => L10n.c('st.pay.pending_verification'),
+    'failed' => L10n.c('st.pay.failed'),
     _ => null,
   };
 }
@@ -77,7 +67,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger vos commandes.';
+        _error = L10n.c('res.loadFailed');
         _loading = false;
       });
     }
@@ -85,6 +75,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     return Scaffold(
       body: Container(
         decoration: AppTheme.subtleGradient,
@@ -103,15 +94,15 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                     ),
                     const NotificationBell(),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Mes réservations',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    Text(
+                      L10n.t(context, 'res.title'),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Commandes en cours et livrées chez les pharmacies.',
+                  L10n.t(context, 'res.subtitle'),
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 24),
@@ -129,7 +120,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                               : (_items?.isEmpty ?? true)
                                   ? _Message(
                                       icon: Icons.local_pharmacy,
-                                      text: 'Aucune réservation pour l\'instant',
+                                      text: L10n.c('res.empty'),
                                       onTap: _load,
                                     )
                                   : ListView.separated(
@@ -191,7 +182,7 @@ class _Message extends StatelessWidget {
                     TextButton.icon(
                       onPressed: onTap,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Recharger'),
+                      label: Text(L10n.c('common.reload')),
                     ),
                   ],
                 ),
@@ -212,7 +203,7 @@ class _ReservationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = _frDateTime(item.createdAt);
+    final date = L10n.dateTime(item.createdAt);
     return GestureDetector(
       onTap: onTap,
       child: Container(

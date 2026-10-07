@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:saha_sante/core/api/api_client.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/models/pharmacy.dart';
 import 'package:saha_sante/core/models/practitioner.dart';
 import 'package:saha_sante/core/models/prescription.dart';
@@ -39,7 +40,7 @@ class RoutingResult {
 
   factory RoutingResult.fromJson(Map<String, dynamic> json) => RoutingResult(
         reservationId: json['reservationId'] as String,
-        pharmacyName: json['pharmacyName'] as String? ?? 'Pharmacie',
+        pharmacyName: json['pharmacyName'] as String? ?? L10n.c('navPharmacy'),
         matchedCount: (json['matchedCount'] as num?)?.toInt() ?? 0,
         missingCount: (json['missingCount'] as num?)?.toInt() ?? 0,
         totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 0,

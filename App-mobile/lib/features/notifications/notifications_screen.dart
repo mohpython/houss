@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/api/api_client.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
@@ -90,7 +91,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       setState(() => _error = e.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Impossible de charger les notifications.');
+      setState(() => _error = L10n.c('nt.loadFailed'));
     }
   }
 
@@ -137,7 +138,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     } catch (_) {
-      if (mounted) showSnack(context, 'Action impossible pour le moment.', error: true);
+      if (mounted) showSnack(context, L10n.c('adm.actionFailed'), error: true);
     } finally {
       if (mounted) setState(() => _markingAll = false);
     }
@@ -149,7 +150,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final rawBody = (n['body'] as String?)?.trim() ?? '';
     // Une notification enregistrée sans texte ne doit jamais produire une bulle
     // vide : on retombe sur l'expéditeur, comme le serveur le fait désormais.
-    final title = rawTitle.isEmpty ? 'SAHA Santé' : rawTitle;
+    final title = rawTitle.isEmpty ? L10n.c('brand') : rawTitle;
     final body = rawBody;
     final unread = n['read_at'] == null;
     final created = parseDate(n['created_at']);
@@ -204,9 +205,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 color: AppColors.primaryLight,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Text(
-                                'Nouveau',
-                                style: TextStyle(
+                              child: Text(
+                                L10n.t(context, 'nt.unread'),
+                                style: const TextStyle(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
@@ -264,8 +265,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             SizedBox(
               height: 380,
               child: emptyView(
-                'Aucune notification pour le moment.\n\n'
-                'Les nouvelles commandes, validations et messages apparaîtront ici.',
+                L10n.c('nt.empty'),
               ),
             ),
           ],
@@ -285,8 +285,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 unread == 0
-                    ? 'Tout est à jour.'
-                    : '$unread non lue${unread > 1 ? 's' : ''}',
+                    ? L10n.c('nt.allUpToDate')
+                    : L10n.tArgs(
+                        context,
+                        unread > 1 ? 'nt.unreadMany' : 'nt.unreadOne',
+                        {'count': '$unread'},
+                      ),
                 style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
             );
@@ -299,6 +303,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: Container(
@@ -327,11 +332,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'SAHA Santé',
+                            L10n.t(context, 'brand'),
                             style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            'Notifications',
+                            L10n.t(context, 'notifications'),
                             style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
                           ),
                         ],
@@ -345,7 +350,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               width: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Tout lire'),
+                          : Text(L10n.t(context, 'nt.markAll')),
                     ),
                   ],
                 ),

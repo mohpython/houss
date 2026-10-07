@@ -4,6 +4,7 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/features/spaces/space_widgets.dart';
 
 /// Espace Livreur : livraisons assignées, mise en ligne et position GPS.
@@ -52,7 +53,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger vos livraisons.';
+        _error = L10n.c('cr.loadFailed');
         _loading = false;
       });
     }
@@ -80,7 +81,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     } catch (_) {
-      if (mounted) showSnack(context, 'Action impossible pour le moment.', error: true);
+      if (mounted) showSnack(context, L10n.c('adm.actionFailed'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -104,7 +105,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     } catch (_) {
-      if (mounted) showSnack(context, 'Action impossible pour le moment.', error: true);
+      if (mounted) showSnack(context, L10n.c('adm.actionFailed'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -114,7 +115,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
     final id = d['id'] as String;
     final ds = d['delivery_status'] as String?;
     final ph = (d['pharmacies'] as Map<String, dynamic>?);
-    final address = (d['patient_address'] as String?) ?? 'Adresse à préciser';
+    final address = (d['patient_address'] as String?) ?? L10n.c('cr.addressFallback');
     final when = parseDate(d['assigned_at']) ?? parseDate(d['created_at']);
 
     return SpaceCard(
@@ -129,7 +130,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      (ph?['name'] as String?) ?? 'Livraison',
+                      (ph?['name'] as String?) ?? L10n.c('trk.deliveryLabel'),
                       style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
@@ -140,7 +141,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                   ],
                 ),
               ),
-              statusChip(deliveryLabels[ds] ?? '$ds', statusColor(ds)),
+              statusChip(delLabel('$ds'), statusColor(ds)),
             ],
           ),
           if (ph?['address'] != null) ...[
@@ -178,7 +179,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
             children: [
               if (ds == 'assigned')
                 actionButton(
-                  'J’ai récupéré',
+                  L10n.c('cr.picked'),
                   _busy ? null : () => _act(() => ApiService.instance.courierDeliveryStatus(id, 'picked_up')),
                   color: AppColors.success,
                   icon: Icons.check,
@@ -186,7 +187,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                 ),
               if (ds == 'picked_up')
                 actionButton(
-                  'En route',
+                  L10n.c('cr.onRoute'),
                   _busy ? null : () => _act(() => ApiService.instance.courierDeliveryStatus(id, 'en_route')),
                   color: AppColors.accent,
                   icon: Icons.navigation_outlined,
@@ -194,14 +195,14 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                 ),
               if (ds == 'en_route') ...[
                 actionButton(
-                  'Livrée',
+                  L10n.c('st.delivery.delivered'),
                   _busy ? null : () => _act(() => ApiService.instance.courierDeliveryStatus(id, 'delivered')),
                   color: AppColors.success,
                   icon: Icons.check_circle_outline,
                   dense: true,
                 ),
                 actionButton(
-                  'Échec',
+                  L10n.c('st.delivery.failed'),
                   _busy ? null : () => _act(() => ApiService.instance.courierDeliveryStatus(id, 'failed')),
                   color: Colors.red.shade700,
                   dense: true,
@@ -216,6 +217,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     final online = _courier?['is_online'] == true;
     final status = (_courier?['status'] as String?) ?? '';
 
@@ -230,7 +232,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 spaceHeader(
-                  'Espace Livreur',
+                  L10n.t(context, 'cr.title'),
                   subtitle: _courier == null
                       ? null
                       : '${_courier!['full_name']}',
@@ -240,7 +242,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              online ? 'En ligne' : 'Hors ligne',
+                              online ? L10n.c('adm.online') : L10n.c('cr.offline'),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: online ? AppColors.success : AppColors.textMuted,
@@ -258,7 +260,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: statusChip(
-                      'Profil : ${statusLabels[status] ?? status}',
+                      L10n.tArgs(context, 'cr.profileStatus', {'status': reviewLabel(status)}),
                       statusColor(status),
                       icon: Icons.info_outline,
                     ),
@@ -268,7 +270,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                   children: [
                     Expanded(
                       child: StatCard(
-                        label: 'En cours',
+                        label: L10n.c('cr.inProgress'),
                         value: '${_deliveries.length}',
                         icon: Icons.delivery_dining,
                       ),
@@ -276,7 +278,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: StatCard(
-                        label: 'Livrées',
+                        label: L10n.c('adm.deliveredCount'),
                         value: '$_done',
                         color: AppColors.success,
                         icon: Icons.check_circle_outline,
@@ -295,7 +297,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                             })
                           : _courier == null
                               ? emptyView(
-                                  'Aucun profil livreur actif sur ce compte.\n\nInscrivez-vous comme livreur sur le site web pour recevoir des courses.',
+                                  L10n.c('cr.noProfile'),
                                 )
                               : _deliveries.isEmpty
                                   ? RefreshIndicator(
@@ -306,7 +308,7 @@ class _CourierSpaceScreenState extends State<CourierSpaceScreen> {
                                           SizedBox(
                                             height: 220,
                                             child: emptyView(
-                                              'Aucune livraison en cours.\n\nRestez en ligne : les courses assignées par les pharmacies apparaîtront ici.',
+                                              L10n.c('cr.noDeliveries'),
                                             ),
                                           ),
                                         ],

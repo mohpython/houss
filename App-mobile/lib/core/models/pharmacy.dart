@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 
 class Pharmacy {
   final String id;
@@ -35,9 +36,9 @@ class Pharmacy {
 
   String get distanceLabel => '${distanceKm.toStringAsFixed(1)} km';
   String get statusLabel {
-    if (open24) return 'Ouvert 24h/24';
-    if (isGuard) return 'Garde';
-    return 'Ouvert';
+    if (open24) return L10n.c('phm.open24');
+    if (isGuard) return L10n.c('phm.guard');
+    return L10n.c('phm.open');
   }
 
   Color get statusColor {

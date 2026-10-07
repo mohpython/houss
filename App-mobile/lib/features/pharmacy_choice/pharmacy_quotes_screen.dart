@@ -134,7 +134,9 @@ class _PharmacyQuotesScreenState extends State<PharmacyQuotesScreen> {
       if (!mounted) return;
       setState(() => _creatingId = null);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Commande envoyée à ${routing.pharmacyName}')),
+        SnackBar(
+          content: Text(L10n.tArgs(context, 'otc.orderSent', {'name': routing.pharmacyName})),
+        ),
       );
       context.pushReplacement('/suivi/${routing.reservationId}');
     } on ApiException catch (e) {

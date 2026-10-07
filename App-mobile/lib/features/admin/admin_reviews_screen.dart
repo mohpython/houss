@@ -4,6 +4,7 @@ import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 /// File « Ordonnances à vérifier » (espace admin) : les documents que l'IA a
@@ -79,7 +80,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger la file de vérification.';
+        _error = L10n.c('rev.loadFailed');
         _loading = false;
       });
     }
@@ -92,7 +93,9 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(decision == 'approved' ? 'Ordonnance validée' : 'Ordonnance refusée'),
+          content: Text(
+            decision == 'approved' ? L10n.c('rev.approved') : L10n.c('rev.rejected'),
+          ),
         ),
       );
       await _load();
@@ -101,7 +104,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       _showError(e.message);
     } catch (_) {
       if (!mounted) return;
-      _showError('Action impossible pour le moment.');
+      _showError(L10n.c('adm.actionFailed'));
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -113,7 +116,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       await ApiService.instance.adminRequestRetake(id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Demande de nouvelle photo envoyée')),
+        SnackBar(content: Text(L10n.c('rev.retakeSent'))),
       );
       await _load();
     } on ApiException catch (e) {
@@ -121,7 +124,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       _showError(e.message);
     } catch (_) {
       if (!mounted) return;
-      _showError('Action impossible pour le moment.');
+      _showError(L10n.c('adm.actionFailed'));
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -186,7 +189,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Extraction corrigée et validée')),
+        SnackBar(content: Text(L10n.c('rev.corrected'))),
       );
       _clearEditControllers();
       setState(() => _editingId = null);
@@ -196,7 +199,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       _showError(e.message);
     } catch (_) {
       if (!mounted) return;
-      _showError('Enregistrement impossible pour le moment.');
+      _showError(L10n.c('rev.saveFailed'));
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -213,9 +216,9 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
               child: Image.network(
                 url,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('Image indisponible'),
+                errorBuilder: (_, __, ___) => Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Text(L10n.c('rev.imageUnavailable')),
                 ),
               ),
             ),
@@ -235,6 +238,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     final rows = _rows;
     return Scaffold(
       body: Container(
@@ -254,10 +258,10 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                     ),
                     const NotificationBell(),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Ordonnances à vérifier',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        L10n.t(context, 'rev.title'),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -265,10 +269,14 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                 const SizedBox(height: 8),
                 Text(
                   rows == null
-                      ? 'Documents douteux envoyés par l\'IA.'
+                      ? L10n.t(context, 'rev.subtitle')
                       : rows.isEmpty
-                          ? 'Documents douteux envoyés par l\'IA.'
-                          : '${rows.length} en attente — les cas critiques en premier.',
+                          ? L10n.t(context, 'rev.subtitle')
+                          : L10n.tArgs(
+                              context,
+                              'rev.countPending',
+                              {'count': '${rows.length}'},
+                            ),
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
@@ -279,14 +287,14 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                           ? _StateMessage(
                               icon: Icons.wifi_off,
                               text: _error!,
-                              actionLabel: 'Recharger',
+                              actionLabel: L10n.t(context, 'common.reload'),
                               onAction: _load,
                             )
                           : (rows == null || rows.isEmpty)
                               ? _StateMessage(
                                   icon: Icons.verified_outlined,
-                                  text: 'Aucune ordonnance en attente de vérification.',
-                                  actionLabel: 'Actualiser',
+                                  text: L10n.t(context, 'rev.nonePending'),
+                                  actionLabel: L10n.t(context, 'adm.refresh'),
                                   onAction: _load,
                                 )
                               : RefreshIndicator(
@@ -394,6 +402,15 @@ IconData _severityIcon(String severity) {
   };
 }
 
+String _severityLabel(String severity) {
+  return switch (severity) {
+    'critical' => L10n.c('sev.critical'),
+    'moderate' => L10n.c('sev.moderate'),
+    'minor' => L10n.c('sev.minor'),
+    _ => severity[0].toUpperCase() + severity.substring(1),
+  };
+}
+
 class _ReviewCard extends StatelessWidget {
   final Map<String, dynamic> row;
   final bool busy;
@@ -448,7 +465,8 @@ class _ReviewCard extends StatelessWidget {
         '';
     final doctor = (row['doctor'] as String?)?.trim() ?? '';
     final hospital = (row['hospital'] as String?)?.trim() ?? '';
-    final date = (row['date'] as String?) ?? (row['dateRaw'] as String?) ?? 'illisible';
+    final date =
+        (row['date'] as String?) ?? (row['dateRaw'] as String?) ?? L10n.c('rev.unreadable');
     final dateStatus = details['dateStatus'] as String?;
 
     return Container(
@@ -491,21 +509,29 @@ class _ReviewCard extends StatelessWidget {
                       children: [
                         _Chip(
                           icon: _severityIcon(severity),
-                          label: severity[0].toUpperCase() + severity.substring(1),
+                          label: _severityLabel(severity),
                           color: sevColor,
                         ),
                         if (confidence != null)
-                          _Chip(label: 'IA $confidence%', color: AppColors.textMuted),
+                          _Chip(
+                            label: L10n.tArgs(context, 'rev.aiScore', {'value': '$confidence'}),
+                            color: AppColors.textMuted,
+                          ),
                         if (authenticity != null)
                           _Chip(
-                            label: 'Authenticité $authenticity%',
+                            label:
+                                L10n.tArgs(context, 'rev.authenticity', {'value': '$authenticity'}),
                             color: AppColors.textMuted,
                           ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Patient : ${patient?.isNotEmpty == true ? patient : '—'}',
+                      L10n.tArgs(
+                        context,
+                        'rev.patient',
+                        {'name': '${patient?.isNotEmpty == true ? patient : '—'}'},
+                      ),
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                     if (contact.isNotEmpty)
@@ -515,10 +541,16 @@ class _ReviewCard extends StatelessWidget {
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      'Médecin : ${doctor.isNotEmpty ? doctor : '—'}'
-                      '${hospital.isNotEmpty ? ' ($hospital)' : ''}'
-                      ' · Date : $date'
-                      '${dateStatus != null ? ' · $dateStatus' : ''}',
+                      L10n.tArgs(
+                            context,
+                            'rev.doctorLine',
+                            {
+                              'doctor': doctor.isNotEmpty ? doctor : '—',
+                              'hospital': hospital.isNotEmpty ? ' ($hospital)' : '',
+                              'date': date,
+                            },
+                          ) +
+                          (dateStatus != null ? ' · $dateStatus' : ''),
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
@@ -551,17 +583,17 @@ class _ReviewCard extends StatelessWidget {
                   for (final z in unreadable)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 2),
-                      child: Text('Zone illisible : $z',
+                      child: Text(L10n.tArgs(context, 'rev.unreadableZone', {'value': z}),
                           style: const TextStyle(fontSize: 12)),
                     ),
                   for (final c in inconsistencies)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 2),
-                      child: Text('Incohérence : $c',
+                      child: Text(L10n.tArgs(context, 'rev.inconsistency', {'value': c}),
                           style: const TextStyle(fontSize: 12)),
                     ),
                   if (qualityNotes != null)
-                    Text('Qualité image : $qualityNotes',
+                    Text(L10n.tArgs(context, 'rev.imageQuality', {'value': qualityNotes}),
                         style: const TextStyle(fontSize: 12)),
                 ],
               ),
@@ -581,7 +613,7 @@ class _ReviewCard extends StatelessWidget {
           else ...[
             const SizedBox(height: 10),
             if (items.isEmpty)
-              Text('Aucun médicament extrait',
+              Text(L10n.c('rev.noItems'),
                   style: TextStyle(fontSize: 13, color: AppColors.textMuted))
             else
               for (final item in items)
@@ -599,27 +631,27 @@ class _ReviewCard extends StatelessWidget {
               children: [
                 _Action(
                   icon: Icons.check,
-                  label: 'Valider',
+                  label: L10n.c('rev.approve'),
                   busy: busy,
                   primary: true,
                   onTap: onApprove,
                 ),
                 _Action(
                   icon: Icons.close,
-                  label: 'Refuser',
+                  label: L10n.c('rev.reject'),
                   busy: busy,
                   danger: true,
                   onTap: onReject,
                 ),
                 _Action(
                   icon: Icons.refresh,
-                  label: 'Nouvelle photo',
+                  label: L10n.c('rev.newPhoto'),
                   busy: busy,
                   onTap: onRetake,
                 ),
                 _Action(
                   icon: Icons.edit_outlined,
-                  label: 'Corriger',
+                  label: L10n.c('rev.edit'),
                   busy: busy,
                   onTap: onEdit,
                 ),
@@ -760,35 +792,35 @@ class _EditForm extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: _field('Date', editDate)),
+              Expanded(child: _field(L10n.c('common.date'), editDate)),
               const SizedBox(width: 8),
-              Expanded(child: _field('Médecin', editDoctor)),
+              Expanded(child: _field(L10n.c('common.doctor'), editDoctor)),
             ],
           ),
           const SizedBox(height: 8),
-          _field('Établissement', editHospital),
+          _field(L10n.c('rev.hospital'), editHospital),
           for (final item in items) ...[
             const SizedBox(height: 10),
             Text(
-              'Médicament',
+              L10n.c('common.medicine'),
               style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
             const SizedBox(height: 4),
-            _field('Nom', editItems[item['id']]!['medicineNameRaw']!),
+            _field(L10n.c('common.name'), editItems[item['id']]!['medicineNameRaw']!),
             const SizedBox(height: 6),
             Row(
               children: [
-                Expanded(child: _field('Dosage', editItems[item['id']]!['strength']!)),
+                Expanded(child: _field(L10n.c('rev.dosage'), editItems[item['id']]!['strength']!)),
                 const SizedBox(width: 8),
-                Expanded(child: _field('Posologie', editItems[item['id']]!['dosage']!)),
+                Expanded(child: _field(L10n.c('rev.frequency'), editItems[item['id']]!['dosage']!)),
               ],
             ),
             const SizedBox(height: 6),
             Row(
               children: [
-                Expanded(child: _field('Quantité', editItems[item['id']]!['quantity']!)),
+                Expanded(child: _field(L10n.c('common.quantity'), editItems[item['id']]!['quantity']!)),
                 const SizedBox(width: 8),
-                Expanded(child: _field('Durée', editItems[item['id']]!['duration']!)),
+                Expanded(child: _field(L10n.c('common.duration'), editItems[item['id']]!['duration']!)),
               ],
             ),
           ],
@@ -799,11 +831,14 @@ class _EditForm extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: busy ? null : onSave,
                   icon: const Icon(Icons.check, size: 16),
-                  label: const Text('Enregistrer et valider'),
+                  label: Text(L10n.c('rev.saveApprove')),
                 ),
               ),
               const SizedBox(width: 8),
-              TextButton(onPressed: busy ? null : onCancel, child: const Text('Annuler')),
+              TextButton(
+                onPressed: busy ? null : onCancel,
+                child: Text(L10n.c('common.cancel')),
+              ),
             ],
           ),
         ],

@@ -1,22 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
+import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
 
 // ============================================================================
 // Formats
 // ============================================================================
 
-/// Date et heure au format français, sans dépendre des données de locale d'intl.
+/// Date et heure localisées (clés `month.1`..`month.12`).
 String frDateTime(DateTime? date) {
   if (date == null) return '—';
-  const months = [
-    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
-    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
-  ];
-  final d = date.toLocal();
-  final heure = d.hour.toString().padLeft(2, '0');
-  final minute = d.minute.toString().padLeft(2, '0');
-  return '${d.day} ${months[d.month - 1]} ${d.year} à $heure:$minute';
+  return L10n.dateTime(date.toLocal());
 }
 
 DateTime? parseDate(Object? value) => DateTime.tryParse(value as String? ?? '');
@@ -35,7 +29,7 @@ String frAmount(num amount) {
 /// Intitulé affichable d'un médicament du catalogue (« Paracetamol 500 mg »).
 String medicineLabel(Map<String, dynamic> med) {
   final name = (med['normalized_name'] as String?) ?? '';
-  final pretty = name.isEmpty ? 'Médicament' : name[0].toUpperCase() + name.substring(1);
+  final pretty = name.isEmpty ? L10n.c('common.medicine') : name[0].toUpperCase() + name.substring(1);
   final strength = (med['strength'] as String?) ?? '';
   return strength.isEmpty ? pretty : '$pretty $strength';
 }
@@ -44,45 +38,30 @@ String medicineLabel(Map<String, dynamic> med) {
 // États / statuts
 // ============================================================================
 
-const reservationLabels = <String, String>{
-  'pending': 'En attente',
-  'accepted': 'Acceptée',
-  'rejected': 'Refusée',
-  'ready': 'Prête',
-  'completed': 'Terminée',
-  'cancelled': 'Annulée',
-};
+/// Libellés localisés des états (commande, livraison, paiement,
+/// rendez-vous, validation). Repli : le statut brut tel quel.
+String resLabel(String s) => _labeled(_resStatuses, 'st.res.', s);
+String delLabel(String s) => _labeled(_deliveryStatuses, 'st.delivery.', s);
+String payLabel(String s) => _labeled(_payStatuses, 'st.pay.', s);
+String appLabel(String s) => _labeled(_appStatuses, 'st.app.', s);
+String reviewLabel(String s) => _labeled(_reviewStatuses, 'st.review.', s);
 
-const deliveryLabels = <String, String>{
-  'unassigned': 'Non assignée',
-  'assigned': 'À récupérer',
-  'picked_up': 'Ramenée',
-  'en_route': 'En route',
-  'delivered': 'Livrée',
-  'failed': 'Échec',
-};
+String _labeled(Set<String> known, String prefix, String s) =>
+    known.contains(s) ? L10n.c('$prefix$s') : s;
 
-const paymentLabels = <String, String>{
-  'unpaid': 'Non réglé',
-  'pending_verification': 'Paiement à confirmer',
-  'paid': 'Réglé',
-  'failed': 'Paiement refusé',
+const _resStatuses = <String>{
+  'pending', 'accepted', 'rejected', 'ready', 'completed', 'cancelled',
 };
-
-const appointmentLabels = <String, String>{
-  'requested': 'Demandé',
-  'accepted': 'Accepté',
-  'rescheduled': 'Reprogrammé',
-  'rejected': 'Refusé',
-  'cancelled': 'Annulé',
-  'completed': 'Terminé',
+const _deliveryStatuses = <String>{
+  'unassigned', 'assigned', 'picked_up', 'en_route', 'delivered', 'failed',
 };
-
-const statusLabels = <String, String>{
-  'pending': 'En attente',
-  'approved': 'Approuvé',
-  'rejected': 'Rejeté',
+const _payStatuses = <String>{
+  'unpaid', 'pending_verification', 'paid', 'failed',
 };
+const _appStatuses = <String>{
+  'requested', 'accepted', 'rescheduled', 'rejected', 'cancelled', 'completed',
+};
+const _reviewStatuses = <String>{'pending', 'approved', 'rejected'};
 
 /// Couleur d'un état (commande, paiement, livraison, validation…).
 Color statusColor(String? status) {
@@ -117,17 +96,17 @@ Color statusColor(String? status) {
 (String, Color) roleInfo(String role) {
   switch (role) {
     case 'admin':
-      return ('Admin', Colors.red.shade400);
+      return (L10n.c('role.admin'), Colors.red.shade400);
     case 'pharmacy_staff':
-      return ('Pharmacie', AppColors.accentLight);
+      return (L10n.c('role.pharmacy_staff'), AppColors.accentLight);
     case 'courier':
-      return ('Livreur', AppColors.primaryLight);
+      return (L10n.c('role.courier'), AppColors.primaryLight);
     case 'doctor':
-      return ('Médecin', AppColors.success);
+      return (L10n.c('role.doctor'), AppColors.success);
     case 'nurse':
-      return ('Infirmier', AppColors.warning);
+      return (L10n.c('role.nurse'), AppColors.warning);
     case 'patient':
-      return ('Patient', AppColors.textSecondary);
+      return (L10n.c('role.patient'), AppColors.textSecondary);
     default:
       return (role, AppColors.textMuted);
   }
@@ -406,7 +385,7 @@ Widget errorView(String message, VoidCallback onRetry) {
             style: TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
-          actionButton('Réessayer', onRetry, icon: Icons.refresh),
+          actionButton(L10n.c('common.retry'), onRetry, icon: Icons.refresh),
         ],
       ),
     ),

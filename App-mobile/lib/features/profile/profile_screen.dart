@@ -64,9 +64,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          'Informations personnelles',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          L10n.t(context, 'pf.personalInfo'),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -74,24 +74,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextField(
               controller: nameController,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(hintText: 'Nom complet'),
+              decoration: InputDecoration(hintText: L10n.c('pf.fullNameHint')),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(hintText: 'Téléphone'),
+              decoration: InputDecoration(hintText: L10n.c('common.phone')),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Annuler'),
+            child: Text(L10n.c('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Enregistrer'),
+            child: Text(L10n.c('common.save')),
           ),
         ],
       ),
@@ -104,7 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirmed != true || !mounted) return;
 
     if (fullName.isEmpty) {
-      _showError('Indiquez votre nom complet');
+      _showError(L10n.c('pf.nameRequired'));
       return;
     }
 
@@ -117,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _phone = phone;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil mis à jour')),
+        SnackBar(content: Text(L10n.c('pf.updated'))),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -126,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
-      _showError('Mise à jour impossible. Réessayez.');
+      _showError(L10n.c('pf.updateFailed'));
     }
   }
 
@@ -141,19 +141,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          'Se déconnecter ?',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          L10n.t(context, 'pf.signOutTitle'),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
-        content: const Text('Vous devrez saisir à nouveau votre mot de passe.'),
+        content: Text(L10n.t(context, 'pf.signOutBody')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Annuler'),
+            child: Text(L10n.c('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Se déconnecter'),
+            child: Text(L10n.t(context, 'signOut')),
           ),
         ],
       ),
@@ -178,9 +178,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               animation: AuthService.instance,
               builder: (context, _) {
                 final user = AuthService.instance.user;
-                final name = user?.displayName ?? 'Mon compte';
+                final name = user?.displayName ?? L10n.c('pf.myAccount');
                 final phone = (_phone?.isNotEmpty ?? false) ? _phone : user?.phone;
-                final subtitle = user?.email ?? phone ?? 'Compte SAHA Santé';
+                final subtitle = user?.email ?? phone ?? L10n.c('pf.accountFallback');
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +234,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           _ProfileTile(
                             icon: Icons.person,
-                            title: 'Informations personnelles',
+                            title: L10n.t(context, 'pf.personalInfo'),
                             trailing: _saving
                                 ? const SizedBox(
                                     height: 18,
@@ -246,17 +246,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           _ProfileTile(
                             icon: Icons.description,
-                            title: 'Mes ordonnances',
+                            title: L10n.t(context, 'pf.myPrescriptions'),
                             onTap: () => context.push('/prescriptions'),
                           ),
                           _ProfileTile(
                             icon: Icons.history,
-                            title: 'Historique des commandes',
+                            title: L10n.t(context, 'pf.orderHistory'),
                             onTap: () => context.push('/reservations'),
                           ),
                           _ProfileTile(
                             icon: Icons.notifications,
-                            title: 'Notifications',
+                            title: L10n.t(context, 'notifications'),
                             onTap: _showNotifications,
                           ),
                           _ProfileTile(
@@ -273,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           _ProfileTile(
                             icon: Icons.healing,
-                            title: 'Consultation & praticiens',
+                            title: L10n.t(context, 'pf.consultPractitioners'),
                             onTap: () => context.push('/health'),
                           ),
                         ],

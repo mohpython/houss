@@ -6,15 +6,7 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
-
-/// Date au format français, sans dépendre des données de locale d'intl.
-String _frDate(DateTime date) {
-  const months = [
-    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
-    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
-  ];
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
-}
+import 'package:saha_sante/core/l10n/app_locale.dart';
 
 class PrescriptionsScreen extends StatefulWidget {
   const PrescriptionsScreen({super.key});
@@ -40,11 +32,8 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     }
     if (item.reviewPending) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Votre ordonnance est en cours de vérification. '
-            'Vous serez notifié dès qu\'elle sera validée.',
-          ),
+        SnackBar(
+          content: Text(L10n.c('rx.checking')),
         ),
       );
       return;
@@ -79,7 +68,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de charger vos ordonnances.';
+        _error = L10n.c('rx.loadFailed');
         _loading = false;
       });
     }
@@ -87,6 +76,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    L10n.bind(context);
     return Scaffold(
       body: Container(
         decoration: AppTheme.subtleGradient,
@@ -105,15 +95,15 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                     ),
                     const NotificationBell(),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Mes ordonnances',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    Text(
+                      L10n.t(context, 'rx.title'),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Historique et suivi de vos prescriptions scannées.',
+                  L10n.t(context, 'rx.subtitle'),
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 24),
@@ -131,7 +121,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                               : (_items?.isEmpty ?? true)
                                   ? _Message(
                                       icon: Icons.description,
-                                      text: 'Aucune ordonnance pour l\'instant',
+                                      text: L10n.c('rx.empty'),
                                       onTap: _load,
                                     )
                                   : ListView.separated(
@@ -193,7 +183,7 @@ class _Message extends StatelessWidget {
                     TextButton.icon(
                       onPressed: onTap,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Recharger'),
+                      label: Text(L10n.c('common.reload')),
                     ),
                   ],
                 ),
@@ -214,10 +204,10 @@ class _PrescriptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = _frDate(item.prescriptionDate ?? item.createdAt);
+    final date = L10n.date(item.prescriptionDate ?? item.createdAt);
     // Tant que l'équipe n'a pas tranché, la carte l'affiche : le patient
     // comprend pourquoi il ne peut pas encore commander.
-    final badgeLabel = item.reviewPending ? 'En vérification' : item.status.label;
+    final badgeLabel = item.reviewPending ? L10n.c('rx.inReview') : item.status.label;
     final badgeColor = item.reviewPending ? AppColors.warning : item.status.color;
     final card = Container(
       padding: const EdgeInsets.all(16),
@@ -239,7 +229,7 @@ class _PrescriptionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.doctorName ?? 'Ordonnance',
+                  item.doctorName ?? L10n.c('rx.fallbackTitle'),
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
