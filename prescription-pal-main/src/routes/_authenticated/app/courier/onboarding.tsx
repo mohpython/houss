@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/app/courier/onboarding")({
   component: Onboarding,
 });
 
 function Onboarding() {
+  const { t } = useTranslation();
   const { user } = Route.useRouteContext();
   const router = useRouter();
   const register = useServerFn(registerCourier);
@@ -41,23 +43,22 @@ function Onboarding() {
     setLoading(true);
     try {
       await register({ data: form });
-      toast.success("Inscription envoyée — en attente de validation admin");
+      toast.success(t("courier.onbSubmitted"));
       router.navigate({ to: "/app/courier" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
   };
 
-  if (existing === undefined) return <div className="p-8">Chargement…</div>;
+  if (existing === undefined) return <div className="p-8">{t("common.loading")}</div>;
   if (!existing && isPharmacy) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">Inscription impossible</h1>
+        <h1 className="text-xl font-semibold">{t("courier.onbImpossibleTitle")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Ce compte gère déjà une pharmacie. Un compte ne peut pas être à la fois gérant de
-          pharmacie et livreur.
+          {t("courier.onbPharmacyConflict")}
         </p>
       </div>
     );
@@ -67,14 +68,14 @@ function Onboarding() {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="text-xl font-semibold">
-          Inscription {existing.status === "pending" ? "en attente" : existing.status}
+          {t("courier.onbTitle")} {existing.status === "pending" ? t("courier.onbPendingWord") : existing.status}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {existing.status === "pending" && "Un admin doit valider votre compte livreur."}
-          {existing.status === "approved" && "Votre compte livreur est actif."}
+          {existing.status === "pending" && t("courier.onbAdminPending")}
+          {existing.status === "approved" && t("courier.onbActive")}
         </p>
         <Link to="/app/courier" className="mt-4 inline-block text-primary hover:underline">
-          Aller au tableau de bord →
+          {t("courier.onbGoDashboard")}
         </Link>
       </div>
     );
@@ -82,14 +83,14 @@ function Onboarding() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
-      <h1 className="text-2xl font-bold tracking-tight">Devenir livreur</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t("nav.becomeCourier")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Remplissez ce formulaire, un admin validera votre inscription.
+        {t("courier.onbSubtitle")}
       </p>
       <Card className="mt-6 p-6">
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <Label>Nom complet</Label>
+            <Label>{t("common.fullName")}</Label>
             <Input
               required
               value={form.fullName}
@@ -97,7 +98,7 @@ function Onboarding() {
             />
           </div>
           <div>
-            <Label>Téléphone</Label>
+            <Label>{t("courier.onbPhone")}</Label>
             <Input
               required
               value={form.phone}
@@ -105,26 +106,26 @@ function Onboarding() {
             />
           </div>
           <div>
-            <Label>Type de véhicule</Label>
+            <Label>{t("courier.onbVehicle")}</Label>
             <select
               className="mt-1 w-full rounded border bg-background px-3 py-2 text-sm"
               value={form.vehicleType}
               onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}
             >
-              <option value="moto">Moto</option>
-              <option value="voiture">Voiture</option>
-              <option value="vélo">Vélo</option>
+              <option value="moto">{t("courier.vehMoto")}</option>
+              <option value="voiture">{t("courier.vehVoiture")}</option>
+              <option value="vélo">{t("courier.vehVelo")}</option>
             </select>
           </div>
           <div>
-            <Label>N° permis (facultatif)</Label>
+            <Label>{t("courier.onbLicense")}</Label>
             <Input
               value={form.licenseNumber}
               onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })}
             />
           </div>
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Envoi…" : "S'inscrire"}
+            {loading ? t("courier.onbSending") : t("courier.onbSubmit")}
           </Button>
         </form>
       </Card>

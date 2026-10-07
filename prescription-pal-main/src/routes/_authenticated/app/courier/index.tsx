@@ -12,21 +12,22 @@ import { PageSkeleton } from "@/components/ui/skeletons";
 import { toast } from "sonner";
 import { MapPin, Navigation, Bike, CheckCircle2, Package, Truck } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/courier/")({
   component: CourierDashboard,
   head: () => ({
     meta: [
-      { title: "Espace livreur — SAHA Santé" },
+      { title: i18n.t("courier.metaTitle") },
       {
         name: "description",
         content:
-          "Passez en ligne, recevez vos livraisons et suivez l'itinéraire pharmacie → patient en un écran.",
+          i18n.t("courier.metaDesc"),
       },
-      { property: "og:title", content: "Espace livreur — SAHA Santé" },
+      { property: "og:title", content: i18n.t("courier.metaTitle") },
       {
         property: "og:description",
-        content: "Un bouton pour se mettre en ligne, une carte par livraison : simple et rapide.",
+        content: i18n.t("courier.metaOgDesc"),
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -178,7 +179,7 @@ function CourierDashboard() {
           <h1 className="text-2xl font-bold tracking-tight">{t("courier.title")}</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          1. Passez en ligne · 2. Ouvrez la livraison · 3. Suivez l'itinéraire.
+          {t("courier.steps")}
         </p>
       </header>
 
@@ -224,12 +225,12 @@ function CourierDashboard() {
             size="lg"
           >
             <MapPin className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t("courier.activateLocation", "Activer ma localisation")}
+            {t("courier.activateLocation")}
           </LoadingButton>
         )}
       </Card>
 
-      <section aria-label="Mes chiffres" className="mt-4 grid grid-cols-2 gap-3">
+      <section aria-label={t("courier.myFigures")} className="mt-4 grid grid-cols-2 gap-3">
         <Kpi
           icon={<Package className="h-4 w-4" />}
           label={t("courier.activeDeliveries")}
@@ -328,13 +329,13 @@ function CourierDashboard() {
 
 function deliveryLabel(status: string) {
   return status === "assigned"
-    ? "À récupérer"
+    ? "courier.stAssigned"
     : status === "picked_up"
-      ? "Colis récupéré"
+      ? "courier.stPickedUp"
       : status === "en_route"
-        ? "En route"
+        ? "courier.stEnRoute"
         : status === "delivered"
-          ? "Livrée"
+          ? "courier.stDelivered"
           : status;
 }
 

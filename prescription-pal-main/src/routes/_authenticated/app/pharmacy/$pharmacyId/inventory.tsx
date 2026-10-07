@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/app/pharmacy/$pharmacyId/inventory")({
   component: Inventory,
@@ -32,6 +33,7 @@ type Row = {
 };
 
 function Inventory() {
+  const { t } = useTranslation();
   const { pharmacyId } = Route.useParams();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [form, setForm] = useState({ name: "", generic: "", strength: "", stock: "1", price: "" });
@@ -68,10 +70,10 @@ function Inventory() {
         },
       });
       setForm({ name: "", generic: "", strength: "", stock: "1", price: "" });
-      toast.success("Ajouté");
+      toast.success(t("pharm.addedShort"));
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     }
   };
 
@@ -95,11 +97,11 @@ function Inventory() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold">Inventaire</h2>
+      <h2 className="text-lg font-semibold">{t("pharm.inventory")}</h2>
       <Card className="mt-3 p-4">
         <form onSubmit={add} className="grid gap-3 sm:grid-cols-6">
           <div className="sm:col-span-2 space-y-1">
-            <Label htmlFor="mname">Médicament</Label>
+            <Label htmlFor="mname">{t("pharm.medLabel")}</Label>
             <Input
               id="mname"
               value={form.name}
@@ -108,7 +110,7 @@ function Inventory() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="gen">Générique</Label>
+            <Label htmlFor="gen">{t("pharm.genericLabel")}</Label>
             <Input
               id="gen"
               value={form.generic}
@@ -116,7 +118,7 @@ function Inventory() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="str">Dosage</Label>
+            <Label htmlFor="str">{t("pharm.dosageLabel")}</Label>
             <Input
               id="str"
               placeholder="500 mg"
@@ -125,7 +127,7 @@ function Inventory() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="stk">Stock</Label>
+            <Label htmlFor="stk">{t("pharm.stockLabel")}</Label>
             <Input
               id="stk"
               type="number"
@@ -135,7 +137,7 @@ function Inventory() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="prc">Prix</Label>
+            <Label htmlFor="prc">{t("pharm.priceLabel")}</Label>
             <Input
               id="prc"
               type="number"
@@ -148,7 +150,7 @@ function Inventory() {
           <div className="sm:col-span-6">
             <Button type="submit">
               <Plus className="mr-2 h-4 w-4" />
-              Ajouter
+              {t("common.add")}
             </Button>
           </div>
         </form>
@@ -157,7 +159,7 @@ function Inventory() {
       <div className="mt-4 space-y-2">
         {rows === null && <Skeleton className="h-16 w-full" />}
         {rows?.length === 0 && (
-          <Card className="p-4 text-sm text-muted-foreground">Aucun article.</Card>
+          <Card className="p-4 text-sm text-muted-foreground">{t("pharm.noItems")}</Card>
         )}
         {rows?.map((r) => (
           <Card key={r.id} className="flex items-center gap-3 p-3">

@@ -5,22 +5,23 @@ import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SAHA Santé — Ordonnance scannée, médicaments livrés" },
+      { title: i18n.t("meta.landingTitle") },
       {
         name: "description",
         content:
-          "Photo d'ordonnance → IA extrait vos médicaments → pharmacie la plus proche → livraison à domicile au Mali.",
+          i18n.t("meta.landingDesc"),
       },
-      { property: "og:title", content: "SAHA Santé — Ordonnance scannée, médicaments livrés" },
+      { property: "og:title", content: i18n.t("meta.landingTitle") },
       {
         property: "og:description",
         content:
-          "Photo d'ordonnance → IA extrait vos médicaments → pharmacie la plus proche → livraison à domicile au Mali.",
+          i18n.t("meta.landingDesc"),
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sahasantemali.com/" },
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/")({
           url: "https://sahasantemali.com/",
           logo: "https://sahasantemali.com/favicon.png",
           description:
-            "Service de scan d'ordonnance par IA, mise en relation avec les pharmacies et livraison de médicaments à domicile au Mali.",
+            i18n.t("meta.landingOrgDesc"),
         }),
       },
     ],
@@ -147,8 +148,8 @@ function Landing() {
                   {t("landing.aiExtractDesc")}
                 </p>
                 <div className="mt-4 space-y-1.5 text-xs font-mono text-foreground/70">
-                  <div className="rounded-md border border-border bg-black/30 px-2 py-1">✓ Paracétamol 500mg — 2×/j</div>
-                  <div className="rounded-md border border-border bg-black/30 px-2 py-1">✓ Amoxicilline 1g — 3×/j</div>
+                  <div className="rounded-md border border-border bg-black/30 px-2 py-1">{t("landing.demoRx1")}</div>
+                  <div className="rounded-md border border-border bg-black/30 px-2 py-1">{t("landing.demoRx2")}</div>
                   <div className="rounded-md border border-accent/40 bg-accent/10 px-2 py-1 text-accent">{t("landing.aiConfidence")}</div>
                 </div>
               </div>

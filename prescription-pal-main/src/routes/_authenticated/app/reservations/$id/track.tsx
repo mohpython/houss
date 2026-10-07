@@ -155,7 +155,7 @@ function TrackPage() {
           .catch(() => {});
       })
       .catch((e: unknown) =>
-        toast.error(e instanceof Error ? e.message : "Carte indisponible"),
+        toast.error(e instanceof Error ? e.message : t("track.mapUnavailable")),
       );
   }, [res, getRoute]);
 

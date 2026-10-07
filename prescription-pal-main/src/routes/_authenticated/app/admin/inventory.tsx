@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, Trash2, Search, Store, AlertTriangle, MapPin, Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/app/admin/inventory")({
   component: AdminInventory,
@@ -42,6 +43,7 @@ type Row = {
 const LOW_STOCK = 5;
 
 function AdminInventory() {
+  const { t } = useTranslation();
   const [pharms, setPharms] = useState<Pharm[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -96,7 +98,7 @@ function AdminInventory() {
       const res = await searchFn({ data: { query: searchQuery.trim() } });
       setSearchResults(res.places);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSearchLoading(false);
     }
@@ -115,7 +117,7 @@ function AdminInventory() {
           lng: p.lng,
         },
       });
-      toast.success(res.created ? "Pharmacie ajoutée" : "Déjà enregistrée");
+      toast.success(res.created ? t("admin.phAdded") : t("admin.phExists"));
       loadPharms();
       setSelected(res.id);
       setSearchResults(
@@ -123,7 +125,7 @@ function AdminInventory() {
           r?.map((x) => (x.placeId === p.placeId ? { ...x, localPharmacyId: res.id } : x)) ?? null,
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setRegistering(null);
     }
@@ -143,12 +145,12 @@ function AdminInventory() {
           phone: manual.phone.trim() || null,
         },
       });
-      toast.success(res.created ? "Pharmacie ajoutée (géocodée si adresse reconnue)" : "Déjà enregistrée");
+      toast.success(res.created ? t("admin.phAddedGeocoded") : t("admin.phExists"));
       setManual({ name: "", address: "", phone: "" });
       loadPharms();
       setSelected(res.id);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setManualSaving(false);
     }
@@ -197,10 +199,10 @@ function AdminInventory() {
         },
       });
       setForm({ name: "", generic: "", strength: "", stock: "1", price: "" });
-      toast.success("Ajouté");
+      toast.success(t("pharm.addedShort"));
       loadInv(selected);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     }
   };
 
@@ -234,35 +236,33 @@ function AdminInventory() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Stocks des pharmacies</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("admin.stockTitle")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Ajoutez et mettez à jour les médicaments en stock pour chaque pharmacie approuvée.
+          {t("admin.stockSubtitle")}
         </p>
       </div>
 
       <Card className="mt-6 p-4">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-primary" />
-          <h2 className="font-semibold">Ajouter une pharmacie</h2>
+          <h2 className="font-semibold">{t("admin.addPharmacy")}</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Recherchez une pharmacie par nom, quartier ou ville (OpenStreetMap, sans clé API),
-          enregistrez-la puis gérez son stock. Si elle n'apparaît pas dans les résultats, utilisez
-          la saisie manuelle ci-dessous.
+          {t("admin.searchHelp")}
         </p>
         <form onSubmit={searchPlaces} className="mt-3 flex gap-2">
           <Input
-            placeholder="Ex : Cocody Abidjan, Pharmacie de la Paix…"
+            placeholder={t("admin.phSearchEx")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <Button type="submit" disabled={searchLoading}>
             <Search className="mr-2 h-4 w-4" />
-            {searchLoading ? "…" : "Rechercher"}
+            {searchLoading ? "…" : t("common.search")}
           </Button>
         </form>
         {searchResults && searchResults.length === 0 && (
-          <p className="mt-3 text-sm text-muted-foreground">Aucun résultat.</p>
+          <p className="mt-3 text-sm text-muted-foreground">{t("admin.noResult")}</p>
         )}
         {searchResults && searchResults.length > 0 && (
           <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
@@ -282,7 +282,7 @@ function AdminInventory() {
                     onClick={() => setSelected(p.localPharmacyId)}
                   >
                     <Check className="mr-2 h-4 w-4 text-success" />
-                    Gérer le stock
+                    {t("admin.manageStock")}
                   </Button>
                 ) : (
                   <Button
@@ -291,7 +291,7 @@ function AdminInventory() {
                     disabled={registering === p.placeId}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    {registering === p.placeId ? "…" : "Enregistrer"}
+                    {registering === p.placeId ? "…" : t("common.save")}
                   </Button>
                 )}
               </div>
@@ -302,35 +302,34 @@ function AdminInventory() {
         <form onSubmit={submitManual} className="mt-4 border-t border-border pt-4">
           <div className="flex items-center gap-2">
             <Store className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold">Saisie manuelle</h3>
+            <h3 className="text-sm font-semibold">{t("admin.manualEntry")}</h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Voie de repli sans API externe : l'adresse est géocodée automatiquement via
-            OpenStreetMap (si reconnue).
+            {t("admin.manualHelp")}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Input
-              placeholder="Nom de la pharmacie"
+              placeholder={t("pharm.onbName")}
               className="min-w-[180px] flex-1"
               value={manual.name}
               onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))}
               required
             />
             <Input
-              placeholder="Adresse (quartier, ville)"
+              placeholder={t("admin.addrPhQ")}
               className="min-w-[180px] flex-1"
               value={manual.address}
               onChange={(e) => setManual((m) => ({ ...m, address: e.target.value }))}
               required
             />
             <Input
-              placeholder="Téléphone (optionnel)"
+              placeholder={t("admin.phoneOptPh")}
               className="min-w-[140px] flex-1"
               value={manual.phone}
               onChange={(e) => setManual((m) => ({ ...m, phone: e.target.value }))}
             />
             <Button type="submit" disabled={manualSaving}>
-              {manualSaving ? "…" : "Ajouter"}
+              {manualSaving ? "…" : t("common.add")}
             </Button>
           </div>
         </form>
@@ -341,7 +340,7 @@ function AdminInventory() {
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Rechercher une pharmacie…"
+              placeholder={t("admin.filterPh")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-8"
@@ -350,7 +349,7 @@ function AdminInventory() {
           <div className="mt-3 max-h-[70vh] space-y-1 overflow-y-auto">
             {pharms === null && <Skeleton className="h-16 w-full" />}
             {pharms?.length === 0 && (
-              <div className="p-4 text-sm text-muted-foreground">Aucune pharmacie approuvée.</div>
+              <div className="p-4 text-sm text-muted-foreground">{t("admin.noApprovedPh")}</div>
             )}
             {filtered.map((p) => (
               <button
@@ -379,7 +378,7 @@ function AdminInventory() {
         <div className="min-w-0">
           {!selected && (
             <Card className="p-10 text-center text-sm text-muted-foreground">
-              Sélectionnez une pharmacie à gauche pour gérer son inventaire.
+              {t("admin.selectPhHint")}
             </Card>
           )}
 
@@ -398,7 +397,7 @@ function AdminInventory() {
               <Card className="p-4">
                 <form onSubmit={add} className="grid gap-3 sm:grid-cols-6">
                   <div className="sm:col-span-2 space-y-1">
-                    <Label htmlFor="mname">Médicament</Label>
+                    <Label htmlFor="mname">{t("pharm.medLabel")}</Label>
                     <Input
                       id="mname"
                       value={form.name}
@@ -407,7 +406,7 @@ function AdminInventory() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="gen">Générique</Label>
+                    <Label htmlFor="gen">{t("pharm.genericLabel")}</Label>
                     <Input
                       id="gen"
                       value={form.generic}
@@ -415,7 +414,7 @@ function AdminInventory() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="str">Dosage</Label>
+                    <Label htmlFor="str">{t("pharm.dosageLabel")}</Label>
                     <Input
                       id="str"
                       placeholder="500 mg"
@@ -424,7 +423,7 @@ function AdminInventory() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="stk">Stock</Label>
+                    <Label htmlFor="stk">{t("pharm.stockLabel")}</Label>
                     <Input
                       id="stk"
                       type="number"
@@ -434,7 +433,7 @@ function AdminInventory() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="prc">Prix (FCFA)</Label>
+                    <Label htmlFor="prc">{t("admin.priceFcfaLabel")}</Label>
                     <Input
                       id="prc"
                       type="number"
@@ -447,7 +446,7 @@ function AdminInventory() {
                   <div className="sm:col-span-6">
                     <Button type="submit">
                       <Plus className="mr-2 h-4 w-4" />
-                      Ajouter / mettre à jour
+                      {t("admin.addUpdate")}
                     </Button>
                   </div>
                 </form>
@@ -456,7 +455,7 @@ function AdminInventory() {
               <div className="mt-4 space-y-2">
                 {rows === null && <Skeleton className="h-16 w-full" />}
                 {rows?.length === 0 && (
-                  <Card className="p-4 text-sm text-muted-foreground">Aucun article.</Card>
+                  <Card className="p-4 text-sm text-muted-foreground">{t("pharm.noItems")}</Card>
                 )}
                 {rows?.map((r) => {
                   const outOfStock = r.stock_qty === 0;
@@ -473,12 +472,12 @@ function AdminInventory() {
                               variant="secondary"
                               className="bg-destructive/10 text-destructive"
                             >
-                              <AlertTriangle className="mr-1 h-3 w-3" /> Rupture
+                              <AlertTriangle className="mr-1 h-3 w-3" /> {t("admin.outOfStock")}
                             </Badge>
                           )}
                           {low && (
                             <Badge variant="secondary" className="bg-warning/10 text-warning">
-                              Stock faible
+                              {t("admin.lowStock")}
                             </Badge>
                           )}
                         </div>
@@ -489,7 +488,7 @@ function AdminInventory() {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <Label className="text-xs text-muted-foreground">Stock</Label>
+                        <Label className="text-xs text-muted-foreground">{t("pharm.stockLabel")}</Label>
                         <Input
                           type="number"
                           min="0"
@@ -499,7 +498,7 @@ function AdminInventory() {
                         />
                       </div>
                       <div className="flex items-center gap-1">
-                        <Label className="text-xs text-muted-foreground">Prix</Label>
+                        <Label className="text-xs text-muted-foreground">{t("pharm.priceLabel")}</Label>
                         <Input
                           type="number"
                           min="0"

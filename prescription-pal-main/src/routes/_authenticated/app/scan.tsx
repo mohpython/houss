@@ -455,7 +455,7 @@ function Scan() {
           {previewUrl && (
             <img
               src={previewUrl}
-              alt="Aperçu de l'ordonnance scannée"
+              alt={t("scan.previewAlt")}
               className="mx-auto mb-6 max-h-52 rounded-2xl border border-border object-contain"
             />
           )}

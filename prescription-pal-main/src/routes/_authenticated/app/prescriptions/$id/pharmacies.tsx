@@ -122,7 +122,7 @@ function Pharmacies() {
         });
         setPharms((res.pharmacies as unknown as DbPharm[]).map(dbToPharm));
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Recherche échouée");
+        toast.error(err instanceof Error ? err.message : t("pharms.searchFailed"));
         setPharms([]);
       }
     } finally {
@@ -156,10 +156,10 @@ function Pharmacies() {
           patientAddress: deliveryLoc?.detail?.trim() || undefined,
         },
       });
-      toast.success("Réservation créée");
+      toast.success(t("pharms.resCreated"));
       router.navigate({ to: "/app/reservations/$id/checkout", params: { id: res.id } });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setReserving(null);
     }
@@ -169,9 +169,9 @@ function Pharmacies() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Pharmacies proches</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("pharms.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Résultats en direct autour de votre position.
+            {t("pharms.liveResults")}
           </p>
         </div>
       </div>
@@ -184,8 +184,7 @@ function Pharmacies() {
 
       {isOwner === false && (
         <Card className="mt-6 border-warning/40 bg-warning/10 p-4 text-sm text-foreground">
-          Cette ordonnance appartient à un autre patient. Vous pouvez consulter les pharmacies, mais
-          seul le patient propriétaire peut réserver.
+          {t("pharms.notOwnerNote")}
         </Card>
       )}
 
@@ -204,7 +203,7 @@ function Pharmacies() {
         )}
         {pharms?.length === 0 && (
           <Card className="p-8 text-center text-sm text-muted-foreground">
-            Aucune pharmacie trouvée dans un rayon de 5 km.
+            {t("pharms.notFound")}
           </Card>
         )}
         {pharms?.map((p) => (
@@ -220,12 +219,12 @@ function Pharmacies() {
                   ) : null}
                   {p.openNow === true && (
                     <Badge variant="secondary" className="bg-success/10 text-success">
-                      Ouvert
+                      {t("pharms.open")}
                     </Badge>
                   )}
                   {p.openNow === false && (
                     <Badge variant="secondary" className="bg-muted text-muted-foreground">
-                      Fermé
+                      {t("pharms.closed")}
                     </Badge>
                   )}
                 </div>
@@ -261,11 +260,11 @@ function Pharmacies() {
                         : "bg-destructive/10 text-destructive"
                   }
                 >
-                  {p.availableCount}/{p.totalItems} disponibles
+                  {t("pharms.available", { n: p.availableCount, total: p.totalItems })}
                 </Badge>
               ) : (
                 <Badge variant="secondary" className="bg-muted text-muted-foreground">
-                  Stock non renseigné
+                  {t("pharms.noStock")}
                 </Badge>
               )}
             </div>
@@ -299,17 +298,17 @@ function Pharmacies() {
                   onClick={() => reserve(p)}
                   disabled={reserving === p.placeId || p.availableCount === 0 || isOwner === false}
                   title={
-                    isOwner === false ? "Seul le patient propriétaire peut réserver" : undefined
+                    isOwner === false ? t("pharms.ownerOnly") : undefined
                   }
                 >
-                  {reserving === p.placeId ? "Réservation…" : "Réserver ici"}
+                  {reserving === p.placeId ? t("pharms.reserving") : t("pharms.reserveHere")}
                 </Button>
               )}
               {p.phone && (
                 <Button variant="outline" asChild>
                   <a href={`tel:${p.phone}`}>
                     <Phone className="mr-2 h-4 w-4" />
-                    Appeler
+                    {t("pharms.call")}
                   </a>
                 </Button>
               )}
@@ -317,7 +316,7 @@ function Pharmacies() {
                 <Button variant="outline" asChild>
                   <a href={p.mapsUri} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    Voir sur la carte
+                    {t("pharms.onViewMap")}
                   </a>
                 </Button>
               )}

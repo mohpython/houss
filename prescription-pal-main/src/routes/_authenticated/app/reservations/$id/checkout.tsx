@@ -16,17 +16,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Bike, Check, Loader2, MapPin, Store } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { MissingItemsPanel, type MissingEntry } from "@/components/MissingItemsPanel";
 
 export const Route = createFileRoute("/_authenticated/app/reservations/$id/checkout")({
   head: () => ({
     meta: [
-      { title: "Paiement — SAHA Santé" },
-      { name: "description", content: "Vos médicaments, le prix et le paiement en un écran." },
-      { property: "og:title", content: "Paiement — SAHA Santé" },
+      { title: i18n.t("meta.checkoutTitle") },
+      { name: "description", content: i18n.t("meta.checkoutDesc") },
+      { property: "og:title", content: i18n.t("meta.checkoutTitle") },
       {
         property: "og:description",
-        content: "Vos médicaments, le prix et le paiement en un écran.",
+        content: i18n.t("meta.checkoutDesc"),
       },
     ],
   }),

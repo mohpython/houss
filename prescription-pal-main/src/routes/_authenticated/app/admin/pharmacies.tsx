@@ -14,12 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { ListSkeleton } from "@/components/ui/skeletons";
 import { toast } from "sonner";
 import { Store, UserCheck, MailQuestion, UserX } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/app/admin/pharmacies")({
   component: AdminPharmacies,
 });
 
 function AdminPharmacies() {
+  const { t } = useTranslation();
   const listFn = useServerFn(listPharmaciesWithOwners);
   const assignFn = useServerFn(assignPharmacyOwner);
   const unassignFn = useServerFn(unassignPharmacyOwner);
@@ -33,7 +35,7 @@ function AdminPharmacies() {
     try {
       setRows(await listFn({}));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(err instanceof Error ? err.message : t("common.error"));
       setRows([]);
     }
   };
@@ -51,13 +53,13 @@ function AdminPharmacies() {
       const res = await assignFn({ data: { pharmacyId: id, email } });
       toast.success(
         res.status === "assigned"
-          ? "Gérant attribué"
-          : "Aucun compte pour cet email — pharmacie réservée, elle sera attribuée à son inscription",
+          ? t("admin.ownerAssigned")
+          : t("admin.ownerNoAccount"),
       );
       setEmails((e) => ({ ...e, [id]: "" }));
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBusy(null);
     }
@@ -67,10 +69,10 @@ function AdminPharmacies() {
     setBusy(id);
     try {
       await unassignFn({ data: { pharmacyId: id } });
-      toast.success("Gérant retiré");
+      toast.success(t("admin.ownerRemoved"));
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBusy(null);
     }
@@ -80,11 +82,10 @@ function AdminPharmacies() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="flex items-center gap-2">
         <Store className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold tracking-tight">Gérants des pharmacies</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("admin.ownersTitle")}</h1>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Une pharmacie appartient à un seul compte, et un compte ne peut gérer qu'une seule pharmacie.
-        Un gérant ne peut pas être livreur.
+        {t("admin.ownersRule")}
       </p>
 
       {error && (
@@ -92,7 +93,7 @@ function AdminPharmacies() {
       )}
       {rows === null && <ListSkeleton className="mt-6" rows={3} rowClassName="h-28" />}
       {rows?.length === 0 && !error && (
-        <Card className="mt-6 p-6 text-sm text-muted-foreground">Aucune pharmacie enregistrée.</Card>
+        <Card className="mt-6 p-6 text-sm text-muted-foreground">{t("pharm.none")}</Card>
       )}
 
       <div className="mt-6 space-y-3">
@@ -112,11 +113,11 @@ function AdminPharmacies() {
                 </Badge>
               ) : p.claim_email ? (
                 <Badge variant="secondary" className="bg-warning/10 text-warning">
-                  <MailQuestion className="mr-1 h-3 w-3" /> En attente · {p.claim_email}
+                  <MailQuestion className="mr-1 h-3 w-3" /> {t("admin.stPending")} · {p.claim_email}
                 </Badge>
               ) : (
                 <Badge variant="secondary" className="bg-muted text-muted-foreground">
-                  Non réclamée
+                  {t("admin.notClaimed")}
                 </Badge>
               )}
             </div>
@@ -130,7 +131,7 @@ function AdminPharmacies() {
                   onClick={() => unassign(p.id)}
                 >
                   <UserX className="mr-1 h-4 w-4" />
-                  Retirer le gérant
+                  {t("admin.removeOwner")}
                 </Button>
               </div>
             ) : (
@@ -143,13 +144,13 @@ function AdminPharmacies() {
               >
                 <Input
                   type="email"
-                  placeholder="email du gérant"
+                  placeholder={t("admin.ownerEmailPh")}
                   className="max-w-xs"
                   value={emails[p.id] ?? ""}
                   onChange={(e) => setEmails((s) => ({ ...s, [p.id]: e.target.value }))}
                 />
                 <Button size="sm" type="submit" disabled={busy === p.id}>
-                  {busy === p.id ? "…" : "Attribuer"}
+                  {busy === p.id ? "…" : t("admin.assignBtn")}
                 </Button>
               </form>
             )}

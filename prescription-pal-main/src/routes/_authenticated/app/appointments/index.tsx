@@ -14,21 +14,21 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { ListSkeleton } from "@/components/ui/skeletons";
 import { CalendarDays, CheckCircle2, Pill, ShoppingBag } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getDateLocale } from "@/i18n";
+import i18n, { getDateLocale } from "@/i18n";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/appointments/")({
   head: () => ({
     meta: [
-      { title: "Mes rendez-vous — SAHA Santé" },
+      { title: i18n.t("meta.apptTitle") },
       {
         name: "description",
-        content: "Suivez vos demandes de consultation et de soins à domicile.",
+        content: i18n.t("meta.apptDesc"),
       },
-      { property: "og:title", content: "Mes rendez-vous — SAHA Santé" },
+      { property: "og:title", content: i18n.t("meta.apptTitle") },
       {
         property: "og:description",
-        content: "Suivez vos demandes de consultation et de soins à domicile.",
+        content: i18n.t("meta.apptDesc"),
       },
     ],
   }),

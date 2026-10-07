@@ -20,6 +20,7 @@ import { GlassCard } from "@/components/GlassCard";
 import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 import { Camera, Sparkles, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
@@ -30,15 +31,15 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Connexion — SAHA Santé" },
+      { title: i18n.t("meta.authTitle") },
       {
         name: "description",
-        content: "Accédez à votre compte SAHA Santé pour scanner et livrer vos ordonnances.",
+        content: i18n.t("meta.authDesc"),
       },
-      { property: "og:title", content: "Connexion — SAHA Santé" },
+      { property: "og:title", content: i18n.t("meta.authTitle") },
       {
         property: "og:description",
-        content: "Accédez à votre compte SAHA Santé pour scanner et livrer vos ordonnances.",
+        content: i18n.t("meta.authDesc"),
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sahasantemali.com/auth" },

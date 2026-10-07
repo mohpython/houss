@@ -9,21 +9,22 @@ import { Badge } from "@/components/ui/badge";
 import { ListSkeleton } from "@/components/ui/skeletons";
 import { Package, Clock, CheckCircle2, Truck, Store, Boxes, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/pharmacy/")({
   component: Layout,
   head: () => ({
     meta: [
-      { title: "Espace pharmacie — SAHA Santé" },
+      { title: i18n.t("pharm.metaTitle") },
       {
         name: "description",
         content:
-          "Gérez vos commandes, vos stocks et vos retraits en pharmacie depuis un tableau de bord simple et clair.",
+          i18n.t("pharm.metaDesc"),
       },
-      { property: "og:title", content: "Espace pharmacie — SAHA Santé" },
+      { property: "og:title", content: i18n.t("pharm.metaTitle") },
       {
         property: "og:description",
-        content: "Commandes, stocks et retraits en un coup d'œil pour votre pharmacie.",
+        content: i18n.t("pharm.metaOgDesc"),
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -80,7 +81,11 @@ function Layout() {
   }, [pharms, user.id]);
 
   const statusLabel = (s: string) =>
-    s === "approved" ? "Validée" : s === "rejected" ? "Refusée" : "En attente de validation";
+    s === "approved"
+      ? t("pharm.stApproved")
+      : s === "rejected"
+        ? t("pharm.stRejected")
+        : t("pharm.stPending");
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -90,7 +95,7 @@ function Layout() {
           <h1 className="text-2xl font-bold tracking-tight">{t("pharm.title")}</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Deux boutons suffisent : voir les commandes, ou mettre à jour le stock.
+          {t("pharm.twoBtn")}
         </p>
       </header>
 
@@ -130,15 +135,14 @@ function Layout() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning/5 p-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Clock className="h-4 w-4 text-warning" aria-hidden="true" />
-                      {s.pending} nouvelle{s.pending > 1 ? "s" : ""} commande
-                      {s.pending > 1 ? "s" : ""} à traiter
+                      {t(s.pending > 1 ? "pharm.pendingPlural" : "pharm.pendingOne", { n: s.pending })}
                     </div>
                     <Button asChild size="sm" className="min-h-11">
                       <Link
                         to="/app/pharmacy/$pharmacyId/reservations"
                         params={{ pharmacyId: p.id }}
                       >
-                        Traiter maintenant
+                        {t("admin.handleNow")}
                       </Link>
                     </Button>
                   </div>
@@ -150,19 +154,19 @@ function Layout() {
                     pharmacyId={p.id}
                     icon={<Package className="h-5 w-5" />}
                     title={t("pharm.reservations")}
-                    desc="Accepter, préparer et remettre les commandes"
+                    desc={t("pharm.actDesc")}
                   />
                   <BigAction
                     to="/app/pharmacy/$pharmacyId/inventory"
                     pharmacyId={p.id}
                     icon={<Boxes className="h-5 w-5" />}
                     title={t("pharm.inventory")}
-                    desc="Ajouter des médicaments et modifier les prix"
+                    desc={t("pharm.invDesc")}
                   />
                 </div>
 
                 <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Aujourd'hui en chiffres
+                  {t("pharm.todayFigures")}
                 </h3>
                 <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <Kpi
@@ -194,8 +198,7 @@ function Layout() {
 
             {!approved && (
               <p className="mt-3 text-sm text-muted-foreground">
-                Votre pharmacie sera visible par les patients dès sa validation par un
-                administrateur.
+                {t("pharm.pendingVisibility")}
               </p>
             )}
           </Card>

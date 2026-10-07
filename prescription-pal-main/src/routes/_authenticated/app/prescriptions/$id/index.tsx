@@ -92,7 +92,7 @@ function Detail() {
     try {
       await saveDateFn({ data: { prescriptionId: id, date: next } });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
       return;
     }
     toast.success(t("rxDate.saved"));

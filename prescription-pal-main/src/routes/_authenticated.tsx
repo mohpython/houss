@@ -107,7 +107,7 @@ function AuthedLayout() {
     extras.push({
       to: "/app/admin/pharmacies",
       icon: <Store className="h-5 w-5" />,
-      label: "Gérants",
+      label: t("nav.gerants"),
     });
     extras.push({
       to: "/app/admin/inventory",
@@ -216,7 +216,7 @@ function AuthedLayout() {
             )}
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Ouvrir le menu de navigation">
+                <Button variant="ghost" size="icon" aria-label={t("nav.openMenu")}>
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -490,7 +490,7 @@ function NavList({
           <NavItem
             to="/app/admin/pharmacies"
             icon={<Store className="h-4 w-4" />}
-            label="Gérants pharmacies"
+            label={t("nav.gerantsPharmacies")}
             onNavigate={onNavigate}
           />
           <NavItem

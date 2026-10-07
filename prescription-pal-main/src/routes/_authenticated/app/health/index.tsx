@@ -30,20 +30,21 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/health/")({
   head: () => ({
     meta: [
-      { title: "Consultation — SAHA Santé" },
+      { title: i18n.t("meta.healthTitle") },
       {
         name: "description",
         content:
-          "Décrivez vos symptômes : l'IA vous oriente vers le médecin ou l'infirmier le plus proche pour un rendez-vous.",
+          i18n.t("meta.healthDesc"),
       },
-      { property: "og:title", content: "Consultation — SAHA Santé" },
+      { property: "og:title", content: i18n.t("meta.healthTitle") },
       {
         property: "og:description",
-        content: "Orientation médicale par IA et prise de rendez-vous avec un praticien proche.",
+        content: i18n.t("meta.healthOgDesc"),
       },
     ],
   }),

@@ -22,19 +22,21 @@ import {
   Edit3,
   AlertTriangle,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/admin/reviews")({
   head: () => ({
     meta: [
-      { title: "Ordonnances à vérifier — SAHA Santé" },
+      { title: i18n.t("review.metaTitle") },
       {
         name: "description",
-        content: "File de vérification des ordonnances signalées par l'IA.",
+        content: i18n.t("review.metaDesc"),
       },
-      { property: "og:title", content: "Ordonnances à vérifier — SAHA Santé" },
+      { property: "og:title", content: i18n.t("review.metaTitle") },
       {
         property: "og:description",
-        content: "File de vérification des ordonnances signalées par l'IA.",
+        content: i18n.t("review.metaDesc"),
       },
     ],
   }),
@@ -56,6 +58,7 @@ const severityIcon: Record<string, React.ReactNode> = {
 };
 
 function Reviews() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<Review[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -74,7 +77,7 @@ function Reviews() {
     try {
       setRows(await list({}));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
       setRows([]);
     }
   };
@@ -88,10 +91,10 @@ function Reviews() {
     setBusy(id);
     try {
       await resolve({ data: { prescriptionId: id, decision } });
-      toast.success(decision === "approved" ? "Validée" : "Refusée");
+      toast.success(decision === "approved" ? t("pharm.stApproved") : t("pharm.stRejected"));
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBusy(null);
     }
@@ -101,10 +104,10 @@ function Reviews() {
     setBusy(id);
     try {
       await retake({ data: { prescriptionId: id } });
-      toast.success("Demande de nouvelle photo envoyée");
+      toast.success(t("review.retakeSent"));
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBusy(null);
     }
@@ -151,12 +154,12 @@ function Reviews() {
           items,
         },
       });
-      toast.success("Extraction corrigée et validée");
+      toast.success(t("review.extractionFixed"));
       setEditingId(null);
       setEditForm(null);
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBusy(null);
     }
@@ -166,11 +169,10 @@ function Reviews() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="flex items-center gap-2">
         <ShieldAlert className="h-6 w-6 text-warning" />
-        <h1 className="text-2xl font-bold tracking-tight">Ordonnances à vérifier</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("review.heading")}</h1>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
-        L'IA envoie ici les documents douteux : date illisible ou périmée, faible confiance,
-        aucun médicament détecté. Les cas critiques sont affichés en premier.
+        {t("review.intro")}
       </p>
 
       {rows === null ? (
@@ -180,7 +182,7 @@ function Reviews() {
         </div>
       ) : rows.length === 0 ? (
         <Card className="mt-6 p-6 text-sm text-muted-foreground">
-          Aucune ordonnance en attente de vérification.
+          {t("review.empty")}
         </Card>
       ) : (
         <div className="mt-6 space-y-4">
@@ -191,7 +193,7 @@ function Reviews() {
                   <a href={r.imageUrl} target="_blank" rel="noreferrer">
                     <img
                       src={r.imageUrl}
-                      alt="Ordonnance signalée"
+                      alt={t("review.flaggedAlt")}
                       className="h-56 w-44 rounded-lg border border-border object-cover"
                     />
                   </a>
@@ -200,7 +202,7 @@ function Reviews() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge className={severityStyles[r.severity] ?? severityStyles.moderate}>
                       {severityIcon[r.severity] ?? severityIcon.moderate}
-                      <span className="ml-1 capitalize">{r.severity}</span>
+                      <span className="ml-1 capitalize">{t("review.severity." + r.severity, r.severity)}</span>
                     </Badge>
                     {r.reasons.map((reason, idx) => (
                       <Badge
@@ -211,25 +213,25 @@ function Reviews() {
                       </Badge>
                     ))}
                     {r.confidence !== null && (
-                      <Badge variant="secondary">IA {r.confidence}%</Badge>
+                      <Badge variant="secondary">{t("pharm.aiShort")} {r.confidence}%</Badge>
                     )}
                     {r.details?.authenticityScore !== undefined && (
                       <Badge variant="secondary">
-                        Authenticité {r.details.authenticityScore}%
+                        {t("review.authenticity", { n: r.details.authenticityScore })}
                       </Badge>
                     )}
                   </div>
                   <div className="mt-2 text-sm">
                     <div>
-                      Patient : {r.patientName ?? "—"}{" "}
+                      {t("review.patientLabel")} {r.patientName ?? "—"}{" "}
                       <span className="text-muted-foreground">
                         {r.patientEmail ?? r.patientPhone ?? ""}
                       </span>
                     </div>
                     <div className="text-muted-foreground">
-                      Médecin : {r.doctor ?? "—"}
-                      {r.hospital ? ` (${r.hospital})` : ""} · Date :{" "}
-                      {r.date ?? r.dateRaw ?? "illisible"}
+                      {t("review.doctorLabel")} {r.doctor ?? "—"}
+                      {r.hospital ? ` (${r.hospital})` : ""} · {t("review.dateLabel")}{" "}
+                      {r.date ?? r.dateRaw ?? t("review.unreadable")}
                       {r.details?.dateStatus ? ` · ${r.details.dateStatus}` : ""}
                     </div>
                   </div>
@@ -239,13 +241,13 @@ function Reviews() {
                     r.details?.qualityNotes) && (
                     <div className="mt-3 space-y-1 rounded-lg border border-border bg-muted p-3 text-xs">
                       {r.details?.unreadableZones?.map((z, idx) => (
-                        <div key={`z${idx}`}>Zone illisible : {z}</div>
+                        <div key={`z${idx}`}>{t("review.unreadableZone")} {z}</div>
                       ))}
                       {r.details?.inconsistencies?.map((c, idx) => (
-                        <div key={`c${idx}`}>Incohérence : {c}</div>
+                        <div key={`c${idx}`}>{t("review.inconsistency")} {c}</div>
                       ))}
                       {r.details?.qualityNotes && (
-                        <div>Qualité image : {r.details.qualityNotes}</div>
+                        <div>{t("review.imageQuality")} {r.details.qualityNotes}</div>
                       )}
                     </div>
                   )}
@@ -254,7 +256,7 @@ function Reviews() {
                     <div className="mt-4 space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-xs">Date</Label>
+                          <Label className="text-xs">{t("review.prescriptionDate")}</Label>
                           <Input
                             value={editForm.prescriptionDate}
                             onChange={(e) =>
@@ -264,7 +266,7 @@ function Reviews() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Médecin</Label>
+                          <Label className="text-xs">{t("review.doctorName")}</Label>
                           <Input
                             value={editForm.doctorName}
                             onChange={(e) =>
@@ -275,7 +277,7 @@ function Reviews() {
                         </div>
                       </div>
                       <div>
-                        <Label className="text-xs">Établissement</Label>
+                        <Label className="text-xs">{t("review.hospital")}</Label>
                         <Input
                           value={editForm.hospital}
                           onChange={(e) =>
@@ -286,7 +288,7 @@ function Reviews() {
                       </div>
                       {Object.entries(editForm.items).map(([itemId, vals]) => (
                         <div key={itemId} className="space-y-1 border-t border-border pt-2">
-                          <Label className="text-xs text-muted-foreground">Médicament</Label>
+                          <Label className="text-xs text-muted-foreground">{t("review.medicineName")}</Label>
                           <Input
                             value={vals.medicineNameRaw}
                             onChange={(e) =>
@@ -302,7 +304,7 @@ function Reviews() {
                           />
                           <div className="grid grid-cols-2 gap-2">
                             <Input
-                              placeholder="Dosage"
+                              placeholder={t("review.strength")}
                               value={vals.strength}
                               onChange={(e) =>
                                 setEditForm({
@@ -316,7 +318,7 @@ function Reviews() {
                               className="h-8 text-xs"
                             />
                             <Input
-                              placeholder="Posologie"
+                              placeholder={t("review.dosage")}
                               value={vals.dosage}
                               onChange={(e) =>
                                 setEditForm({
@@ -330,7 +332,7 @@ function Reviews() {
                               className="h-8 text-xs"
                             />
                             <Input
-                              placeholder="Quantité"
+                              placeholder={t("review.quantity")}
                               value={vals.quantity}
                               onChange={(e) =>
                                 setEditForm({
@@ -344,7 +346,7 @@ function Reviews() {
                               className="h-8 text-xs"
                             />
                             <Input
-                              placeholder="Durée"
+                              placeholder={t("review.duration")}
                               value={vals.duration}
                               onChange={(e) =>
                                 setEditForm({
@@ -366,7 +368,7 @@ function Reviews() {
                           disabled={busy === r.id}
                           onClick={() => saveEdit(r.id)}
                         >
-                          <Check className="mr-1 h-4 w-4" /> Enregistrer et valider
+                          <Check className="mr-1 h-4 w-4" /> {t("review.saveEdit")}
                         </Button>
                         <Button
                           size="sm"
@@ -376,7 +378,7 @@ function Reviews() {
                             setEditForm(null);
                           }}
                         >
-                          Annuler
+                          {t("common.cancel")}
                         </Button>
                       </div>
                     </div>
@@ -384,7 +386,7 @@ function Reviews() {
                     <>
                       <ul className="mt-2 space-y-1 text-sm">
                         {r.items.length === 0 && (
-                          <li className="text-muted-foreground">Aucun médicament extrait</li>
+                          <li className="text-muted-foreground">{t("review.noMeds")}</li>
                         )}
                         {r.items.map((i) => (
                           <li key={i.id}>
@@ -397,7 +399,7 @@ function Reviews() {
                       {r.aiRaw && (
                         <details className="mt-3">
                           <summary className="cursor-pointer text-xs text-muted-foreground">
-                            JSON extrait par l'IA
+                            {t("review.jsonSummary")}
                           </summary>
                           <pre className="mt-2 max-h-72 overflow-auto rounded-lg border border-border bg-black/30 p-3 text-[11px] leading-relaxed">
                             {r.aiRaw}
@@ -411,7 +413,7 @@ function Reviews() {
                           disabled={busy === r.id}
                           onClick={() => act(r.id, "approved")}
                         >
-                          <Check className="mr-1 h-4 w-4" /> Valider
+                          <Check className="mr-1 h-4 w-4" /> {t("courier.validateBtn")}
                         </Button>
                         <Button
                           size="sm"
@@ -419,7 +421,7 @@ function Reviews() {
                           disabled={busy === r.id}
                           onClick={() => act(r.id, "rejected")}
                         >
-                          <X className="mr-1 h-4 w-4" /> Refuser
+                          <X className="mr-1 h-4 w-4" /> {t("pharm.reject")}
                         </Button>
                         <Button
                           size="sm"
@@ -427,7 +429,7 @@ function Reviews() {
                           disabled={busy === r.id}
                           onClick={() => doRetake(r.id)}
                         >
-                          <RotateCcw className="mr-1 h-4 w-4" /> Demander une nouvelle photo
+                          <RotateCcw className="mr-1 h-4 w-4" /> {t("review.retake")}
                         </Button>
                         <Button
                           size="sm"
@@ -435,7 +437,7 @@ function Reviews() {
                           disabled={busy === r.id}
                           onClick={() => startEdit(r)}
                         >
-                          <Edit3 className="mr-1 h-4 w-4" /> Corriger l'extraction
+                          <Edit3 className="mr-1 h-4 w-4" /> {t("review.editExtraction")}
                         </Button>
                       </div>
                     </>

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { Pill, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -13,16 +14,16 @@ import { checkFeedbackEligibility, submitPhoneFeedback } from "@/lib/feedback.fu
 export const Route = createFileRoute("/feedback")({
   head: () => ({
     meta: [
-      { title: "Donner votre avis — SAHA Santé" },
+      { title: i18n.t("meta.feedbackTitle") },
       {
         name: "description",
         content:
-          "Clients SAHA Santé : notez votre commande de médicaments et laissez une remarque après vérification de votre numéro de téléphone.",
+          i18n.t("meta.feedbackDesc"),
       },
-      { property: "og:title", content: "Donner votre avis — SAHA Santé" },
+      { property: "og:title", content: i18n.t("meta.feedbackTitle") },
       {
         property: "og:description",
-        content: "Notez votre expérience SAHA Santé après une commande de médicaments au Mali.",
+        content: i18n.t("meta.feedbackOgDesc"),
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

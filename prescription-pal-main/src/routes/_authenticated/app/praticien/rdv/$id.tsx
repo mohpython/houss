@@ -17,17 +17,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { PageSkeleton } from "@/components/ui/skeletons";
-import { getDateLocale } from "@/i18n";
+import i18n, { getDateLocale } from "@/i18n";
 import { ArrowLeft, CheckCircle2, Home, MessageCircle, Navigation, Phone, Pill, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/praticien/rdv/$id")({
   component: TreatPage,
   head: () => ({
     meta: [
-      { title: "Fiche patient — SAHA Santé" },
-      { name: "description", content: "Notes, compte-rendu et ordonnance pour la consultation en cours." },
-      { property: "og:title", content: "Fiche patient — SAHA Santé" },
-      { property: "og:description", content: "Traitez votre patient et clôturez la consultation." },
+      { title: i18n.t("meta.rdvTitle") },
+      { name: "description", content: i18n.t("meta.rdvDesc") },
+      { property: "og:title", content: i18n.t("meta.rdvTitle") },
+      { property: "og:description", content: i18n.t("meta.rdvOgDesc") },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

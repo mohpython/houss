@@ -3,6 +3,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { auth } from "@/integrations/auth/client";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { GlassCard } from "@/components/GlassCard";
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/reset-password")({
   ssr: false,
   validateSearch: z.object({ token: z.string().optional() }),
   head: () => ({
-    meta: [{ title: "Nouveau mot de passe — SAHA Santé" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: i18n.t("meta.resetTitle") }, { name: "robots", content: "noindex" }],
   }),
   component: ResetPasswordPage,
 });

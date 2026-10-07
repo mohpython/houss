@@ -28,21 +28,23 @@ import {
   ChevronRight,
   MessageCircle,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/admin/")({
   component: Admin,
   head: () => ({
     meta: [
-      { title: "Administration — SAHA Santé" },
+      { title: i18n.t("admin.metaTitle") },
       {
         name: "description",
         content:
-          "Tableau de bord administrateur SAHA Santé : pharmacies, stocks, livreurs, praticiens, rendez-vous et avis clients.",
+          i18n.t("admin.metaDesc"),
       },
-      { property: "og:title", content: "Administration — SAHA Santé" },
+      { property: "og:title", content: i18n.t("admin.metaTitle") },
       {
         property: "og:description",
-        content: "Pilotez pharmacies, stocks, livreurs et rendez-vous depuis un seul écran.",
+        content: i18n.t("admin.metaOgDesc"),
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -72,6 +74,7 @@ type Section = {
 };
 
 function Admin() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<Ph[] | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [query, setQuery] = useState("");
@@ -120,92 +123,92 @@ function Admin() {
   const act = async (pharmacyId: string, decision: "approved" | "rejected") => {
     try {
       await approve({ data: { pharmacyId, decision } });
-      toast.success("Mis à jour");
+      toast.success(t("common.updated"));
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     }
   };
 
   const sections: Section[] = useMemo(
     () => [
       {
-        title: "Pharmacies & stocks",
+        title: t("admin.secPharmTitle"),
         items: [
           {
             to: "/app/admin/pharmacies",
             icon: <Store className="h-5 w-5" />,
-            label: "Gérants pharmacies",
-            desc: "Attribuer une pharmacie par email",
+            label: t("admin.secManagers"),
+            desc: t("admin.secManagersDesc"),
           },
           {
             to: "/app/admin/inventory",
             icon: <Boxes className="h-5 w-5" />,
-            label: "Stocks pharmacies",
-            desc: "Gérer l'inventaire global",
+            label: t("admin.secStocks"),
+            desc: t("admin.secStocksDesc"),
           },
         ],
       },
       {
-        title: "Livraison",
+        title: t("admin.secDelivery"),
         items: [
           {
             to: "/app/admin/couriers",
             icon: <Bike className="h-5 w-5" />,
-            label: "Livreurs",
-            desc: "Validation et suivi des livreurs",
+            label: t("admin.secCouriers"),
+            desc: t("admin.secCouriersDesc"),
           },
           {
             to: "/app/admin/neighborhoods",
             icon: <MapPin className="h-5 w-5" />,
-            label: "Quartiers",
-            desc: "Quartiers proposés comme lieux de livraison",
+            label: t("admin.secDistricts"),
+            desc: t("admin.secDistrictsDesc"),
           },
         ],
       },
       {
-        title: "Santé",
+        title: t("admin.secHealth"),
         items: [
           {
             to: "/app/admin/practitioners",
             icon: <Stethoscope className="h-5 w-5" />,
-            label: "Praticiens",
-            desc: "Médecins et infirmiers",
+            label: t("admin.secPractitioners"),
+            desc: t("admin.secPractitionersDesc"),
           },
           {
             to: "/app/admin/appointments",
             icon: <CalendarClock className="h-5 w-5" />,
-            label: "Rendez-vous",
-            desc: "Patients et praticiens assignés",
+            label: t("admin.secAppointments"),
+            desc: t("admin.secAppointmentsDesc"),
           },
           {
             to: "/app/admin/reviews",
             icon: <ShieldAlert className="h-5 w-5" />,
-            label: "Ordonnances à vérifier",
-            desc: "Documents signalés par l'IA",
+            label: t("review.heading"),
+            desc: t("admin.secReviewsDesc"),
           },
         ],
       },
       {
-        title: "Utilisateurs & retours",
+        title: t("admin.secUsers"),
         items: [
           {
             to: "/app/admin/feedback",
             icon: <MessageSquareHeart className="h-5 w-5" />,
-            label: "Avis clients",
-            desc: "Notes et remarques après commande",
+            label: t("admin.secFeedback"),
+            desc: t("admin.secFeedbackDesc"),
           },
           {
             to: "/app/admin/patients",
             icon: <UserCog className="h-5 w-5" />,
-            label: "Patients & rôles",
-            desc: "Rôles, quartier et historique de commandes",
+            label: t("admin.secPatients"),
+            desc: t("admin.secPatientsDesc"),
           },
           {
             to: "/app/admin/whatsapp",
             icon: <MessageCircle className="h-5 w-5" />,
-            label: "Bot WhatsApp",
-            desc: "Commandes reçues, quartiers et messages types",
+            label: t("admin.secWhatsapp"),
+            desc: t("admin.secWhatsappDesc"),
           },
         ],
       },
@@ -232,9 +235,9 @@ function Admin() {
   if (!isAdmin) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">Accès réservé aux administrateurs</h1>
+        <h1 className="text-xl font-semibold">{t("admin.adminOnly")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Contactez un administrateur pour obtenir le rôle « admin ».
+          {t("admin.contactAdmin")}
         </p>
       </div>
     );
@@ -247,10 +250,10 @@ function Admin() {
       <header>
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" aria-hidden="true" />
-          <h1 className="text-2xl font-bold tracking-tight">Administration</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("admin.title")}</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tout se gère ici : pharmacies, stocks, livreurs, praticiens et avis.
+          {t("admin.subtitle")}
         </p>
       </header>
 
@@ -260,32 +263,32 @@ function Admin() {
             <ShieldAlert className="h-5 w-5 text-warning" aria-hidden="true" />
             <div>
               <div className="font-semibold">
-                {pending.length} pharmacie{pending.length > 1 ? "s" : ""} en attente de validation
+                {t(pending.length > 1 ? "admin.pendingPlural" : "admin.pendingOne", { n: pending.length })}
               </div>
-              <div className="text-xs text-muted-foreground">À traiter en bas de cette page.</div>
+              <div className="text-xs text-muted-foreground">{t("admin.handleBelow")}</div>
             </div>
           </div>
           <Button asChild size="sm" className="min-h-11">
-            <a href="#validation">Traiter maintenant</a>
+            <a href="#validation">{t("admin.handleNow")}</a>
           </Button>
         </Card>
       )}
 
       <section
-        aria-label="Statistiques globales"
+        aria-label={t("admin.globalStats")}
         className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
       >
-        <Kpi icon={<Store className="h-4 w-4" />} label="Pharmacies" value={global.pharmacies} />
-        <Kpi icon={<Users className="h-4 w-4" />} label="Livreurs" value={global.couriers} />
+        <Kpi icon={<Store className="h-4 w-4" />} label={t("admin.kpiPharmacies")} value={global.pharmacies} />
+        <Kpi icon={<Users className="h-4 w-4" />} label={t("admin.kpiCouriers")} value={global.couriers} />
         <Kpi
           icon={<Package className="h-4 w-4" />}
-          label="Commandes actives"
+          label={t("admin.kpiActive")}
           value={global.active}
           tone="warning"
         />
         <Kpi
           icon={<Truck className="h-4 w-4" />}
-          label="Livrées"
+          label={t("admin.kpiDelivered")}
           value={global.delivered}
           tone="success"
         />
@@ -293,7 +296,7 @@ function Admin() {
 
       <div className="mt-8">
         <label htmlFor="admin-search" className="text-sm font-medium">
-          Rechercher une section
+          {t("admin.searchSection")}
         </label>
         <div className="relative mt-2">
           <Search
@@ -304,7 +307,7 @@ function Admin() {
             id="admin-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ex. stocks, livreurs, avis…"
+            placeholder={t("admin.searchPh")}
             className="h-11 pl-9"
           />
         </div>
@@ -312,7 +315,7 @@ function Admin() {
 
       {filtered.length === 0 && (
         <p className="mt-6 text-sm text-muted-foreground">
-          Aucune section ne correspond à « {query} ».
+          {t("admin.noMatch", { query })}
         </p>
       )}
 
@@ -354,12 +357,12 @@ function Admin() {
 
       <section id="validation" className="mt-10 scroll-mt-20" aria-labelledby="sec-validation">
         <h2 id="sec-validation" className="text-lg font-semibold">
-          Validation des pharmacies
+          {t("admin.validationTitle")}
         </h2>
         <div className="mt-3 space-y-3">
           {rows === null && <Skeleton className="h-24 w-full" />}
           {rows?.length === 0 && (
-            <Card className="p-6 text-center text-sm text-muted-foreground">Aucune demande.</Card>
+            <Card className="p-6 text-center text-sm text-muted-foreground">{t("admin.noRequests")}</Card>
           )}
           {rows?.map((p) => (
             <Card key={p.id} className="p-4">
@@ -367,7 +370,7 @@ function Admin() {
                 <div>
                   <div className="font-semibold">{p.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    Licence : {p.license_number} · {p.address}
+                    {t("admin.licensePrefix")} {p.license_number} · {p.address}
                     {p.city ? `, ${p.city}` : ""}
                   </div>
                 </div>
@@ -382,16 +385,16 @@ function Admin() {
                   }
                 >
                   {p.status === "approved"
-                    ? "Approuvée"
+                    ? t("admin.valApproved")
                     : p.status === "rejected"
-                      ? "Refusée"
-                      : "En attente"}
+                      ? t("admin.valRejected")
+                      : t("admin.stPending")}
                 </Badge>
               </div>
               {p.status === "pending" && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" className="min-h-11" onClick={() => act(p.id, "approved")}>
-                    Approuver {p.name}
+                    {t("admin.approve")} {p.name}
                   </Button>
                   <Button
                     size="sm"
@@ -399,7 +402,7 @@ function Admin() {
                     className="min-h-11"
                     onClick={() => act(p.id, "rejected")}
                   >
-                    Refuser {p.name}
+                    {t("pharm.reject")} {p.name}
                   </Button>
                 </div>
               )}

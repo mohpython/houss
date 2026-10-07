@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { ExternalLink, Phone } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/courier/deliveries/$id")({
@@ -53,12 +54,25 @@ const NEXT: Record<string, "picked_up" | "en_route" | "delivered" | null> = {
   delivered: null,
 };
 const NEXT_LABEL: Record<string, string> = {
-  picked_up: "J'ai récupéré la commande",
-  en_route: "Je pars livrer",
-  delivered: "Livraison effectuée",
+  picked_up: "courier.btnPickedUp",
+  en_route: "courier.btnEnRoute",
+  delivered: "courier.btnDelivered",
 };
 
+function deliveryLabel(status: string) {
+  return status === "assigned"
+    ? "courier.stAssigned"
+    : status === "picked_up"
+      ? "courier.stPickedUp"
+      : status === "en_route"
+        ? "courier.stEnRoute"
+        : status === "delivered"
+          ? "courier.stDelivered"
+          : status;
+}
+
 function DeliveryPage() {
+  const { t } = useTranslation();
   const { id } = Route.useParams();
   const [d, setD] = useState<Delivery | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,11 +88,11 @@ function DeliveryPage() {
     setChecking(true);
     try {
       await verifyReceipt({ data: { reservationId: id, code: receiptCode.trim() } });
-      toast.success("Livraison confirmée");
+      toast.success(t("courier.delivConfirmed"));
       setReceiptCode("");
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Code incorrect");
+      toast.error(err instanceof Error ? err.message : t("courier.codeIncorrect"));
     } finally {
       setChecking(false);
     }
@@ -157,7 +171,7 @@ function DeliveryPage() {
         }
       })
       .catch((e: unknown) =>
-        toast.error(e instanceof Error ? e.message : "Carte indisponible"),
+        toast.error(e instanceof Error ? e.message : t("courier.mapUnavailable")),
       );
   }, [d, getRoute]);
 
@@ -167,10 +181,10 @@ function DeliveryPage() {
     if (!next) return;
     try {
       await updateStatus({ data: { reservationId: d.id, status: next } });
-      toast.success("Statut mis à jour");
+      toast.success(t("courier.statusUpdated"));
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     }
   };
 
@@ -180,7 +194,7 @@ function DeliveryPage() {
         <Skeleton className="h-96 w-full" />
       </div>
     );
-  if (!d) return <div className="p-8">Course introuvable.</div>;
+  if (!d) return <div className="p-8">{t("courier.tripNotFound")}</div>;
 
   const pharm = d.pharmacies;
   // La récupération en pharmacie et la livraison finale se valident par code.
@@ -196,22 +210,22 @@ function DeliveryPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <Link to="/app/courier" className="text-sm text-muted-foreground hover:underline">
-        ← Retour
+        ← {t("common.back")}
       </Link>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">Course</h1>
+      <h1 className="mt-2 text-2xl font-bold tracking-tight">{t("courier.tripTitle")}</h1>
 
       <Card className="mt-4 overflow-hidden">
         <div ref={mapRef} className="h-[350px] w-full bg-muted" />
       </Card>
       {(!d.patient_lat || !d.patient_lng) && (
         <p className="mt-2 text-xs text-warning">
-          Position du patient non fournie — contactez-le pour l'adresse exacte.
+          {t("courier.noPatientPos")}
         </p>
       )}
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Card className="p-4">
-          <div className="text-xs font-semibold uppercase text-muted-foreground">Retrait</div>
+          <div className="text-xs font-semibold uppercase text-muted-foreground">{t("courier.pickupLabel")}</div>
           <div className="mt-1 font-medium">{pharm?.name}</div>
           <div className="text-xs text-muted-foreground">{pharm?.address}</div>
           {pharm?.phone && (
@@ -224,9 +238,9 @@ function DeliveryPage() {
           )}
         </Card>
         <Card className="p-4">
-          <div className="text-xs font-semibold uppercase text-muted-foreground">Livraison</div>
-          <div className="mt-1 font-medium">{d.patient_name ?? "Client"}</div>
-          <div className="text-xs text-muted-foreground">{d.patient_address ?? "Voir carte"}</div>
+          <div className="text-xs font-semibold uppercase text-muted-foreground">{t("courier.deliveryTitle")}</div>
+          <div className="mt-1 font-medium">{d.patient_name ?? t("courier.clientFallback")}</div>
+          <div className="text-xs text-muted-foreground">{d.patient_address ?? t("courier.seeMap")}</div>
           {d.patient_phone && (
             <a
               href={`tel:${d.patient_phone}`}
@@ -240,8 +254,8 @@ function DeliveryPage() {
 
       <Card className="mt-4 p-4">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold">Articles</div>
-          <Badge>{d.delivery_status}</Badge>
+          <div className="text-sm font-semibold">{t("courier.itemsTitle")}</div>
+          <Badge>{t(deliveryLabel(d.delivery_status))}</Badge>
         </div>
         <ul className="mt-2 text-sm">
           {d.reservation_items.map((i, idx) => (
@@ -256,17 +270,17 @@ function DeliveryPage() {
       </Card>
 
       <Card className="mt-4 p-4">
-        <div className="text-xs font-semibold uppercase text-muted-foreground">Codes</div>
+        <div className="text-xs font-semibold uppercase text-muted-foreground">{t("courier.codesTitle")}</div>
         {!d.pickup_code_verified_at ? (
           <>
-            <p className="mt-2 text-sm">Donnez ce code à la pharmacie pour récupérer le colis :</p>
+            <p className="mt-2 text-sm">{t("courier.giveCode")}</p>
             <div className="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">
               {d.pickup_code ?? "——————"}
             </div>
           </>
         ) : !d.receipt_code_verified_at ? (
           <div className="mt-2 space-y-2">
-            <p className="text-sm">Saisissez le code de réception donné par le client :</p>
+            <p className="text-sm">{t("courier.enterReceiptCode")}</p>
             <div className="flex gap-2">
               <Input
                 inputMode="numeric"
@@ -274,22 +288,22 @@ function DeliveryPage() {
                 value={receiptCode}
                 onChange={(e) => setReceiptCode(e.target.value)}
                 placeholder="123456"
-                aria-label="Code de réception"
+                aria-label={t("courier.receiptCodeLabel")}
               />
               <Button onClick={confirmReceipt} disabled={checking || receiptCode.trim().length < 4}>
-                Valider
+                {t("courier.validateBtn")}
               </Button>
             </div>
           </div>
         ) : (
-          <p className="mt-2 text-sm text-success">Livraison validée par le client.</p>
+          <p className="mt-2 text-sm text-success">{t("courier.delivVerifiedByClient")}</p>
         )}
       </Card>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {next && (
           <Button onClick={advance} size="lg">
-            {NEXT_LABEL[next]}
+            {t(NEXT_LABEL[next])}
           </Button>
         )}
         {dest && (
@@ -300,7 +314,7 @@ function DeliveryPage() {
               rel="noreferrer"
             >
               <ExternalLink className="mr-2 h-4 w-4" />
-              Ouvrir dans Maps
+              {t("courier.openInMaps")}
             </a>
           </Button>
         )}

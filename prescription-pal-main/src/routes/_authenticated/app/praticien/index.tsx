@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageSkeleton } from "@/components/ui/skeletons";
-import { getDateLocale } from "@/i18n";
+import i18n, { getDateLocale } from "@/i18n";
 import {
   Bell,
   CalendarDays,
@@ -38,10 +38,10 @@ export const Route = createFileRoute("/_authenticated/app/praticien/")({
   component: PractitionerDashboardPage,
   head: () => ({
     meta: [
-      { title: "Espace praticien — SAHA Santé" },
-      { name: "description", content: "Demandes de consultation, agenda, rappels et suivi de vos patients." },
-      { property: "og:title", content: "Espace praticien — SAHA Santé" },
-      { property: "og:description", content: "Acceptez vos demandes, proposez une date et traitez vos patients." },
+      { title: i18n.t("meta.pracTitle") },
+      { name: "description", content: i18n.t("meta.pracDesc") },
+      { property: "og:title", content: i18n.t("meta.pracTitle") },
+      { property: "og:description", content: i18n.t("meta.pracOgDesc") },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Stethoscope, Plus, Trash2, Pencil, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/app/admin/practitioners")({
   component: AdminPractitioners,
@@ -82,6 +83,7 @@ const emptyForm: FormState = {
 };
 
 function AdminPractitioners() {
+  const { t } = useTranslation();
   const { user } = Route.useRouteContext();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [rows, setRows] = useState<AdminPractitionerRow[] | null>(null);
@@ -117,7 +119,7 @@ function AdminPractitioners() {
         .then(setStats)
         .catch(() => setStats({}));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
       setRows([]);
     }
   };
@@ -151,7 +153,7 @@ function AdminPractitioners() {
 
   const save = async () => {
     if (!form.full_name.trim() || !form.specialty_code) {
-      toast.error("Nom et spécialité obligatoires");
+      toast.error(t("pr.required"));
       return;
     }
     setBusy(true);
@@ -176,12 +178,12 @@ function AdminPractitioners() {
           claim_email: form.claim_email.trim() ? form.claim_email.trim() : null,
         },
       });
-      toast.success(form.id ? "Praticien mis à jour" : "Praticien ajouté");
+      toast.success(form.id ? t("pr.updated") : t("pr.added"));
       setForm(emptyForm);
       setOpen(false);
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setBusy(false);
     }
@@ -190,20 +192,20 @@ function AdminPractitioners() {
   const act = async (id: string, status: "approved" | "rejected" | "pending") => {
     try {
       await setStatus({ data: { id, status } });
-      toast.success("Statut mis à jour");
+      toast.success(t("pr.statusUpdated"));
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     }
   };
 
   const del = async (id: string) => {
     try {
       await remove({ data: { id } });
-      toast.success("Praticien supprimé");
+      toast.success(t("pr.deleted"));
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     }
   };
 
@@ -216,7 +218,7 @@ function AdminPractitioners() {
   if (!isAdmin)
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">Accès réservé aux administrateurs</h1>
+        <h1 className="text-xl font-semibold">{t("pr.adminOnly")}</h1>
       </div>
     );
 
@@ -227,7 +229,7 @@ function AdminPractitioners() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Stethoscope className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">Praticiens</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("pr.title")}</h1>
         </div>
         <Button
           variant={open ? "outline" : "default"}
@@ -243,26 +245,26 @@ function AdminPractitioners() {
           }}
         >
           {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {open ? "Fermer" : "Ajouter un praticien"}
+          {open ? t("pr.close") : t("pr.addBtn")}
         </Button>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Créez les médecins et infirmiers, validez-les et rattachez leur compte par e-mail.
+        {t("pr.subtitle")}
       </p>
 
       {open && (
         <Card className="mt-6 space-y-4 p-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Nom complet</Label>
+              <Label>{t("pr.nameLabel")}</Label>
               <Input
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                placeholder="Dr. Amadou Traoré"
+                placeholder={t("pr.namePh")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Type</Label>
+              <Label>{t("pr.typeLabel")}</Label>
               <Select
                 value={form.type}
                 onValueChange={(v) =>
@@ -273,19 +275,19 @@ function AdminPractitioners() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="doctor">Médecin</SelectItem>
-                  <SelectItem value="nurse">Infirmier</SelectItem>
+                  <SelectItem value="doctor">{t("role.doctor")}</SelectItem>
+                  <SelectItem value="nurse">{t("role.nurse")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Spécialité</Label>
+              <Label>{t("pr.specialtyLabel")}</Label>
               <Select
                 value={form.specialty_code}
                 onValueChange={(v) => setForm({ ...form, specialty_code: v })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir une spécialité" />
+                  <SelectValue placeholder={t("pr.specialtyPh")} />
                 </SelectTrigger>
                 <SelectContent>
                   {typeSpecialties.map((s) => (
@@ -297,44 +299,44 @@ function AdminPractitioners() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>E-mail de rattachement</Label>
+              <Label>{t("pr.claimEmailLabel")}</Label>
               <Input
                 type="email"
                 value={form.claim_email}
                 onChange={(e) => setForm({ ...form, claim_email: e.target.value })}
-                placeholder="praticien@exemple.com"
+                placeholder={t("pr.claimEmailPh")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Téléphone</Label>
+              <Label>{t("pr.phoneLabel")}</Label>
               <Input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>N° d'ordre / licence</Label>
+              <Label>{t("pr.licenseLabel")}</Label>
               <Input
                 value={form.license_number}
                 onChange={(e) => setForm({ ...form, license_number: e.target.value })}
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>Adresse</Label>
+              <Label>{t("pr.addressLabel")}</Label>
               <Input
                 value={form.address}
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Ville</Label>
+              <Label>{t("common.city")}</Label>
               <Input
                 value={form.city}
                 onChange={(e) => setForm({ ...form, city: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Tarif consultation (FCFA)</Label>
+              <Label>{t("pr.feeLabel")}</Label>
               <Input
                 inputMode="decimal"
                 value={form.consultation_fee}
@@ -342,7 +344,7 @@ function AdminPractitioners() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Latitude</Label>
+              <Label>{t("common.latitude")}</Label>
               <Input
                 inputMode="decimal"
                 value={form.lat}
@@ -351,7 +353,7 @@ function AdminPractitioners() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Longitude</Label>
+              <Label>{t("common.longitude")}</Label>
               <Input
                 inputMode="decimal"
                 value={form.lng}
@@ -360,7 +362,7 @@ function AdminPractitioners() {
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>Présentation</Label>
+              <Label>{t("pr.bioLabel")}</Label>
               <Textarea
                 rows={3}
                 value={form.bio}
@@ -368,7 +370,7 @@ function AdminPractitioners() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Statut</Label>
+              <Label>{t("pr.statusLabel")}</Label>
               <Select
                 value={form.status}
                 onValueChange={(v) => setForm({ ...form, status: v as FormState["status"] })}
@@ -377,9 +379,9 @@ function AdminPractitioners() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="approved">Validé</SelectItem>
-                  <SelectItem value="pending">En attente</SelectItem>
-                  <SelectItem value="rejected">Refusé</SelectItem>
+                  <SelectItem value="approved">{t("pr.stApproved")}</SelectItem>
+                  <SelectItem value="pending">{t("pr.stPending")}</SelectItem>
+                  <SelectItem value="rejected">{t("pr.stRejected")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -389,30 +391,30 @@ function AdminPractitioners() {
                   checked={form.home_visits}
                   onCheckedChange={(v) => setForm({ ...form, home_visits: v })}
                 />
-                Visites à domicile
+                {t("pr.homeVisits")}
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <Switch
                   checked={form.is_available}
                   onCheckedChange={(v) => setForm({ ...form, is_available: v })}
                 />
-                Disponible
+                {t("pr.available")}
               </label>
             </div>
           </div>
           <LoadingButton onClick={save} loading={busy} className="gap-2">
             <Plus className="h-4 w-4" />
-            {form.id ? "Enregistrer" : "Créer le praticien"}
+            {form.id ? t("common.save") : t("pr.create")}
           </LoadingButton>
         </Card>
       )}
 
-      <h2 className="mt-8 text-lg font-semibold">Liste des praticiens</h2>
+      <h2 className="mt-8 text-lg font-semibold">{t("pr.listTitle")}</h2>
       <div className="mt-3 space-y-2">
         {rows === null && <ListSkeleton rows={3} rowClassName="h-20" />}
         {rows?.length === 0 && (
           <Card className="p-6 text-center text-sm text-muted-foreground">
-            Aucun praticien enregistré.
+            {t("pr.empty")}
           </Card>
         )}
         {rows?.map((p) => (
@@ -420,7 +422,7 @@ function AdminPractitioners() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold">{p.full_name}</span>
-                <Badge variant="secondary">{p.type === "doctor" ? "Médecin" : "Infirmier"}</Badge>
+                <Badge variant="secondary">{p.type === "doctor" ? t("role.doctor") : t("role.nurse")}</Badge>
                 <Badge
                   variant="secondary"
                   className={
@@ -433,7 +435,7 @@ function AdminPractitioners() {
                 >
                   {p.status}
                 </Badge>
-                {p.home_visits && <Badge variant="outline">Domicile</Badge>}
+                {p.home_visits && <Badge variant="outline">{t("pr.homeBadge")}</Badge>}
               </div>
               <div className="mt-1 text-xs text-muted-foreground">
                 {specialties.find((s) => s.code === p.specialty_code)?.label_fr ?? p.specialty_code}
@@ -446,11 +448,11 @@ function AdminPractitioners() {
                     variant="outline"
                     className={stats[p.id].pending > 0 ? "border-warning/50 text-warning" : ""}
                   >
-                    {stats[p.id].pending} demande{stats[p.id].pending > 1 ? "s" : ""} en attente
+                    {stats[p.id].pending} {t(stats[p.id].pending > 1 ? "pr.requests" : "pr.request")} {t("pr.pending")}
                   </Badge>
                   {stats[p.id].avgResponseHours !== null && (
                     <Badge variant="outline">
-                      Réponse moy.{" "}
+                      {t("pr.avgResp")}{" "}
                       {stats[p.id].avgResponseHours! < 1
                         ? `${Math.round(stats[p.id].avgResponseHours! * 60)} min`
                         : `${stats[p.id].avgResponseHours!.toFixed(1)} h`}
@@ -460,24 +462,24 @@ function AdminPractitioners() {
               )}
               <div className="mt-1 text-xs text-muted-foreground">
                 {p.owner_email
-                  ? `Compte : ${p.owner_email}`
+                  ? `${t("pr.accountPrefix")} ${p.owner_email}`
                   : p.claim_email
-                    ? `Invitation : ${p.claim_email}`
-                    : "Aucun compte rattaché"}
+                    ? `${t("pr.invitePrefix")} ${p.claim_email}`
+                    : t("pr.noAccount")}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline" className="gap-2" onClick={() => startEdit(p)}>
-                <Pencil className="h-4 w-4" /> Modifier
+                <Pencil className="h-4 w-4" /> {t("nbh.edit")}
               </Button>
               {p.status !== "approved" && (
                 <Button size="sm" onClick={() => act(p.id, "approved")}>
-                  Valider
+                  {t("courier.validateBtn")}
                 </Button>
               )}
               {p.status !== "rejected" && (
                 <Button size="sm" variant="outline" onClick={() => act(p.id, "rejected")}>
-                  Suspendre
+                  {t("pr.suspend")}
                 </Button>
               )}
               <Button

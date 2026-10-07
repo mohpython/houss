@@ -14,27 +14,29 @@ import { reportClientError } from "../lib/error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { auth } from "@/integrations/auth/client";
 import { getMyLanguage } from "@/lib/account.functions";
-import { applyLanguage } from "@/i18n";
+import i18n, { applyLanguage } from "@/i18n";
+import { useTranslation } from "react-i18next";
 import { applyTheme, getStoredTheme, useTheme } from "@/hooks/useTheme";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
 
 function NotFoundComponent() {
+  const { t } = useTranslation();
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4">
       <AuroraBackground />
       <div className="glass max-w-md rounded-3xl p-10 text-center">
         <h1 className="font-display text-7xl aurora-text">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page introuvable</h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">{t("common.notFoundTitle")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Cette page n'existe pas ou a été déplacée.
+          {t("common.notFoundText")}
         </p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-full aurora-bg px-5 py-2.5 text-sm font-medium text-on-aurora transition-transform hover:scale-[1.03]"
           >
-            Retour à l'accueil
+            {t("common.backHome")}
           </Link>
         </div>
       </div>
@@ -43,6 +45,7 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+  const { t } = useTranslation();
   console.error(error);
   const router = useRouter();
   useEffect(() => {
@@ -53,9 +56,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="relative flex min-h-screen items-center justify-center px-4">
       <AuroraBackground />
       <div className="glass max-w-md rounded-3xl p-8 text-center">
-        <h1 className="font-display text-2xl text-foreground">Une erreur est survenue</h1>
+        <h1 className="font-display text-2xl text-foreground">{t("common.errorTitle")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Impossible de charger cette page. Réessayez ou revenez à l'accueil.
+          {t("common.errorPageText")}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -65,13 +68,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="rounded-full aurora-bg px-4 py-2 text-sm font-medium text-on-aurora transition-transform hover:scale-[1.03]"
           >
-            Réessayer
+            {t("common.retry")}
           </button>
           <a
             href="/"
             className="rounded-full border border-border/60 bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
-            Accueil
+            {t("common.home")}
           </a>
         </div>
       </div>
@@ -84,17 +87,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SAHA Santé — Votre ordonnance. Livrée." },
+      { title: i18n.t("meta.rootTitle") },
       {
         name: "description",
         content:
-          "Scannez votre ordonnance, l'IA extrait vos médicaments et les livre depuis la pharmacie la plus proche.",
+          i18n.t("meta.rootDesc"),
       },
       { property: "og:title", content: "SAHA Santé" },
       {
         property: "og:description",
         content:
-          "Scannez votre ordonnance, l'IA extrait vos médicaments et les livre depuis la pharmacie la plus proche.",
+          i18n.t("meta.rootDesc"),
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

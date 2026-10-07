@@ -12,12 +12,14 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/app/pharmacy/onboarding")({
   component: Onboarding,
 });
 
 function Onboarding() {
+  const { t } = useTranslation();
   const { user } = Route.useRouteContext();
   const router = useRouter();
   const [blocked, setBlocked] = useState<null | "pharmacy" | "courier">(null);
@@ -69,10 +71,10 @@ function Onboarding() {
           google_place_id: form.google_place_id || null,
         },
       });
-      toast.success("Demande envoyée. En attente de validation.");
+      toast.success(t("pharm.onbSubmitted"));
       router.navigate({ to: "/app" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -86,7 +88,7 @@ function Onboarding() {
           lat: pos.coords.latitude.toFixed(6),
           lng: pos.coords.longitude.toFixed(6),
         })),
-      () => toast.error("Localisation refusée"),
+      () => toast.error(t("pharm.locDenied")),
     );
   };
 
@@ -98,24 +100,24 @@ function Onboarding() {
     try {
       const geo = await geoFn({ data: { address } });
       setForm((f) => ({ ...f, lat: String(geo.lat), lng: String(geo.lng) }));
-      toast.success("Adresse géocodée (OpenStreetMap)");
+      toast.success(t("pharm.geocoded"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Géocodage impossible");
+      toast.error(err instanceof Error ? err.message : t("pharm.geocodeFailed"));
     } finally {
       setGeocoding(false);
     }
   };
 
-  if (checking) return <div className="p-8 text-sm text-muted-foreground">Chargement…</div>;
+  if (checking) return <div className="p-8 text-sm text-muted-foreground">{t("common.loading")}</div>;
 
   if (blocked) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">Inscription impossible</h1>
+        <h1 className="text-xl font-semibold">{t("courier.onbImpossibleTitle")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {blocked === "pharmacy"
-            ? "Ce compte gère déjà une pharmacie. Un compte ne peut gérer qu'une seule pharmacie."
-            : "Ce compte est déjà livreur. Un compte ne peut pas être à la fois livreur et gérant de pharmacie."}
+            ? t("pharm.onbConflictPharmacy")
+            : t("pharm.onbConflictCourier")}
         </p>
       </div>
     );
@@ -123,14 +125,14 @@ function Onboarding() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-bold tracking-tight">Inscrire une pharmacie</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t("pharm.onbTitle")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Un administrateur validera votre licence avant l'activation du compte.
+        {t("pharm.onbValidateNote")}
       </p>
       <Card className="mt-6 p-6">
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="name">Nom de la pharmacie</Label>
+            <Label htmlFor="name">{t("pharm.onbName")}</Label>
             <Input
               id="name"
               value={form.name}
@@ -139,7 +141,7 @@ function Onboarding() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="license">Numéro de licence</Label>
+            <Label htmlFor="license">{t("pharm.onbLicense")}</Label>
             <Input
               id="license"
               value={form.license_number}
@@ -148,7 +150,7 @@ function Onboarding() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="address">Adresse</Label>
+            <Label htmlFor="address">{t("common.address")}</Label>
             <Textarea
               id="address"
               value={form.address}
@@ -158,7 +160,7 @@ function Onboarding() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="city">Ville</Label>
+              <Label htmlFor="city">{t("common.city")}</Label>
               <Input
                 id="city"
                 value={form.city}
@@ -166,7 +168,7 @@ function Onboarding() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="phone">Téléphone</Label>
+              <Label htmlFor="phone">{t("common.phone")}</Label>
               <Input
                 id="phone"
                 value={form.phone}
@@ -176,7 +178,7 @@ function Onboarding() {
           </div>
           <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
             <div className="space-y-1.5">
-              <Label htmlFor="lat">Latitude</Label>
+              <Label htmlFor="lat">{t("common.latitude")}</Label>
               <Input
                 id="lat"
                 value={form.lat}
@@ -184,7 +186,7 @@ function Onboarding() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="lng">Longitude</Label>
+              <Label htmlFor="lng">{t("common.longitude")}</Label>
               <Input
                 id="lng"
                 value={form.lng}
@@ -193,15 +195,15 @@ function Onboarding() {
             </div>
             <div className="flex items-end gap-2">
               <Button type="button" variant="outline" onClick={geocode} disabled={geocoding}>
-                {geocoding ? "…" : "Géocoder"}
+                {geocoding ? "…" : t("pharm.geocodeBtn")}
               </Button>
               <Button type="button" variant="outline" onClick={detect}>
-                Localiser
+                {t("pharm.locateBtn")}
               </Button>
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="place">Google Place ID (optionnel)</Label>
+            <Label htmlFor="place">{t("pharm.onbPlaceId")}</Label>
             <Input
               id="place"
               placeholder="ChIJ…"
@@ -209,7 +211,7 @@ function Onboarding() {
               onChange={(e) => setForm({ ...form, google_place_id: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
-              Permet aux patients de voir vos stocks dans les résultats Google Maps. Trouvez-le sur{" "}
+              {t("pharm.onbPlaceIdHelp")}{" "}
               <a
                 href="https://developers.google.com/maps/documentation/places/web-service/place-id"
                 target="_blank"
@@ -222,7 +224,7 @@ function Onboarding() {
             </p>
           </div>
           <Button type="submit" className="w-full" disabled={saving}>
-            {saving ? "Envoi…" : "Soumettre pour validation"}
+            {saving ? t("courier.onbSending") : t("pharm.onbSubmit")}
           </Button>
         </form>
       </Card>

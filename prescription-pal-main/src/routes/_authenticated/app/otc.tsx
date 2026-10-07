@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Camera, Loader2, Pill, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { DeliveryLocationPicker, type DeliveryLocation } from "@/components/DeliveryLocationPicker";
 
 export const Route = createFileRoute("/_authenticated/app/otc")({
@@ -15,16 +16,16 @@ export const Route = createFileRoute("/_authenticated/app/otc")({
     typeof search.q === "string" && search.q ? { q: search.q.slice(0, 500) } : {},
   head: () => ({
     meta: [
-      { title: "Médicaments sans ordonnance — SAHA Santé" },
+      { title: i18n.t("meta.otcTitle") },
       {
         name: "description",
         content:
-          "Commandez paracétamol, doliprane et autres médicaments sans ordonnance à la pharmacie la plus proche.",
+          i18n.t("meta.otcDesc"),
       },
-      { property: "og:title", content: "Médicaments sans ordonnance — SAHA Santé" },
+      { property: "og:title", content: i18n.t("meta.otcTitle") },
       {
         property: "og:description",
-        content: "Commandez vos médicaments sans ordonnance à la pharmacie la plus proche.",
+        content: i18n.t("meta.otcOgDesc"),
       },
     ],
   }),

@@ -1,20 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Pill, ArrowLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "Politique de confidentialité — SAHA Santé" },
+      { title: i18n.t("meta.privacyTitle") },
       {
         name: "description",
         content:
-          "Comment SAHA Santé collecte, utilise et protège vos données personnelles, ordonnances, localisation et accès caméra.",
+          i18n.t("meta.privacyDesc"),
       },
-      { property: "og:title", content: "Politique de confidentialité — SAHA Santé" },
+      { property: "og:title", content: i18n.t("meta.privacyTitle") },
       {
         property: "og:description",
         content:
-          "Politique de confidentialité de SAHA Santé : ordonnances, caméra, localisation, notifications.",
+          i18n.t("meta.privacyOgDesc"),
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -26,6 +28,7 @@ export const Route = createFileRoute("/privacy")({
 });
 
 function PrivacyPage() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -41,121 +44,98 @@ function PrivacyPage() {
             className="ml-auto inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Accueil
+            {t("common.home")}
           </Link>
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <h1 className="text-3xl font-bold tracking-tight">Politique de confidentialité</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Dernière mise à jour : 23 juillet 2026</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("privacy.title")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t("privacy.updated")}</p>
 
         <div className="prose prose-sm mt-8 max-w-none space-y-6 text-foreground">
           <section>
             <p>
-              Cette page est maintenue par l'équipe SAHA Santé pour répondre aux questions courantes
-              sur la confidentialité et la sécurité de l'application SAHA Santé (« l'Application »).
-              Elle décrit les données que nous collectons, comment nous les utilisons et les choix
-              dont vous disposez.
+              {t("privacy.intro")}
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">1. Données que nous collectons</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s1")}</h2>
             <ul className="ml-6 list-disc space-y-2">
               <li>
-                <strong>Compte :</strong> email, nom complet, langue préférée et rôle (patient,
-                pharmacie, livreur, admin).
+                <strong>{t("privacy.s1Account")}</strong> {t("privacy.s1AccountText")}
               </li>
               <li>
-                <strong>Ordonnances :</strong> photos ou PDF d'ordonnances que vous téléversez, et
-                les médicaments extraits automatiquement par notre système d'IA.
+                <strong>{t("privacy.s1Rx")}</strong> {t("privacy.s1RxText")}
               </li>
               <li>
-                <strong>Localisation :</strong> position approximative ou précise, utilisée
-                uniquement pour trouver les pharmacies proches et pour la livraison.
+                <strong>{t("privacy.s1Location")}</strong> {t("privacy.s1LocationText")}
               </li>
               <li>
-                <strong>Caméra :</strong> accès demandé uniquement lorsque vous choisissez de
-                photographier une ordonnance. Aucune capture en arrière-plan.
+                <strong>{t("privacy.s1Camera")}</strong> {t("privacy.s1CameraText")}
               </li>
               <li>
-                <strong>Notifications :</strong> jeton d'appareil pour les notifications liées à vos
-                réservations et livraisons.
+                <strong>{t("privacy.s1Notif")}</strong> {t("privacy.s1NotifText")}
               </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">2. Utilisation des données</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s2")}</h2>
             <p>
-              Vos données servent à faire fonctionner l'Application : analyser vos ordonnances,
-              trouver les pharmacies partenaires qui disposent des médicaments prescrits, gérer les
-              réservations et coordonner la livraison. Les données de santé ne sont jamais utilisées
-              à des fins publicitaires.
+              {t("privacy.s2Text")}
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">3. Partage des données</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s3")}</h2>
             <ul className="ml-6 list-disc space-y-2">
               <li>
-                <strong>Pharmacie sélectionnée :</strong> reçoit votre ordonnance et vos
-                informations de contact strictement nécessaires pour préparer la commande.
+                <strong>{t("privacy.s3Pharmacy")}</strong> {t("privacy.s3PharmacyText")}
               </li>
               <li>
-                <strong>Livreur assigné :</strong> reçoit l'adresse de livraison et le point de
-                retrait, uniquement pendant la durée de la course.
+                <strong>{t("privacy.s3Courier")}</strong> {t("privacy.s3CourierText")}
               </li>
               <li>
-                <strong>Sous-traitants techniques :</strong> Hostinger (hébergement du serveur et de
-                la base de données), Google Maps (géolocalisation et itinéraires), fournisseur d'IA
-                (extraction des médicaments). Ces prestataires traitent vos données pour notre
-                compte et sous contrat.
+                <strong>{t("privacy.s3Sub")}</strong> {t("privacy.s3SubText")}
               </li>
-              <li>Nous ne vendons pas vos données personnelles.</li>
+              <li>{t("privacy.s3NoSale")}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">4. Conservation</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s4")}</h2>
             <p>
-              Les ordonnances et réservations sont conservées le temps nécessaire au suivi du
-              service et pour répondre aux obligations légales. Vous pouvez demander la suppression
-              de votre compte à tout moment.
+              {t("privacy.s4Text")}
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">5. Sécurité</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s5")}</h2>
             <p>
-              Les données sont chiffrées en transit (HTTPS) et au repos. L'accès aux ordonnances est
-              restreint via des règles de sécurité au niveau des lignes (RLS) : seul le patient
-              concerné, la pharmacie destinataire et le livreur assigné peuvent y accéder.
+              {t("privacy.s5Text")}
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">6. Vos droits</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s6")}</h2>
             <p>
-              Vous pouvez accéder, corriger ou supprimer vos données, retirer les autorisations
-              caméra / localisation depuis les réglages de votre téléphone, et demander l'export de
-              vos données en nous contactant.
+              {t("privacy.s6Text")}
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">7. Enfants</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s7")}</h2>
             <p>
-              L'Application n'est pas destinée aux enfants de moins de 13 ans. Les mineurs doivent
-              utiliser l'Application sous la responsabilité d'un parent ou tuteur.
+              {t("privacy.s7Text")}
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">8. Contact</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s8")}</h2>
             <p>
-              Pour toute question ou demande relative à vos données, contactez :{" "}
+              {t("privacy.contactIntro")}{" "}
               <a
                 href="mailto:housseinifofana0091@gmail.com"
                 className="text-primary hover:underline"
@@ -167,10 +147,9 @@ function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">9. Modifications</h2>
+            <h2 className="text-xl font-semibold">{t("privacy.s9")}</h2>
             <p>
-              Nous pouvons mettre à jour cette politique. En cas de changement significatif, nous
-              vous en informerons dans l'Application.
+              {t("privacy.s9Text")}
             </p>
           </section>
         </div>

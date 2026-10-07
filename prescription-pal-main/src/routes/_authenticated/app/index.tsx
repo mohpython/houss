@@ -5,19 +5,19 @@ import { subscribeRealtime } from "@/integrations/realtime/client";
 import { listMyRecentReservations } from "@/lib/prescriptions.functions";
 import { Camera, ListChecks, Store, Stethoscope, Package, Truck, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getDateLocale } from "@/i18n";
+import i18n, { getDateLocale } from "@/i18n";
 import { PushSettingsCard } from "@/components/PushSettingsCard";
 import { NotificationCheckBanner } from "@/components/NotificationCheckBanner";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   head: () => ({
     meta: [
-      { title: "Accueil — SAHA Santé" },
-      { name: "description", content: "Scannez votre ordonnance : SAHA Santé s'occupe du reste." },
-      { property: "og:title", content: "Accueil — SAHA Santé" },
+      { title: i18n.t("meta.appHomeTitle") },
+      { name: "description", content: i18n.t("meta.appHomeDesc") },
+      { property: "og:title", content: i18n.t("meta.appHomeTitle") },
       {
         property: "og:description",
-        content: "Scannez votre ordonnance : SAHA Santé s'occupe du reste.",
+        content: i18n.t("meta.appHomeDesc"),
       },
     ],
   }),

@@ -6,21 +6,22 @@ import { GlassCard } from "@/components/GlassCard";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 
 export const Route = createFileRoute("/auth-callback")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Connexion en cours — SAHA Santé" },
+      { title: i18n.t("meta.authPendingTitle") },
       {
         name: "description",
-        content: "Finalisation de votre connexion sécurisée à SAHA Santé.",
+        content: i18n.t("meta.authPendingDesc"),
       },
-      { property: "og:title", content: "Connexion en cours — SAHA Santé" },
+      { property: "og:title", content: i18n.t("meta.authPendingTitle") },
       {
         property: "og:description",
-        content: "Finalisation de votre connexion sécurisée à SAHA Santé.",
+        content: i18n.t("meta.authPendingDesc"),
       },
       { name: "robots", content: "noindex" },
     ],

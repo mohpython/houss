@@ -16,14 +16,16 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ArrowLeft, MapPin, Plus, Pencil, Search, Save, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/admin/neighborhoods")({
   head: () => ({
     meta: [
-      { title: "Quartiers de livraison — Admin SAHA Santé" },
-      { name: "description", content: "Gérez les quartiers de Bamako proposés comme lieux de livraison." },
-      { property: "og:title", content: "Quartiers de livraison — Admin SAHA Santé" },
-      { property: "og:description", content: "Gérez les quartiers proposés comme lieux de livraison." },
+      { title: i18n.t("nbh.metaTitle") },
+      { name: "description", content: i18n.t("nbh.metaDesc") },
+      { property: "og:title", content: i18n.t("nbh.metaTitle") },
+      { property: "og:description", content: i18n.t("nbh.metaOgDesc") },
     ],
   }),
   component: AdminNeighborhoods,
@@ -33,6 +35,7 @@ type Form = { id?: string; name: string; city: string; lat: string; lng: string;
 const EMPTY: Form = { name: "", city: "Bamako", lat: "", lng: "", is_active: true };
 
 function AdminNeighborhoods() {
+  const { t } = useTranslation();
   const listFn = useServerFn(listNeighborhoods);
   const saveFn = useServerFn(upsertNeighborhood);
   const toggleFn = useServerFn(toggleNeighborhood);
@@ -45,7 +48,7 @@ function AdminNeighborhoods() {
     try {
       setRows(await listFn({ data: { includeInactive: true } }));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Chargement impossible");
+      toast.error(err instanceof Error ? err.message : t("nbh.loadFailed"));
       setRows([]);
     }
   };
@@ -65,7 +68,7 @@ function AdminNeighborhoods() {
     const lat = Number(form.lat.replace(",", "."));
     const lng = Number(form.lng.replace(",", "."));
     if (!form.name.trim() || Number.isNaN(lat) || Number.isNaN(lng)) {
-      toast.error("Nom, latitude et longitude sont obligatoires");
+      toast.error(t("nbh.requiredFields"));
       return;
     }
     setSaving(true);
@@ -73,11 +76,11 @@ function AdminNeighborhoods() {
       await saveFn({
         data: { id: form.id, name: form.name.trim(), city: form.city.trim() || "Bamako", lat, lng, is_active: form.is_active },
       });
-      toast.success(form.id ? "Quartier mis à jour" : "Quartier ajouté");
+      toast.success(form.id ? t("nbh.updated") : t("nbh.added"));
       setForm(null);
       await reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Enregistrement impossible");
+      toast.error(err instanceof Error ? err.message : t("nbh.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -88,7 +91,7 @@ function AdminNeighborhoods() {
     try {
       await toggleFn({ data: { id: n.id, is_active: next } });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
+      toast.error(err instanceof Error ? err.message : t("nbh.updateFailed"));
       await reload();
     }
   };
@@ -96,54 +99,54 @@ function AdminNeighborhoods() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
       <Link to="/app/admin" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Retour à l'administration
+        <ArrowLeft className="h-4 w-4" /> {t("nbh.backAdmin")}
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Quartiers de livraison</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("nbh.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Liste des quartiers que les patients peuvent choisir comme lieu de livraison.
+            {t("nbh.subtitle")}
           </p>
         </div>
         <Button className="min-h-[44px]" onClick={() => setForm({ ...EMPTY })}>
-          <Plus className="mr-2 h-4 w-4" /> Ajouter un quartier
+          <Plus className="mr-2 h-4 w-4" /> {t("nbh.addBtn")}
         </Button>
       </div>
 
       {form && (
         <Card className="mt-6 p-5">
-          <h2 className="text-lg font-semibold">{form.id ? "Modifier le quartier" : "Nouveau quartier"}</h2>
+          <h2 className="text-lg font-semibold">{form.id ? t("nbh.editTitle") : t("nbh.newTitle")}</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="nb-name">Nom du quartier</Label>
-              <Input id="nb-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex : Daoudabougou" />
+              <Label htmlFor="nb-name">{t("nbh.nameLabel")}</Label>
+              <Input id="nb-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t("nbh.namePh")} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="nb-city">Ville</Label>
+              <Label htmlFor="nb-city">{t("common.city")}</Label>
               <Input id="nb-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="nb-lat">Latitude</Label>
+              <Label htmlFor="nb-lat">{t("common.latitude")}</Label>
               <Input id="nb-lat" inputMode="decimal" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} placeholder="12.59" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="nb-lng">Longitude</Label>
+              <Label htmlFor="nb-lng">{t("common.longitude")}</Label>
               <Input id="nb-lng" inputMode="decimal" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} placeholder="-7.98" />
             </div>
             <div className="flex items-center gap-3">
               <Switch id="nb-active" checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
-              <Label htmlFor="nb-active">Visible pour les patients</Label>
+              <Label htmlFor="nb-active">{t("nbh.visibleLabel")}</Label>
             </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Astuce : ouvrez Google Maps, faites un clic droit sur le centre du quartier et copiez les coordonnées.
+            {t("nbh.coordsTip")}
           </p>
           <div className="mt-4 flex gap-2">
             <Button onClick={save} disabled={saving} className="min-h-[44px]">
-              <Save className="mr-2 h-4 w-4" /> Enregistrer
+              <Save className="mr-2 h-4 w-4" /> {t("common.save")}
             </Button>
             <Button variant="ghost" onClick={() => setForm(null)} disabled={saving} className="min-h-[44px]">
-              <X className="mr-2 h-4 w-4" /> Annuler
+              <X className="mr-2 h-4 w-4" /> {t("common.cancel")}
             </Button>
           </div>
         </Card>
@@ -151,7 +154,7 @@ function AdminNeighborhoods() {
 
       <div className="relative mt-6">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un quartier…" className="pl-9" aria-label="Rechercher un quartier" />
+        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("nbh.searchPh")} className="pl-9" aria-label={t("nbh.searchAria")} />
       </div>
 
       <div className="mt-4 space-y-2">
@@ -162,7 +165,7 @@ function AdminNeighborhoods() {
           </>
         )}
         {rows !== null && filtered.length === 0 && (
-          <Card className="p-8 text-center text-sm text-muted-foreground">Aucun quartier.</Card>
+          <Card className="p-8 text-center text-sm text-muted-foreground">{t("nbh.empty")}</Card>
         )}
         {filtered.map((n) => (
           <Card key={n.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -173,7 +176,7 @@ function AdminNeighborhoods() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium">{n.name}</p>
-                  {!n.is_active && <Badge variant="secondary">Masqué</Badge>}
+                  {!n.is_active && <Badge variant="secondary">{t("nbh.hidden")}</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {n.city} · {n.lat.toFixed(4)}, {n.lng.toFixed(4)}
@@ -186,9 +189,9 @@ function AdminNeighborhoods() {
                   id={`active-${n.id}`}
                   checked={n.is_active}
                   onCheckedChange={(v) => toggle(n, v)}
-                  aria-label={`Activer ${n.name}`}
+                  aria-label={t("nbh.toggleAria", { name: n.name })}
                 />
-                <Label htmlFor={`active-${n.id}`} className="text-xs text-muted-foreground">Actif</Label>
+                <Label htmlFor={`active-${n.id}`} className="text-xs text-muted-foreground">{t("nbh.active")}</Label>
               </div>
               <Button
                 variant="outline"
@@ -198,7 +201,7 @@ function AdminNeighborhoods() {
                   setForm({ id: n.id, name: n.name, city: n.city, lat: String(n.lat), lng: String(n.lng), is_active: n.is_active })
                 }
               >
-                <Pencil className="mr-2 h-4 w-4" /> Modifier
+                <Pencil className="mr-2 h-4 w-4" /> {t("nbh.edit")}
               </Button>
             </div>
           </Card>

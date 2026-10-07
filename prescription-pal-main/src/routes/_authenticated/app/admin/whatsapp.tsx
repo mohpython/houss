@@ -19,40 +19,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ArrowLeft, MessageCircle, MapPin, RefreshCw, Save, RotateCcw, Store, Bike, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/admin/whatsapp")({
   head: () => ({
     meta: [
-      { title: "Bot WhatsApp — Admin SAHA Santé" },
-      { name: "description", content: "Suivi des commandes WhatsApp, quartiers et messages types du bot." },
-      { property: "og:title", content: "Bot WhatsApp — Admin SAHA Santé" },
-      { property: "og:description", content: "Suivi des commandes WhatsApp, quartiers et messages types." },
+      { title: i18n.t("wa.metaTitle") },
+      { name: "description", content: i18n.t("wa.metaDesc") },
+      { property: "og:title", content: i18n.t("wa.metaTitle") },
+      { property: "og:description", content: i18n.t("wa.metaOgDesc") },
     ],
   }),
   component: AdminWhatsapp,
 });
-
-const STATUS_FR: Record<string, string> = {
-  pending: "En attente",
-  accepted: "Acceptée",
-  rejected: "Refusée",
-  ready: "Prête",
-  completed: "Terminée",
-  cancelled: "Annulée",
-  unassigned: "Sans livreur",
-  assigned: "Livreur assigné",
-  picked_up: "Récupérée",
-  en_route: "En route",
-  delivered: "Livrée",
-  failed: "Échec",
-};
-const STATE_FR: Record<string, string> = {
-  idle: "Menu",
-  awaiting_rx: "Attend la photo",
-  awaiting_confirm: "Attend confirmation",
-  awaiting_location: "Attend le lieu",
-  awaiting_free_order: "Attend la liste",
-};
 
 function statusVariant(s: string): "default" | "secondary" | "destructive" | "outline" {
   if (["rejected", "cancelled", "failed"].includes(s)) return "destructive";
@@ -62,6 +42,7 @@ function statusVariant(s: string): "default" | "secondary" | "destructive" | "ou
 }
 
 function AdminWhatsapp() {
+  const { t } = useTranslation();
   const overviewFn = useServerFn(getWhatsappOverview);
   const [orders, setOrders] = useState<WaOrder[] | null>(null);
   const [sessions, setSessions] = useState<WaSession[]>([]);
@@ -73,7 +54,7 @@ function AdminWhatsapp() {
       setOrders(r.orders);
       setSessions(r.sessions);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Chargement impossible");
+      toast.error(e instanceof Error ? e.message : t("nbh.loadFailed"));
       setOrders([]);
     }
   };
@@ -106,7 +87,7 @@ function AdminWhatsapp() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <Link to="/app/admin" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Retour à l'administration
+        <ArrowLeft className="h-4 w-4" /> {t("nbh.backAdmin")}
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -114,8 +95,8 @@ function AdminWhatsapp() {
             <MessageCircle className="h-6 w-6" />
           </span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Bot WhatsApp</h1>
-            <p className="text-sm text-muted-foreground">Commandes reçues, quartiers et messages types.</p>
+            <h1 className="text-2xl font-bold tracking-tight">{t("wa.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("wa.subtitle")}</p>
           </div>
         </div>
         <Button variant="outline" className="min-h-[44px]" onClick={load}>
@@ -125,10 +106,10 @@ function AdminWhatsapp() {
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          ["Commandes WhatsApp", kpi.total],
-          ["En cours", kpi.active],
-          ["Livrées", kpi.delivered],
-          ["Conversations", kpi.sessions],
+          [t("wa.kpiOrders"), kpi.total],
+          [t("wa.kpiActive"), kpi.active],
+          [t("wa.kpiDelivered"), kpi.delivered],
+          [t("wa.kpiSessions"), kpi.sessions],
         ].map(([l, v]) => (
           <Card key={String(l)} className="p-4">
             <p className="text-xs text-muted-foreground">{l}</p>
@@ -139,10 +120,10 @@ function AdminWhatsapp() {
 
       <Tabs defaultValue="orders" className="mt-6">
         <TabsList className="h-auto flex-wrap">
-          <TabsTrigger value="orders" className="min-h-[40px]">Suivi des commandes</TabsTrigger>
-          <TabsTrigger value="sessions" className="min-h-[40px]">Conversations</TabsTrigger>
-          <TabsTrigger value="templates" className="min-h-[40px]">Messages types</TabsTrigger>
-          <TabsTrigger value="neighborhoods" className="min-h-[40px]">Quartiers</TabsTrigger>
+          <TabsTrigger value="orders" className="min-h-[40px]">{t("wa.tabOrders")}</TabsTrigger>
+          <TabsTrigger value="sessions" className="min-h-[40px]">{t("wa.tabSessions")}</TabsTrigger>
+          <TabsTrigger value="templates" className="min-h-[40px]">{t("wa.tabTemplates")}</TabsTrigger>
+          <TabsTrigger value="neighborhoods" className="min-h-[40px]">{t("wa.tabNbh")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="mt-4">
@@ -151,9 +132,9 @@ function AdminWhatsapp() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher : nom, téléphone, quartier, pharmacie, référence…"
+              placeholder={t("wa.searchPh")}
               className="pl-9"
-              aria-label="Rechercher une commande WhatsApp"
+              aria-label={t("wa.searchAria")}
             />
           </div>
           <div className="mt-4 space-y-2">
@@ -164,7 +145,7 @@ function AdminWhatsapp() {
               </>
             )}
             {orders !== null && filtered.length === 0 && (
-              <Card className="p-8 text-center text-sm text-muted-foreground">Aucune commande WhatsApp.</Card>
+              <Card className="p-8 text-center text-sm text-muted-foreground">{t("wa.noOrders")}</Card>
             )}
             {filtered.map((o) => (
               <Card key={o.id} className="p-4">
@@ -172,22 +153,22 @@ function AdminWhatsapp() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs text-muted-foreground">#{o.id.slice(0, 8).toUpperCase()}</span>
-                      <p className="font-semibold">{o.patient_name ?? "Client WhatsApp"}</p>
+                      <p className="font-semibold">{o.patient_name ?? t("wa.noName")}</p>
                       {o.patient_phone && <span className="text-sm text-muted-foreground">{o.patient_phone}</span>}
-                      {o.is_partial && <Badge variant="outline">Partielle</Badge>}
+                      {o.is_partial && <Badge variant="outline">{t("wa.partial")}</Badge>}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {new Date(o.created_at).toLocaleString("fr-FR")} · {Math.round(o.total_amount).toLocaleString("fr-FR")} FCFA ·{" "}
-                      {o.payment_status === "paid" ? "Payée" : "Paiement en attente"}
+                      {o.payment_status === "paid" ? t("wa.paid") : t("wa.paymentPending")}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant={statusVariant(o.status)}>Commande : {STATUS_FR[o.status] ?? o.status}</Badge>
+                    <Badge variant={statusVariant(o.status)}>{t("wa.orderLabel")} {t("dst." + o.status, o.status)}</Badge>
                     {o.fulfillment_method === "pickup" ? (
-                      <Badge variant="secondary">Retrait en pharmacie</Badge>
+                      <Badge variant="secondary">{t("wa.pickupStore")}</Badge>
                     ) : (
                       <Badge variant={statusVariant(o.delivery_status)}>
-                        Livraison : {STATUS_FR[o.delivery_status] ?? o.delivery_status}
+                        {t("wa.deliveryLabel")} {t("dst." + o.delivery_status, o.delivery_status)}
                       </Badge>
                     )}
                   </div>
@@ -196,7 +177,7 @@ function AdminWhatsapp() {
                   <div className="flex items-start gap-2">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <div>
-                      <p className="font-medium">{o.neighborhood ?? (o.delivery_mode === "gps" ? "Position GPS" : "Quartier inconnu")}</p>
+                      <p className="font-medium">{o.neighborhood ?? (o.delivery_mode === "gps" ? t("wa.gpsPos") : t("wa.unknownDistrict"))}</p>
                       {o.patient_address && <p className="text-xs text-muted-foreground">{o.patient_address}</p>}
                     </div>
                   </div>
@@ -206,7 +187,7 @@ function AdminWhatsapp() {
                   </div>
                   <div className="flex items-start gap-2">
                     <Bike className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <p className="font-medium">{o.fulfillment_method === "pickup" ? "Sans livreur" : (o.courier ?? "Non assigné")}</p>
+                    <p className="font-medium">{o.fulfillment_method === "pickup" ? t("wa.noCourier") : (o.courier ?? t("wa.notAssigned"))}</p>
                   </div>
                 </div>
               </Card>
@@ -216,7 +197,7 @@ function AdminWhatsapp() {
 
         <TabsContent value="sessions" className="mt-4 space-y-2">
           {sessions.length === 0 && (
-            <Card className="p-8 text-center text-sm text-muted-foreground">Aucune conversation.</Card>
+            <Card className="p-8 text-center text-sm text-muted-foreground">{t("wa.noSessions")}</Card>
           )}
           {sessions.map((s) => (
             <Card key={s.wa_phone} className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -228,8 +209,8 @@ function AdminWhatsapp() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Badge variant="secondary">{STATE_FR[s.state] ?? s.state}</Badge>
-                <Badge variant={s.linked ? "default" : "outline"}>{s.linked ? "Compte lié" : "Sans compte"}</Badge>
+                <Badge variant="secondary">{t("botState." + s.state, s.state)}</Badge>
+                <Badge variant={s.linked ? "default" : "outline"}>{s.linked ? t("wa.linked") : t("wa.noAccount")}</Badge>
               </div>
             </Card>
           ))}
@@ -248,6 +229,7 @@ function AdminWhatsapp() {
 }
 
 function TemplatesEditor() {
+  const { t: tr } = useTranslation();
   const listFn = useServerFn(listWhatsappTemplates);
   const saveFn = useServerFn(saveWhatsappTemplate);
   const [rows, setRows] = useState<WaTemplate[] | null>(null);
@@ -260,7 +242,7 @@ function TemplatesEditor() {
       setRows(await listFn());
       setDrafts({});
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Chargement impossible");
+      toast.error(e instanceof Error ? e.message : tr("nbh.loadFailed"));
       setRows([]);
     }
   };
@@ -273,10 +255,10 @@ function TemplatesEditor() {
     setSaving(`${key}:${lang}`);
     try {
       await saveFn({ data: { key, lang, body } });
-      toast.success(body.trim() ? "Message enregistré" : "Message réinitialisé");
+      toast.success(body.trim() ? tr("wa.saved") : tr("wa.reset"));
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Enregistrement impossible");
+      toast.error(e instanceof Error ? e.message : tr("nbh.saveFailed"));
     } finally {
       setSaving(null);
     }
@@ -288,12 +270,12 @@ function TemplatesEditor() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          Modifiez les réponses automatiques envoyées aux clients. Les mots entre accolades (ex. {"{pharmacy}"}) sont remplacés automatiquement.
+          {tr("wa.templatesHelp")}
         </p>
         <div className="flex gap-1 rounded-lg border p-1">
           {(["fr", "en", "ar"] as const).map((l) => (
             <Button key={l} size="sm" variant={lang === l ? "default" : "ghost"} onClick={() => setLang(l)} className="min-h-[36px]">
-              {l === "fr" ? "Français" : l === "en" ? "English" : "العربية"}
+              {l === "fr" ? tr("wa.langFr") : l === "en" ? tr("wa.langEn") : tr("wa.langAr")}
             </Button>
           ))}
         </div>
@@ -309,10 +291,10 @@ function TemplatesEditor() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium">{t.label}</p>
-                  {current.custom && <Badge variant="secondary">Personnalisé</Badge>}
+                  {current.custom && <Badge variant="secondary">{tr("wa.custom")}</Badge>}
                 </div>
                 {t.placeholders.length > 0 && (
-                  <p className="text-xs text-muted-foreground">Variables : {t.placeholders.map((p) => `{${p}}`).join(", ")}</p>
+                  <p className="text-xs text-muted-foreground">{tr("wa.variables")} {t.placeholders.map((p) => `{${p}}`).join(", ")}</p>
                 )}
               </div>
               <textarea
@@ -324,11 +306,11 @@ function TemplatesEditor() {
               />
               <div className="mt-2 flex gap-2">
                 <Button size="sm" className="min-h-[40px]" disabled={!dirty || saving === id} onClick={() => save(t.key, value)}>
-                  <Save className="mr-2 h-4 w-4" /> Enregistrer
+                  <Save className="mr-2 h-4 w-4" /> {tr("common.save")}
                 </Button>
                 {current.custom && (
                   <Button size="sm" variant="ghost" className="min-h-[40px]" disabled={saving === id} onClick={() => save(t.key, "")}>
-                    <RotateCcw className="mr-2 h-4 w-4" /> Rétablir le texte par défaut
+                    <RotateCcw className="mr-2 h-4 w-4" /> {tr("wa.restore")}
                   </Button>
                 )}
               </div>
@@ -341,6 +323,7 @@ function TemplatesEditor() {
 }
 
 function NeighborhoodsQuick() {
+  const { t } = useTranslation();
   const listFn = useServerFn(listNeighborhoods);
   const toggleFn = useServerFn(toggleNeighborhood);
   const [rows, setRows] = useState<Neighborhood[] | null>(null);
@@ -357,7 +340,7 @@ function NeighborhoodsQuick() {
     try {
       await toggleFn({ data: { id: n.id, is_active: next } });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Mise à jour impossible");
+      toast.error(e instanceof Error ? e.message : t("nbh.updateFailed"));
     }
   };
 
@@ -367,15 +350,15 @@ function NeighborhoodsQuick() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          Les clients WhatsApp peuvent écrire le nom de l'un de ces quartiers pour se faire livrer ailleurs. Les quartiers inactifs ne sont pas reconnus.
+          {t("wa.nbhHelp")}
         </p>
         <Button asChild variant="outline" className="min-h-[44px]">
           <Link to="/app/admin/neighborhoods">
-            <MapPin className="mr-2 h-4 w-4" /> Ajouter / modifier les quartiers
+            <MapPin className="mr-2 h-4 w-4" /> {t("wa.editNbh")}
           </Link>
         </Button>
       </div>
-      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un quartier…" className="mt-4" aria-label="Rechercher un quartier" />
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("nbh.searchPh")} className="mt-4" aria-label={t("nbh.searchAria")} />
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {rows === null && <Skeleton className="h-14 w-full" />}
         {filtered.map((n) => (
@@ -384,7 +367,7 @@ function NeighborhoodsQuick() {
               <p className="truncate font-medium">{n.name}</p>
               <p className="text-xs text-muted-foreground">{n.city}</p>
             </div>
-            <Switch checked={n.is_active} onCheckedChange={(v) => toggle(n, v)} aria-label={`Activer ${n.name}`} />
+            <Switch checked={n.is_active} onCheckedChange={(v) => toggle(n, v)} aria-label={t("nbh.toggleAria", { name: n.name })} />
           </Card>
         ))}
       </div>
