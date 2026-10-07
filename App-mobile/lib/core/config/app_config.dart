@@ -18,6 +18,17 @@ class AppConfig {
   /// Frais de livraison (FCFA) — identiques au site.
   static const int deliveryFee = 1000;
 
+  /// Numéro WhatsApp officiel du bot SAHA Santé, format international sans « + ».
+  /// Vide = bouton flottant WhatsApp masqué (même comportement que le site).
+  static const String whatsappNumber = '';
+
+  /// Lien `wa.me` avec le message d'accueil pré-rempli (vide si non configuré).
+  static String waMeUrl(String text) {
+    final n = whatsappNumber.replaceAll(RegExp(r'\D'), '');
+    if (n.isEmpty) return '';
+    return 'https://wa.me/$n?text=${Uri.encodeComponent(text)}';
+  }
+
   /// Numéros marchands pour le paiement mobile money.
   static const Map<String, String> merchantNumbers = {
     'orange_money': '+223 70 00 00 00',

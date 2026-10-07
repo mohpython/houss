@@ -105,6 +105,8 @@ class L10n {
 
   static const _tables = <SahaLang, Map<String, String>>{
     SahaLang.fr: {
+      'whatsapp.fabAria': 'Ouvrir la conversation WhatsApp SAHA Santé',
+      'whatsapp.prefill': 'Bonjour, je souhaite envoyer une ordonnance.',
       'phm.open24': 'Ouvert 24h/24',
       'phm.guard': 'Garde',
       'phm.open': 'Ouvert',
@@ -587,6 +589,8 @@ class L10n {
       'pharmacy.total': 'Total',
     },
     SahaLang.en: {
+      'whatsapp.fabAria': 'Open the SAHA Santé WhatsApp chat',
+      'whatsapp.prefill': 'Hello, I would like to send a prescription.',
       'phm.open24': 'Open 24/7',
       'phm.guard': 'On duty',
       'phm.open': 'Open',
@@ -1069,6 +1073,8 @@ class L10n {
       'pharmacy.total': 'Total',
     },
     SahaLang.ar: {
+      'whatsapp.fabAria': 'افتح محادثة واتساب SAHA Santé',
+      'whatsapp.prefill': 'مرحباً، أريد إرسال وصفة طبية.',
       'phm.open24': 'مفتوح 24/7',
       'phm.guard': 'مناوبة',
       'phm.open': 'مفتوح',
@@ -1550,6 +1556,8 @@ class L10n {
       'pharmacy.total': 'المجموع',
     },
     SahaLang.bm: {
+      'whatsapp.fabAria': 'WhatsApp SAHA Santé kuma yɛlɛma',
+      'whatsapp.prefill': 'I ni ce, n b\'a fɛ ka ɔrdɔnansi ci.',
       'phm.open24': 'Bɛn 24h/24',
       'phm.guard': 'Garde',
       'phm.open': 'Bɛn',

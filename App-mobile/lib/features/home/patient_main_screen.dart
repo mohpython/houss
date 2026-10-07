@@ -5,6 +5,7 @@ import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/features/admin/admin_space_screen.dart';
 import 'package:saha_sante/features/courier/courier_space_screen.dart';
 import 'package:saha_sante/features/home/home_screen.dart';
+import 'package:saha_sante/features/home/whatsapp_fab.dart';
 import 'package:saha_sante/features/pharmacy/pharmacy_space_screen.dart';
 import 'package:saha_sante/features/practitioner/practitioner_space_screen.dart';
 import 'package:saha_sante/features/profile/profile_screen.dart';
@@ -96,6 +97,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
       listenable: AuthService.instance,
       builder: (context, _) {
         final roles = (AuthService.instance.user?.roles ?? const <String>[]).toSet();
+        final hasSpace = _spaceFor(roles) != null;
         final tabs = _tabsFor(roles);
         if (_currentIndex >= tabs.pages.length) _currentIndex = tabs.pages.length - 1;
         final labels = [
@@ -108,6 +110,9 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
 
         return Scaffold(
           body: tabs.pages[_currentIndex],
+          // Commande via WhatsApp façon bouton flottant du site : réservé aux
+          // patients (un espace pro a déjà son écran dédié).
+          floatingActionButton: hasSpace ? null : const WhatsAppFab(),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: AppColors.surface,
