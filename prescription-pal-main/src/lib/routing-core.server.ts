@@ -52,6 +52,8 @@ export type AutoRouteInput = {
   /** Chosen neighborhood (quartier) when delivering somewhere other than the GPS position. */
   neighborhoodId?: string | null;
   deliveryMode?: "gps" | "neighborhood";
+  /** Livraison à domicile (par défaut) ou retrait en pharmacie (sans frais). */
+  fulfillmentMethod?: FulfillmentMethod;
   notes?: string | null;
   source?: string;
 };

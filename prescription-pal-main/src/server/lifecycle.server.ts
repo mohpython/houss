@@ -20,6 +20,10 @@
 import { randomInt } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { pushCopy } from "@/lib/push-messages";
+import {
+  notifyWhatsappStatus,
+  type WaStatusKind,
+} from "@/lib/whatsapp-status.server";
 import { basePrisma } from "./prisma-base.server";
 import { publish } from "./realtime.server";
 import { dispatchPush } from "./push-dispatch.server";
@@ -279,6 +283,18 @@ async function reservationNotify(before: Row | null, r: Row) {
   const patientId = r.patient_id as string;
   const pharmacyIds = await pharmacyMemberIds(String(r.pharmacy_id));
 
+  /** Suivi WhatsApp automatique pour les commandes passées via le bot. */
+  const isWhatsApp = String(r.source ?? "") === "whatsapp";
+  const wa = (
+    kind: WaStatusKind,
+    extra?: { courierName?: string | null; pickupCode?: string | null; receiptCode?: string | null },
+  ) => {
+    if (!isWhatsApp) return;
+    background("whatsapp", () =>
+      notifyWhatsappStatus({ patientId, reservationId: String(r.id), kind, ...(extra ?? {}) }),
+    );
+  };
+
   /**
    * Previens la pharmacie d'un evenement de commande. `for: "pharmacy"`
    * indique a pushLink que la destination est l'ecran pharmacie et non celui
@@ -306,24 +322,44 @@ async function reservationNotify(before: Row | null, r: Row) {
   if (r.payment_status === "unpaid") return;
 
   if (changed(before, r, "status")) {
-    if (r.status === "accepted") await notify(patientId, "reservation_accepted", payload);
-    else if (r.status === "rejected") await notify(patientId, "reservation_rejected", payload);
-    else if (r.status === "ready") await notify(patientId, "reservation_ready", payload);
+    if (r.status === "accepted") {
+      await notify(patientId, "reservation_accepted", payload);
+      wa("accepted");
+    } else if (r.status === "rejected") {
+      await notify(patientId, "reservation_rejected", payload);
+      wa("rejected");
+    } else if (r.status === "ready") {
+      await notify(patientId, "reservation_ready", payload);
+      wa("ready", { pickupCode: (r.pickup_code as string | null) ?? null, receiptCode: (r.receipt_code as string | null) ?? null });
+    } else if (r.status === "cancelled") {
+      wa("cancelled");
+    }
   }
 
   if (changed(before, r, "courier_id") && r.courier_id) {
     await notify(patientId, "courier_assigned", payload);
     await notify(await courierUserId(r.courier_id as string), "new_delivery", payload);
     await notifyPharmacyType("pharmacy_courier_assigned");
+    const courier = await basePrisma.couriers.findUnique({
+      where: { id: String(r.courier_id) },
+      select: { full_name: true },
+    });
+    wa("courier_assigned", { courierName: courier?.full_name ?? null });
   }
 
   if (changed(before, r, "delivery_status")) {
     if (r.delivery_status === "picked_up") {
       await notify(patientId, "courier_picked_up", payload);
       await notifyPharmacyType("pharmacy_order_picked_up");
+      wa("picked_up");
     } else if (r.delivery_status === "delivered") {
       await notify(patientId, "delivered", payload);
       await notifyPharmacyType("pharmacy_order_delivered");
+      wa("delivered");
+    } else if (r.delivery_status === "en_route") {
+      wa("en_route");
+    } else if (r.delivery_status === "failed") {
+      wa("failed");
     }
   }
 

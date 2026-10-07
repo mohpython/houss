@@ -333,11 +333,14 @@ async function handleFreeOrderText(session: SessionRow, lang: BotLang, text: str
   });
 
   await patchSession(session, {
-    state: "awaiting_location",
+    state: "awaiting_fulfillment",
     context: { prescription_id: rx.id },
   });
   await sendText(session.wa_phone, c.freeOrderSaved);
-  await sendLocationRequest(session.wa_phone, c.askLocation);
+  await sendButtons(session.wa_phone, c.askFulfillment, [
+    { id: BTN.delivery, title: c.btnDelivery },
+    { id: BTN.pickup, title: c.btnPickup },
+  ]);
 }
 
 /* ---------------------------------------------------------------- routing */
@@ -347,7 +350,12 @@ type DeliveryChoice =
   | { kind: "neighborhood"; neighborhoodId: string };
 
 /** Routes the pending prescription to a pharmacy using the chosen delivery point. */
-async function routeOrder(session: SessionRow, lang: BotLang, choice: DeliveryChoice) {
+async function routeOrder(
+  session: SessionRow,
+  lang: BotLang,
+  choice: DeliveryChoice,
+  fulfillment: "delivery" | "pickup",
+) {
   const c = COPY[lang];
   const prescriptionId = session.context?.["prescription_id"] as string | undefined;
   if (!prescriptionId) {
@@ -375,6 +383,7 @@ async function routeOrder(session: SessionRow, lang: BotLang, choice: DeliveryCh
       patientAddress: target.address,
       neighborhoodId: target.neighborhoodId,
       deliveryMode: target.deliveryMode,
+      fulfillmentMethod: fulfillment,
       notes: "Commande via WhatsApp",
       source: "whatsapp",
     });
@@ -385,26 +394,46 @@ async function routeOrder(session: SessionRow, lang: BotLang, choice: DeliveryCh
     return;
   }
 
-  await patchSession(session, { state: "idle", context: {} });
+  const items = await listMedicines(prescriptionId);
+  const lines = items.map((i, n) => `${n + 1}. ${i.medicine_name_raw}`).join("\n");
+  const fmt = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} FCFA`;
 
-  await sendText(
-    session.wa_phone,
-    routed
-      ? c.routed({
-          pharmacy: routed.pharmacyName,
-          address: routed.pharmacyAddress ?? "—",
-          distance: routed.distanceKm.toFixed(1),
-          ref: ref(routed.reservationId),
-        })
-      : c.error,
-  );
+  await patchSession(session, {
+    state: "awaiting_order_confirm",
+    context: {
+      reservation_id: routed.reservationId,
+      route: {
+        pharmacy: routed.pharmacyName,
+        address: routed.pharmacyAddress ?? "—",
+        distanceKm: routed.distanceKm.toFixed(1),
+        total: fmt(routed.totalAmount),
+      },
+    },
+  });
 
-  await sendText(
+  await sendButtons(
     session.wa_phone,
-    `${Math.round(routed.totalAmount).toLocaleString("fr-FR")} FCFA\n\n${c.linkedAccount(
-      `${APP_URL}/app/reservations/${routed.reservationId}/checkout`,
-    )}`,
+    c.orderSummary({
+      pharmacy: routed.pharmacyName,
+      address: routed.pharmacyAddress ?? "—",
+      distance: routed.distanceKm.toFixed(1),
+      items: lines || "—",
+      itemsTotal: fmt(routed.itemsTotal),
+      fee: fulfillment === "pickup" ? "0 FCFA" : fmt(routed.deliveryFee),
+      total: fmt(routed.totalAmount),
+      method: fulfillment === "delivery" ? c.btnDelivery : c.btnPickup,
+      ref: ref(routed.reservationId),
+    }),
+    [
+      { id: BTN.orderOk, title: c.btnOrderConfirm },
+      { id: BTN.orderCancel, title: c.btnOrderCancel },
+    ],
   );
+}
+
+/** Livraison par défaut ; « Je viens la chercher » si choisi au bouton. */
+function fulfillmentOf(session: SessionRow): "delivery" | "pickup" {
+  return session.context?.["fulfillment"] === "pickup" ? "pickup" : "delivery";
 }
 
 async function handleLocation(session: SessionRow, lang: BotLang, msg: InboundMessage) {
@@ -413,7 +442,7 @@ async function handleLocation(session: SessionRow, lang: BotLang, msg: InboundMe
     lat: msg.location!.lat,
     lng: msg.location!.lng,
     address: msg.location!.address ?? null,
-  });
+  }, fulfillmentOf(session));
 }
 
 function foldName(s: string) {
@@ -439,7 +468,7 @@ async function handleNeighborhoodText(session: SessionRow, lang: BotLang, text: 
   if (candidates.length > 0 && /^\d{1,2}$/.test(t)) {
     const pick = candidates[Number(t) - 1];
     if (pick) {
-      await routeOrder(session, lang, { kind: "neighborhood", neighborhoodId: pick.id });
+      await routeOrder(session, lang, { kind: "neighborhood", neighborhoodId: pick.id }, fulfillmentOf(session));
       return;
     }
   }
@@ -465,7 +494,7 @@ async function handleNeighborhoodText(session: SessionRow, lang: BotLang, text: 
       });
 
   if (partial.length === 1) {
-    await routeOrder(session, lang, { kind: "neighborhood", neighborhoodId: partial[0]!.id });
+    await routeOrder(session, lang, { kind: "neighborhood", neighborhoodId: partial[0]!.id }, fulfillmentOf(session));
     return;
   }
   if (partial.length > 1) {
@@ -530,8 +559,82 @@ export async function handleInbound(msg: InboundMessage): Promise<void> {
         where: { id: prescriptionId },
         data: { status: "verified" },
       });
-      await patchSession(session, { state: "awaiting_location" });
+      await patchSession(session, { state: "awaiting_fulfillment" });
+      await sendButtons(session.wa_phone, c().askFulfillment, [
+        { id: BTN.delivery, title: c().btnDelivery },
+        { id: BTN.pickup, title: c().btnPickup },
+      ]);
+      return;
+    }
+
+    if (action === BTN.delivery || action === BTN.pickup) {
+      if (session.state !== "awaiting_fulfillment" || !session.context?.["prescription_id"]) {
+        await sendMenu(session.wa_phone, lang, c().fallback);
+        return;
+      }
+      await patchSession(session, {
+        state: "awaiting_location",
+        context: {
+          ...(session.context ?? {}),
+          fulfillment: action === BTN.delivery ? "delivery" : "pickup",
+        },
+      });
       await sendLocationRequest(session.wa_phone, c().askLocation);
+      return;
+    }
+
+    if (action === BTN.orderOk) {
+      const ctx = session.context ?? {};
+      const reservationId = ctx["reservation_id"] as string | undefined;
+      const route = (ctx["route"] as Record<string, string> | undefined) ?? {};
+      if (!reservationId) {
+        await sendMenu(session.wa_phone, lang, c().fallback);
+        return;
+      }
+      const res = await prisma.reservations.findUnique({
+        where: { id: reservationId },
+        select: { pickup_code: true, receipt_code: true },
+      });
+      await patchSession(session, { state: "idle", context: {} });
+      await sendText(
+        session.wa_phone,
+        c().routed({
+          pharmacy: route["pharmacy"] ?? "—",
+          address: route["address"] ?? "—",
+          distance: route["distanceKm"] ?? "0.0",
+          ref: ref(reservationId),
+        }),
+      );
+      if (res?.pickup_code && res?.receipt_code) {
+        await sendText(
+          session.wa_phone,
+          c().codesMessage({ pickup: res.pickup_code, receipt: res.receipt_code }),
+        );
+      }
+      await sendText(
+        session.wa_phone,
+        `${route["total"] ?? "0 FCFA"}\n\n${c().linkedAccount(`${APP_URL}/app/reservations/${reservationId}/checkout`)}`,
+        true,
+      );
+      await sendMenu(session.wa_phone, lang);
+      return;
+    }
+
+    if (action === BTN.orderCancel) {
+      const reservationId = session.context?.["reservation_id"] as string | undefined;
+      if (reservationId) {
+        try {
+          await prisma.reservations.update({
+            where: { id: reservationId },
+            data: { status: "cancelled" },
+          });
+        } catch {
+          // la commande peut déjà être annulée ailleurs, on continue
+        }
+      }
+      await patchSession(session, { state: "idle", context: {} });
+      await sendText(session.wa_phone, c().orderCancelled);
+      await sendMenu(session.wa_phone, lang);
       return;
     }
 
