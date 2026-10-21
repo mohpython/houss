@@ -97,7 +97,6 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
       listenable: AuthService.instance,
       builder: (context, _) {
         final roles = (AuthService.instance.user?.roles ?? const <String>[]).toSet();
-        final hasSpace = _spaceFor(roles) != null;
         final tabs = _tabsFor(roles);
         if (_currentIndex >= tabs.pages.length) _currentIndex = tabs.pages.length - 1;
         final labels = [
@@ -110,9 +109,9 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
 
         return Scaffold(
           body: tabs.pages[_currentIndex],
-          // Commande via WhatsApp façon bouton flottant du site : réservé aux
-          // patients (un espace pro a déjà son écran dédié).
-          floatingActionButton: hasSpace ? null : const WhatsAppFab(),
+          // Commande via WhatsApp, bouton flottant façon site : visible pour
+          // tous les comptes, comme sur le site.
+          floatingActionButton: const WhatsAppFab(),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: AppColors.surface,

@@ -11,6 +11,19 @@
     <!-- Notifications de suivi de commande -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Visibilité des intentions : détection de WhatsApp (bouton flottant)
+         et appel téléphonique (Android 11+) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="whatsapp" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+    </queries>
+
     <application
         android:label="SAHA Santé"
         android:name="${applicationName}"

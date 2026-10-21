@@ -107,6 +107,10 @@ class L10n {
     SahaLang.fr: {
       'whatsapp.fabAria': 'Ouvrir la conversation WhatsApp SAHA Santé',
       'whatsapp.prefill': 'Bonjour, je souhaite envoyer une ordonnance.',
+      'whatsapp.notInstalledTitle': "WhatsApp n'est pas installé",
+      'whatsapp.notInstalledBody': "Pour discuter avec SAHA Santé sur WhatsApp, installez l'application ou appelez-nous au {number}.",
+      'whatsapp.installAction': 'Installer WhatsApp',
+      'whatsapp.callAction': 'Appeler',
       'phm.open24': 'Ouvert 24h/24',
       'phm.guard': 'Garde',
       'phm.open': 'Ouvert',
@@ -591,6 +595,10 @@ class L10n {
     SahaLang.en: {
       'whatsapp.fabAria': 'Open the SAHA Santé WhatsApp chat',
       'whatsapp.prefill': 'Hello, I would like to send a prescription.',
+      'whatsapp.notInstalledTitle': 'WhatsApp is not installed',
+      'whatsapp.notInstalledBody': 'To chat with SAHA Santé on WhatsApp, install the app or call us at {number}.',
+      'whatsapp.installAction': 'Install WhatsApp',
+      'whatsapp.callAction': 'Call',
       'phm.open24': 'Open 24/7',
       'phm.guard': 'On duty',
       'phm.open': 'Open',
@@ -1075,6 +1083,10 @@ class L10n {
     SahaLang.ar: {
       'whatsapp.fabAria': 'افتح محادثة واتساب SAHA Santé',
       'whatsapp.prefill': 'مرحباً، أريد إرسال وصفة طبية.',
+      'whatsapp.notInstalledTitle': 'واتساب غير مثبت',
+      'whatsapp.notInstalledBody': 'للتواصل مع SAHA Santé على واتساب، ثبّت التطبيق أو اتصل بنا على {number}.',
+      'whatsapp.installAction': 'تثبيت واتساب',
+      'whatsapp.callAction': 'اتصال',
       'phm.open24': 'مفتوح 24/7',
       'phm.guard': 'مناوبة',
       'phm.open': 'مفتوح',
@@ -1558,6 +1570,10 @@ class L10n {
     SahaLang.bm: {
       'whatsapp.fabAria': 'WhatsApp SAHA Santé kuma yɛlɛma',
       'whatsapp.prefill': 'I ni ce, n b\'a fɛ ka ɔrdɔnansi ci.',
+      'whatsapp.notInstalledTitle': 'WhatsApp tɛ i telefonu kɔnɔ',
+      'whatsapp.notInstalledBody': 'Ka kuma an ye WhatsApp la, i ka WhatsApp sigi walima i k\'an wele ka fɔ ɲɔgɔn ye {number}.',
+      'whatsapp.installAction': 'WhatsApp sigi',
+      'whatsapp.callAction': 'An wele',
       'phm.open24': 'Bɛn 24h/24',
       'phm.guard': 'Garde',
       'phm.open': 'Bɛn',

@@ -20,7 +20,7 @@ class AppConfig {
 
   /// Numéro WhatsApp officiel du bot SAHA Santé, format international sans « + ».
   /// Vide = bouton flottant WhatsApp masqué (même comportement que le site).
-  static const String whatsappNumber = '';
+  static const String whatsappNumber = '22371257760';
 
   /// Lien `wa.me` avec le message d'accueil pré-rempli (vide si non configuré).
   static String waMeUrl(String text) {
