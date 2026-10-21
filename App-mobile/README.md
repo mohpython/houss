@@ -72,7 +72,21 @@ serveur n'est joignable, les tests s'ignorent d'eux-mêmes.
 
 ## Publication
 
-Voir `../prescription-pal-main/MOBILE_ANDROID.md` pour la signature et la
-publication sur le Play Store (ce document décrit l'emballage Capacitor du
-site ; pour cette application Flutter, les étapes clé de signature et de
-publication sont les mêmes).
+Les livrables et la procédure pas à pas pour le Play Store sont dans
+[`../play-store/`](../play-store/) :
+
+- `checklist-upload.md` — procédure complète (signature, upload, Firebase) ;
+- `fiche-play-fr.md` / `fiche-play-en.md` — textes de la fiche ;
+- `assets/` — icône 512×512, bannière 1024×500, certificat de téléversement ;
+- `saha-sante-1.0.0.aab` — le bundle à téléverser (non versionné).
+
+La signature release utilise `android/key.properties` (gitignoré) et
+`android/app/saha-upload.jks`. Sans ce fichier, le build retombe sur la clé
+debug — utilisable en développement seulement.
+
+```bash
+flutter build appbundle --release   # signe automatiquement si key.properties existe
+```
+
+Le document `../prescription-pal-main/MOBILE_ANDROID.md` décrit, lui,
+l'emballage Capacitor du site — un autre chemin de publication.

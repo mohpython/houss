@@ -1,0 +1,3 @@
+# Binaires lourds : livrés localement, jamais versionnés (comme les APK).
+*.aab
+*.apk
