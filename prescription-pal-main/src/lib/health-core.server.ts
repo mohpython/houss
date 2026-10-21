@@ -60,6 +60,7 @@ Return JSON only.`;
 Respond with a single raw JSON object, no markdown fences, with exactly these keys:
 {"specialty_code": string, "practitioner_type": "doctor"|"nurse", "urgency": "low"|"medium"|"high"|"emergency", "summary": string, "advice": string, "possible_conditions": string[], "home_visit_suitable": boolean}`,
     messages: [{ role: "user", content: symptoms.slice(0, 2000) }],
+    maxOutputTokens: 1024,
   });
 
   const raw = text

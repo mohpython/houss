@@ -52,6 +52,8 @@ export async function extractOtcFromImage(dataUrl: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messages: [{ role: "user", content: userContent as any }],
       output: Output.object({ schema: OtcSchema }),
+      // Sortie bornée (cf. rx-core) : évite la réservation de la fenêtre max.
+      maxOutputTokens: 2048,
     }));
   } catch (err) {
     if (!NoObjectGeneratedError.isInstance(err)) throw err;
@@ -61,6 +63,7 @@ export async function extractOtcFromImage(dataUrl: string) {
       system: SYSTEM_PROMPT,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messages: [{ role: "user", content: userContent as any }],
+      maxOutputTokens: 2048,
     });
     const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
     try {
