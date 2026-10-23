@@ -78,6 +78,7 @@ function DeliveryPage() {
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<LeafletMap | null>(null);
+  const mapInit = useRef(false);
   const getRoute = useServerFn(getDeliveryRoute);
   const updateStatus = useServerFn(updateDeliveryStatus);
   const verifyReceipt = useServerFn(verifyReceiptCode);
@@ -110,12 +111,13 @@ function DeliveryPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!d || !mapRef.current || mapInstance.current) return;
+    if (!d || !mapRef.current || mapInstance.current || mapInit.current) return;
     const pharm = d.pharmacies;
     const hasPharm = !!(pharm?.lat && pharm?.lng);
     const hasPatient = !!(d.patient_lat && d.patient_lng);
     if (!hasPharm && !hasPatient) return;
 
+    mapInit.current = true;
     loadLeaflet()
       .then((L) => {
         const center: [number, number] = hasPharm
@@ -170,10 +172,19 @@ function DeliveryPage() {
             .catch(() => {});
         }
       })
-      .catch((e: unknown) =>
-        toast.error(e instanceof Error ? e.message : t("courier.mapUnavailable")),
-      );
+      .catch((e: unknown) => {
+        mapInit.current = false;
+        toast.error(e instanceof Error ? e.message : t("courier.mapUnavailable"));
+      });
   }, [d, getRoute]);
+
+  // Nettoyage de la carte au démontage.
+  useEffect(() => {
+    return () => {
+      mapInstance.current?.remove();
+      mapInstance.current = null;
+    };
+  }, []);
 
   const advance = async () => {
     if (!d) return;

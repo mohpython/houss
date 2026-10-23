@@ -58,6 +58,7 @@ function TrackPage() {
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<LeafletMap | null>(null);
+  const mapInit = useRef(false);
   const markers = useRef<{
     pharm?: LeafletMarker;
     patient?: LeafletMarker;
@@ -98,10 +99,11 @@ function TrackPage() {
 
   // Init map
   useEffect(() => {
-    if (!res || !mapRef.current || mapInstance.current) return;
+    if (!res || !mapRef.current || mapInstance.current || mapInit.current) return;
     const pharm = res.pharmacies;
     if (!pharm?.lat || !pharm?.lng || !res.patient_lat || !res.patient_lng) return;
 
+    mapInit.current = true;
     loadLeaflet()
       .then((L) => {
         const map = L.map(mapRef.current!, {
@@ -154,10 +156,21 @@ function TrackPage() {
           })
           .catch(() => {});
       })
-      .catch((e: unknown) =>
-        toast.error(e instanceof Error ? e.message : t("track.mapUnavailable")),
-      );
+      .catch((e: unknown) => {
+        mapInit.current = false;
+        toast.error(e instanceof Error ? e.message : t("track.mapUnavailable"));
+      });
   }, [res, getRoute]);
+
+  // Nettoyage de la carte au démontage (évite les fuites et la double init
+  // observée en StrictMode).
+  useEffect(() => {
+    return () => {
+      mapInstance.current?.remove();
+      mapInstance.current = null;
+      markers.current = {};
+    };
+  }, []);
 
   // Courier marker
   useEffect(() => {

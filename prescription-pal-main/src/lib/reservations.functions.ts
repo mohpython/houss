@@ -165,7 +165,7 @@ export const getReservationTracking = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { prisma } = await import("@/server/db.server");
     const { reservationAccess } = await import("@/server/authz.server");
-    const { canViewPharmacy, canViewCourier } = await import("./reservation-rules.server");
+    const { canViewPharmacy } = await import("./reservation-rules.server");
     const r = await prisma.reservations.findUnique({
       where: { id: data.id },
       select: {
@@ -209,7 +209,9 @@ export const getReservationTracking = createServerFn({ method: "GET" })
         },
       },
     });
-    if (!r || !(await reservationAccess(context.userId, r)).canRead) return null;
+    if (!r) return null;
+    const access = await reservationAccess(context.userId, r);
+    if (!access.canRead) return null;
     const { patient_id, pharmacy_id, payment_status, pharmacies, couriers, ...rest } = r;
     void patient_id;
     void pharmacy_id;
@@ -226,6 +228,8 @@ export const getReservationTracking = createServerFn({ method: "GET" })
               phone: pharmacies.phone,
             }
           : null,
-      couriers: couriers && (await canViewCourier(context.userId, couriers.id)) ? couriers : null,
+      // Le patient, la pharmacie, le livreur et l'admin qui peuvent lire la
+      // commande peuvent aussi voir le livreur assigné, même après livraison.
+      couriers: couriers ?? null,
     });
   });

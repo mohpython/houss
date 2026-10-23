@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import { nitro } from "nitro/vite";
 
+
 // Build autonome (sans Lovable) : serveur Node.js (preset `node-server`) prêt
 // pour un VPS. Le build produit `.output/server/index.mjs`, lancé par PM2.
 export default defineConfig(() => {

@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RxDateBadge } from "@/components/RxDateBadge";
+import { SignedImage } from "@/components/signed-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { FileText } from "lucide-react";
@@ -256,7 +257,7 @@ function Reservations() {
                   {rxUrl ? (
                     isImage ? (
                       <a href={rxUrl} target="_blank" rel="noreferrer">
-                        <img
+                        <SignedImage
                           src={rxUrl}
                           alt={t("pharm.rxAlt")}
                           className="max-h-64 w-full rounded-lg border object-contain"

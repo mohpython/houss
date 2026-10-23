@@ -79,11 +79,22 @@ function sign(bucket: string, key: string, exp: number): string {
   return createHmac("sha256", env.appSecret).update(`${bucket}/${key}:${exp}`).digest("base64url");
 }
 
-/** URL relative signée, valable `expiresInSec` secondes (équivalent createSignedUrl). */
+/**
+ * URL relative signée, valable `expiresInSec` secondes (équivalent createSignedUrl).
+ *
+ * On passe le bucket et la clé en paramètres de requête : une URL qui se
+ * terminerait par `.jpg` serait interceptée par le middleware de fichiers
+ * statiques de Vite (et par certains proxys) avant d'atteindre la route.
+ */
 export function createSignedUrl(bucket: Bucket, key: string, expiresInSec = 3600): string {
   const exp = Math.floor(Date.now() / 1000) + expiresInSec;
-  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-  return `/api/storage/${bucket}/${encodedKey}?exp=${exp}&sig=${sign(bucket, key, exp)}`;
+  const params = new URLSearchParams({
+    bucket,
+    key,
+    exp: String(exp),
+    sig: sign(bucket, key, exp),
+  });
+  return `/api/storage/object?${params.toString()}`;
 }
 
 /** URL absolue (APP_URL) — pour les services externes (WhatsApp, e-mails). */

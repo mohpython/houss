@@ -16,6 +16,8 @@ import {
   Check,
   Pill,
   Bike,
+  MapPin,
+  Loader2,
 } from "lucide-react";
 import { uploadPrescriptionFile } from "@/integrations/storage/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -110,7 +112,10 @@ function Scan() {
   /** Étape 2 : devis classés, sans rien créer. */
   const [quotes, setQuotes] = useState<Quote[] | null>(null);
   const [quoting, setQuoting] = useState(false);
-  const [creatingId, setCreatingId] = useState<string | null>(null);
+  const [quotesError, setQuotesError] = useState<string | null>(null);
+  /** Pharmacie retenue : l'étape 3 choisit ensuite le lieu et le mode. */
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
+  const [creating, setCreating] = useState(false);
   const extract = useServerFn(extractPrescription);
   const quoteFn = useServerFn(quoteReservation);
   const createFn = useServerFn(createReservation);
@@ -184,51 +189,66 @@ function Scan() {
         };
 
   /**
-   * Étape 1 : extraction OK. Le lieu (GPS présélectionné si connu) et le mode
-   * (domicile / retrait) se choisissent sur le même écran, puis un seul clic
-   * lance l'étape 2 (liste des pharmacies classées).
+   * Extraction OK : la liste des pharmacies s'affiche directement (le GPS
+   * sert au classement par distance). Le patient choisit sa pharmacie, puis
+   * règle la livraison et le paiement.
    */
   const continueToStep1 = async (rxId: string) => {
     const pos = await getGeo();
-    setDeliveryLoc(pos ? { mode: "gps", lat: pos.lat, lng: pos.lng } : null);
-    setFulfillment("delivery");
-    setQuotes(null);
     setPendingRx(rxId);
-    setPhase(2);
+    setQuotes(null);
+    setQuotesError(null);
+    setSelectedQuote(null);
+    setFulfillment("delivery");
+    if (!pos) {
+      // Sans position, on demande un quartier avant d'afficher les pharmacies.
+      setDeliveryLoc(null);
+      setPhase(2);
+      return;
+    }
+    const loc: DeliveryLocation = { mode: "gps", lat: pos.lat, lng: pos.lng };
+    setDeliveryLoc(loc);
+    await loadQuotes(rxId, loc);
   };
 
   /** Étape 2 : devis classés (100% en premier), avec prix et suggestions. */
-  const loadQuotes = async () => {
-    if (!pendingRx || !deliveryLoc) return;
+  const loadQuotes = async (rxId: string, loc: DeliveryLocation) => {
+    if (!rxId || !loc) return;
     setQuoting(true);
-    setPhase(3);
+    setQuotesError(null);
+    setPhase(2);
     try {
       const res = (await quoteFn({
-        data: { prescriptionId: pendingRx, ...locData(deliveryLoc), fulfillmentMethod: fulfillment },
+        data: { prescriptionId: rxId, ...locData(loc), fulfillmentMethod: "delivery" },
       })) as { quotes: Quote[] };
       setQuotes(res.quotes);
     } catch (err) {
-      // La recherche a échoué : on rend la main plutôt que de laisser le
-      // patient sur un écran bloqué. Lieu et mode restent proposés.
-      setPhase(2);
-      toast.error(err instanceof Error ? err.message : t("scan.error"));
+      // La recherche a échoué : le patient peut réessayer ou changer de secteur.
+      setQuotes(null);
+      setQuotesError(err instanceof Error ? err.message : t("scan.error"));
     } finally {
       setQuoting(false);
     }
   };
 
+  /** Choix de la pharmacie : le mode (livraison/retrait) vient juste après. */
+  const choosePharmacy = (quote: Quote) => {
+    setSelectedQuote(quote);
+    setPhase(3);
+  };
+
   /**
-   * Choix de la pharmacie : la commande est créée chez elle (le stock est
-   * relu à la création), puis ouvre l'étape 3 (paiement).
+   * Étape 3 : la commande est créée chez la pharmacie retenue (le stock est
+   * relu à la création), puis ouvre le paiement.
    */
-  const choosePharmacy = async (pharmacyId: string) => {
-    if (!pendingRx || !deliveryLoc || creatingId) return;
-    setCreatingId(pharmacyId);
+  const confirmOrder = async () => {
+    if (!pendingRx || !selectedQuote || !deliveryLoc || creating) return;
+    setCreating(true);
     try {
       const created = (await createFn({
         data: {
           prescriptionId: pendingRx,
-          pharmacyId,
+          pharmacyId: selectedQuote.pharmacyId,
           ...locData(deliveryLoc),
           fulfillmentMethod: fulfillment,
         },
@@ -236,22 +256,32 @@ function Scan() {
       setPhase(4);
       setPendingRx(null);
       setQuotes(null);
+      setSelectedQuote(null);
       router.navigate({
         to: "/app/reservations/$id/checkout",
         params: { id: created.reservationId },
       });
     } catch (err) {
-      // Stock épuisé entre-temps le plus souvent : le patient relance
-      // l'étape 2, qui recalcule les disponibilités.
+      // Stock épuisé entre-temps le plus souvent : le patient revient à la
+      // liste, qui recalcule les disponibilités.
       toast.error(err instanceof Error ? err.message : t("scan.error"));
     } finally {
-      setCreatingId(null);
+      setCreating(false);
     }
   };
 
-  /** Retour à l'étape 1 (lieu / mode) depuis la liste des pharmacies. */
-  const backToStep1 = () => {
+  /** Retour à la liste des pharmacies depuis l'étape livraison. */
+  const backToPharmacies = () => {
+    setSelectedQuote(null);
+    setPhase(2);
+  };
+
+  /** Changer de secteur : on revient au choix du lieu puis on relance les devis. */
+  const changeArea = () => {
     setQuotes(null);
+    setQuotesError(null);
+    setSelectedQuote(null);
+    setDeliveryLoc(null);
     setPhase(2);
   };
 
@@ -366,10 +396,17 @@ function Scan() {
     }
   };
 
-  const stateOf = (n: Phase): StepState => {
-    if (failed && phase === n) return "error";
-    if (phase > n) return "done";
-    if (phase === n) return "active";
+  /**
+   * Progression : 1 lecture → 2 vérification → 3 pharmacie → 4 livraison et
+   * paiement. La phase 2 couvre la liste des pharmacies (ou le choix du
+   * secteur si le GPS est refusé) ; la phase 3 couvre la livraison.
+   */
+  const stateOf = (n: 1 | 2 | 3 | 4): StepState => {
+    if (failed && phase === 1 && n === 1) return "error";
+    if (phase === 1) return n === 1 ? "active" : "pending";
+    if (phase === 2) return n <= 2 ? "done" : n === 3 ? "active" : "pending";
+    if (phase === 3) return n <= 3 ? "done" : "active";
+    if (phase === 4) return "done";
     return "pending";
   };
 
@@ -390,7 +427,9 @@ function Scan() {
     setFulfillment("delivery");
     setQuotes(null);
     setQuoting(false);
-    setCreatingId(null);
+    setQuotesError(null);
+    setSelectedQuote(null);
+    setCreating(false);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
   };
@@ -515,52 +554,53 @@ function Scan() {
             </div>
           )}
 
-          {pendingRx && !correction && !review && !failed && !quotes && (
+          {pendingRx && !correction && !review && !failed && !quotes && !quoting && !quotesError && (
             <div className="mt-6 space-y-4">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2">
-                  <Truck className="h-5 w-5 text-accent" />
-                  <h3 className="font-display text-lg">{t("delivery.where")}</h3>
+                  <MapPin className="h-5 w-5 text-accent" />
+                  <h3 className="font-display text-lg">{t("delivery.positionTitle")}</h3>
                 </div>
-                <p className="mt-1 text-sm text-foreground/70">{t("delivery.whereHint")}</p>
+                <p className="mt-1 text-sm text-foreground/70">{t("delivery.positionHint")}</p>
               </div>
-              <DeliveryLocationPicker
-                value={deliveryLoc}
-                onChange={setDeliveryLoc}
-                disabled={quoting}
-              />
-              <p className="text-sm text-foreground/70">{t("pay.fulfillment")}</p>
-              <div className="grid grid-cols-2 gap-2">
-                {(["delivery", "pickup"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setFulfillment(m)}
-                    aria-pressed={fulfillment === m}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm transition-colors ${
-                      fulfillment === m
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border text-foreground/60"
-                    }`}
-                  >
-                    {m === "delivery" ? <Bike className="h-4 w-4" /> : <Store className="h-4 w-4" />}
-                    {m === "delivery" ? t("pay.deliverHome") : t("pay.pickupSelf")}
-                  </button>
-                ))}
-              </div>
+              <DeliveryLocationPicker value={deliveryLoc} onChange={setDeliveryLoc} />
               <Button
-                onClick={loadQuotes}
-                disabled={quoting || !deliveryLoc}
+                onClick={() => deliveryLoc && pendingRx && loadQuotes(pendingRx, deliveryLoc)}
+                disabled={!deliveryLoc}
                 className="w-full rounded-full"
                 size="lg"
               >
                 <Check className="mr-2 h-4 w-4" />
-                {quoting ? t("auto.step3") : t("pharmacies.seePharmacies")}
+                {t("pharmacies.seePharmacies")}
               </Button>
             </div>
           )}
 
-          {pendingRx && quotes && !correction && !review && !failed && (
+          {pendingRx && !correction && !review && !failed && !quotes && quoting && (
+            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-foreground/70">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t("pharmacies.searching")}
+            </div>
+          )}
+
+          {pendingRx && !correction && !review && !failed && !quotes && !quoting && quotesError && (
+            <div className="mt-6 space-y-3 text-center">
+              <p className="text-sm text-destructive">{quotesError}</p>
+              <Button
+                onClick={() => deliveryLoc && pendingRx && loadQuotes(pendingRx, deliveryLoc)}
+                disabled={!deliveryLoc}
+                className="w-full rounded-full"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                {t("auto.retry")}
+              </Button>
+              <Button onClick={changeArea} variant="ghost" className="w-full rounded-full">
+                {t("delivery.change")}
+              </Button>
+            </div>
+          )}
+
+          {pendingRx && quotes && !selectedQuote && !correction && !review && !failed && (
             <div className="mt-6 space-y-4">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2">
@@ -606,15 +646,10 @@ function Scan() {
                       <dt className="text-foreground/60">{t("pay.items")}</dt>
                       <dd>{formatAmount(q.itemsTotal)}</dd>
                     </div>
-                    <div className="flex justify-between">
-                      <dt className="text-foreground/60">{t("pay.delivery")}</dt>
-                      <dd>{formatAmount(q.deliveryFee)}</dd>
-                    </div>
-                    <div className="flex justify-between font-semibold">
-                      <dt>{t("pay.total")}</dt>
-                      <dd>{formatAmount(q.totalAmount)}</dd>
-                    </div>
                   </dl>
+                  <p className="mt-1 text-xs text-foreground/60">
+                    {t("pharmacies.deliveryLater")}
+                  </p>
                   {q.missing.length > 0 && (
                     <div className="mt-2 text-xs text-foreground/70">
                       <p className="font-semibold">{t("pharmacies.missing")}</p>
@@ -640,17 +675,127 @@ function Scan() {
                     </div>
                   )}
                   <Button
-                    onClick={() => choosePharmacy(q.pharmacyId)}
-                    disabled={creatingId !== null}
+                    onClick={() => choosePharmacy(q)}
                     className="mt-3 w-full rounded-full"
                   >
                     <Check className="mr-2 h-4 w-4" />
-                    {creatingId === q.pharmacyId ? t("auto.step4") : t("pharmacies.choose")}
+                    {t("pharmacies.choose")}
                   </Button>
                 </div>
               ))}
-              <Button onClick={backToStep1} variant="ghost" className="w-full rounded-full">
+              <Button onClick={changeArea} variant="ghost" className="w-full rounded-full">
                 {t("pharmacies.retry")}
+              </Button>
+            </div>
+          )}
+
+          {pendingRx && selectedQuote && !correction && !review && !failed && (
+            <div className="mt-6 space-y-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <Truck className="h-5 w-5 text-accent" />
+                  <h3 className="font-display text-lg">{t("delivery.stepTitle")}</h3>
+                </div>
+                <p className="mt-1 text-sm text-foreground/70">
+                  {t("delivery.stepHint", { name: selectedQuote.name })}
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-2xl border border-border px-4 py-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-primary">
+                  <Store className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{selectedQuote.name}</div>
+                  {selectedQuote.address && (
+                    <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      {selectedQuote.address}
+                    </div>
+                  )}
+                </div>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {selectedQuote.distanceKm} km
+                </span>
+              </div>
+
+              <div>
+                <p className="text-sm text-foreground/70">{t("delivery.where")}</p>
+                <div className="mt-2">
+                  <DeliveryLocationPicker
+                    value={deliveryLoc}
+                    onChange={setDeliveryLoc}
+                    disabled={creating}
+                  />
+                </div>
+              </div>
+
+              <p className="text-sm text-foreground/70">{t("pay.fulfillment")}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(["delivery", "pickup"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setFulfillment(m)}
+                    aria-pressed={fulfillment === m}
+                    disabled={creating}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm transition-colors ${
+                      fulfillment === m
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border text-foreground/60"
+                    }`}
+                  >
+                    {m === "delivery" ? <Bike className="h-4 w-4" /> : <Store className="h-4 w-4" />}
+                    {m === "delivery" ? t("pay.deliverHome") : t("pay.pickupSelf")}
+                  </button>
+                ))}
+              </div>
+              {fulfillment === "pickup" && (
+                <p className="text-center text-xs text-foreground/60">{t("pay.pickupHint")}</p>
+              )}
+
+              <dl className="space-y-1 rounded-2xl border border-border px-4 py-3 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-foreground/60">{t("pay.items")}</dt>
+                  <dd className="tabular-nums">{formatAmount(selectedQuote.itemsTotal)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-foreground/60">{t("pay.delivery")}</dt>
+                  <dd className="tabular-nums">
+                    {formatAmount(fulfillment === "pickup" ? 0 : selectedQuote.deliveryFee)}
+                  </dd>
+                </div>
+                <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
+                  <dt>{t("pay.total")}</dt>
+                  <dd className="tabular-nums">
+                    {formatAmount(
+                      selectedQuote.itemsTotal +
+                        (fulfillment === "pickup" ? 0 : selectedQuote.deliveryFee),
+                    )}
+                  </dd>
+                </div>
+              </dl>
+
+              <Button
+                onClick={confirmOrder}
+                disabled={creating || !deliveryLoc}
+                className="w-full rounded-full"
+                size="lg"
+              >
+                {creating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                {t("delivery.continueToPayment")}
+              </Button>
+              <Button
+                onClick={backToPharmacies}
+                variant="ghost"
+                className="w-full rounded-full"
+                disabled={creating}
+              >
+                {t("pharmacies.change")}
               </Button>
             </div>
           )}

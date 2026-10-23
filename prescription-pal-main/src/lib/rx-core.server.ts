@@ -249,7 +249,9 @@ export async function runPrescriptionVisionAi(
     // Sortie bornée : sans plafond, le fournisseur réserve la fenêtre maximale
     // du modèle (65536 tokens) et OpenRouter refuse la requête dès que le solde
     // ne couvre pas cette réservation (« This request requires more credits »).
-    maxOutputTokens: 4096,
+    // 2048 suffit largement pour la liste de médicaments et passe même avec un
+    // solde OpenRouter réduit.
+    maxOutputTokens: 2048,
     // Les 429 (quota Google saturé en rafale de tests) sont transitoires :
     // on insiste avec backoff exponentiel au lieu d'échouer après 3 essais
     // rapprochés (« Failed after 3 attempt ... Too many Request »).

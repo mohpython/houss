@@ -1,5 +1,6 @@
 {
   "common": {
+    "fullName": "Full name",
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
@@ -597,7 +598,7 @@
     "step1": "Reading prescription",
     "step2": "Verification",
     "step3": "Pharmacy",
-    "step4": "Price",
+    "step4": "Delivery & payment",
     "retry": "Retry",
     "geo": "Location required",
     "review": "Document sent to our team for review. You will be notified.",
@@ -712,11 +713,16 @@
   },
   "delivery": {
     "where": "Where to deliver?",
-    "whereHint": "Choose your current position or another neighborhood in Bamako. The pharmacy will be picked near the delivery point.",
+    "whereHint": "Choose your current position or another neighborhood in Bamako.",
+    "positionTitle": "Your location",
+    "positionHint": "It ranks pharmacies by distance. You'll set the delivery address right after.",
     "myPosition": "My position",
     "otherNeighborhood": "Other neighborhood",
     "locating": "Locating…",
     "positionOk": "Position detected",
+    "stepTitle": "Delivery & payment",
+    "stepHint": "How would you like to get your medicines from {{name}}?",
+    "continueToPayment": "Continue to payment",
     "geoRequired": "Position required",
     "geoDenied": "Location denied. Allow it or pick a neighborhood.",
     "retryGeo": "Retry location",
@@ -830,12 +836,15 @@
   "pharmacies": {
     "seePharmacies": "See pharmacies",
     "title": "Choose your pharmacy",
-    "hint": "Ranked by stock: full matches first, with prices.",
+    "hint": "Ranked by stock: full matches first. Choose the pharmacy you prefer.",
     "full": "Full stock",
     "missing": "Missing:",
     "availableAt": "Also at",
     "choose": "Choose",
-    "retry": "Change location or method",
+    "change": "Change pharmacy",
+    "retry": "Change area",
+    "searching": "Looking for pharmacies…",
+    "deliveryLater": "Delivery fees will be added after you choose how to receive your order.",
     "empty": "No pharmacy has your medicines in stock."
   },
   "meta": {

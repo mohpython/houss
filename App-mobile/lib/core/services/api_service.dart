@@ -463,6 +463,129 @@ class ApiService {
     return ((data['couriers'] as List?) ?? const []).cast<Map<String, dynamic>>();
   }
 
+  // --- Praticiens (admin) ----------------------------------------------------
+
+  /// `{ practitioners: [...], specialties: [...] }`.
+  Future<Map<String, dynamic>> adminPractitioners() => _api.get('/admin/practitioners');
+
+  /// Crée (sans `id`) ou met à jour un praticien. Renvoie `{ id }`.
+  Future<Map<String, dynamic>> adminSavePractitioner(Map<String, dynamic> practitioner) {
+    return _api.post('/admin/practitioners', practitioner);
+  }
+
+  Future<void> adminPractitionerStatus(String practitionerId, String status) async {
+    await _api.post('/admin/practitioners/$practitionerId', {'status': status});
+  }
+
+  Future<void> adminDeletePractitioner(String practitionerId) async {
+    await _api.delete('/admin/practitioners/$practitionerId');
+  }
+
+  // --- Rendez-vous, patients, avis, quartiers (admin) -----------------------
+
+  Future<List<Map<String, dynamic>>> adminAppointments() async {
+    final data = await _api.get('/admin/appointments');
+    return ((data['appointments'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> adminPatients() async {
+    final data = await _api.get('/admin/patients');
+    return ((data['patients'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> adminPatientOrders(String userId) async {
+    final data = await _api.get('/admin/patients/$userId/orders');
+    return ((data['orders'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> adminSetPatientAdmin(String userId, bool admin) async {
+    await _api.post('/admin/patients/$userId/admin', {'admin': admin});
+  }
+
+  /// `{ rows, averages, overall }`.
+  Future<Map<String, dynamic>> adminFeedback() => _api.get('/admin/feedback');
+
+  Future<List<Map<String, dynamic>>> adminNeighborhoods() async {
+    final data = await _api.get('/admin/neighborhoods');
+    return ((data['neighborhoods'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  /// Crée (sans `id`) ou met à jour un quartier.
+  Future<Map<String, dynamic>> adminSaveNeighborhood(Map<String, dynamic> neighborhood) {
+    return _api.post('/admin/neighborhoods', neighborhood);
+  }
+
+  Future<void> adminToggleNeighborhood(String id, bool isActive) async {
+    await _api.post('/admin/neighborhoods/$id', {'is_active': isActive});
+  }
+
+  // --- Stocks des pharmacies (admin) ---------------------------------------
+
+  Future<List<Map<String, dynamic>>> adminInventoryPharmacies() async {
+    final data = await _api.get('/admin/inventory/pharmacies');
+    return ((data['pharmacies'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> adminInventory(String pharmacyId) async {
+    final data = await _api.get('/admin/inventory/$pharmacyId');
+    return ((data['rows'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> adminInventoryUpsert(
+    String pharmacyId, {
+    required String name,
+    String? generic,
+    String? strength,
+    required int stock,
+    required double? price,
+  }) async {
+    await _api.post('/admin/inventory/$pharmacyId', {
+      'name': name,
+      if (generic != null && generic.trim().isNotEmpty) 'generic': generic.trim(),
+      if (strength != null && strength.trim().isNotEmpty) 'strength': strength.trim(),
+      'stock': stock,
+      'price': price,
+    });
+  }
+
+  Future<void> adminInventoryUpdate(
+    String rowId, {
+    required int stock,
+    required double? price,
+  }) async {
+    await _api.put('/admin/inventory/row/$rowId', {
+      'stock_qty': stock,
+      'price': price,
+    });
+  }
+
+  Future<void> adminInventoryDelete(String rowId) async {
+    await _api.delete('/admin/inventory/row/$rowId');
+  }
+
+  // --- WhatsApp (admin) -----------------------------------------------------
+
+  /// `{ orders, sessions }`.
+  Future<Map<String, dynamic>> adminWhatsapp() => _api.get('/admin/whatsapp');
+
+  /// `{ templates: [{ key, label, placeholders, values: { fr, en, ar } }] }`.
+  Future<List<Map<String, dynamic>>> adminWhatsappTemplates() async {
+    final data = await _api.get('/admin/whatsapp/templates');
+    return ((data['templates'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> adminSaveWhatsappTemplate({
+    required String key,
+    required String lang,
+    required String body,
+  }) async {
+    await _api.post('/admin/whatsapp/templates', {
+      'key': key,
+      'lang': lang,
+      'body': body,
+    });
+  }
+
   /// Décision admin sur une pharmacie. Renvoie la réponse serveur, dont
   /// `account: { email, password }` quand un compte vient d'être créé.
   Future<Map<String, dynamic>> adminPharmacyDecision(

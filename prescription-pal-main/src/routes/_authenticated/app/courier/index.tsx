@@ -315,7 +315,7 @@ function CourierDashboard() {
                         </span>
                       </div>
                     </div>
-                    <Badge variant="secondary">{deliveryLabel(d.delivery_status)}</Badge>
+                    <Badge variant="secondary">{t(deliveryLabel(d.delivery_status))}</Badge>
                   </div>
                 </Card>
               </Link>

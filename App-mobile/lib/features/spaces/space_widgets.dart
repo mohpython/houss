@@ -309,12 +309,67 @@ Widget spaceHeader(String title, {String? subtitle, Widget? trailing}) {
 }
 
 /// Onglets segmentés (icône + libellé) pour les espaces.
+///
+/// Avec [scrollable] (admin : 5 onglets), les onglets gardent une largeur
+/// lisible et défilent horizontalement au lieu d'être tronqués.
 Widget segmentedTabs({
   required List<String> labels,
   required List<IconData> icons,
   required int selected,
   required ValueChanged<int> onChanged,
+  bool scrollable = false,
 }) {
+  Widget item(int i) {
+    final sel = selected == i;
+    return GestureDetector(
+      onTap: () => onChanged(i),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: sel ? AppColors.primary.withAlpha(50) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: sel ? Border.all(color: AppColors.primary.withAlpha(120)) : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icons[i],
+              size: 15,
+              color: sel ? AppColors.primaryLight : AppColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                labels[i],
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: sel ? AppColors.primaryLight : AppColors.textMuted,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  final row = Row(
+    children: [
+      for (var i = 0; i < labels.length; i++)
+        if (scrollable)
+          SizedBox(width: 112, child: item(i))
+        else
+          Expanded(child: item(i)),
+    ],
+  );
+
   return Container(
     padding: const EdgeInsets.all(4),
     decoration: BoxDecoration(
@@ -322,50 +377,12 @@ Widget segmentedTabs({
       borderRadius: BorderRadius.circular(14),
       border: Border.all(color: AppColors.border),
     ),
-    child: Row(
-      children: List.generate(labels.length, (i) {
-        final sel = selected == i;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => onChanged(i),
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(vertical: 9),
-              decoration: BoxDecoration(
-                color: sel ? AppColors.primary.withAlpha(50) : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-                border: sel ? Border.all(color: AppColors.primary.withAlpha(120)) : null,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icons[i],
-                    size: 15,
-                    color: sel ? AppColors.primaryLight : AppColors.textMuted,
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      labels[i],
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: sel ? AppColors.primaryLight : AppColors.textMuted,
-                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    ),
+    child: scrollable
+        ? SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: row,
+          )
+        : row,
   );
 }
 

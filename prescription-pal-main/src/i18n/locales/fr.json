@@ -1,5 +1,6 @@
 {
   "common": {
+    "fullName": "Nom complet",
     "loading": "Chargement...",
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -597,7 +598,7 @@
     "step1": "Lecture de l'ordonnance",
     "step2": "Vérification",
     "step3": "Pharmacie",
-    "step4": "Prix",
+    "step4": "Livraison et paiement",
     "retry": "Réessayer",
     "geo": "Position requise",
     "review": "Document envoyé à notre équipe pour vérification. Vous serez notifié.",
@@ -712,11 +713,16 @@
   },
   "delivery": {
     "where": "Où livrer ?",
-    "whereHint": "Choisissez votre position actuelle ou un autre quartier de Bamako. La pharmacie sera choisie près du lieu de livraison.",
+    "whereHint": "Choisissez votre position actuelle ou un autre quartier de Bamako.",
+    "positionTitle": "Votre position",
+    "positionHint": "Elle sert à classer les pharmacies par distance. Vous préciserez l'adresse de livraison juste après.",
     "myPosition": "Ma position",
     "otherNeighborhood": "Autre quartier",
     "locating": "Localisation en cours…",
     "positionOk": "Position détectée",
+    "stepTitle": "Livraison et paiement",
+    "stepHint": "Comment souhaitez-vous récupérer vos médicaments chez {{name}} ?",
+    "continueToPayment": "Continuer vers le paiement",
     "geoRequired": "Position requise",
     "geoDenied": "Localisation refusée. Autorisez-la ou choisissez un quartier.",
     "retryGeo": "Réessayer la localisation",
@@ -830,12 +836,15 @@
   "pharmacies": {
     "seePharmacies": "Voir les pharmacies",
     "title": "Choisissez votre pharmacie",
-    "hint": "Classées par stock : celles qui ont tout en premier, avec les prix.",
+    "hint": "Classées par stock : celles qui ont tout en premier. Choisissez librement votre pharmacie.",
     "full": "Tout en stock",
     "missing": "Manquant :",
     "availableAt": "Aussi chez",
     "choose": "Choisir",
-    "retry": "Modifier le lieu ou le mode",
+    "change": "Changer de pharmacie",
+    "retry": "Changer de secteur",
+    "searching": "Recherche des pharmacies…",
+    "deliveryLater": "Les frais de livraison seront ajoutés après le choix du mode.",
     "empty": "Aucune pharmacie n'a vos médicaments en stock."
   },
   "meta": {

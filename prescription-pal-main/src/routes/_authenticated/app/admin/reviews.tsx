@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SignedImage } from "@/components/signed-image";
 import { toast } from "sonner";
 import {
   ShieldAlert,
@@ -191,7 +192,7 @@ function Reviews() {
               <div className="flex flex-wrap items-start gap-4">
                 {r.imageUrl && (
                   <a href={r.imageUrl} target="_blank" rel="noreferrer">
-                    <img
+                    <SignedImage
                       src={r.imageUrl}
                       alt={t("review.flaggedAlt")}
                       className="h-56 w-44 rounded-lg border border-border object-cover"

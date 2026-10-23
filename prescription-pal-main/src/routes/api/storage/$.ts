@@ -8,10 +8,21 @@ export const Route = createFileRoute("/api/storage/$")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
-        const splat = (params as { _splat?: string })._splat ?? "";
-        const [bucket, ...rest] = splat.split("/");
-        const key = rest.map((s) => decodeURIComponent(s)).join("/");
         const url = new URL(request.url);
+        const queryBucket = url.searchParams.get("bucket");
+        const queryKey = url.searchParams.get("key");
+
+        let bucket: string;
+        let key: string;
+        if (queryBucket && queryKey) {
+          bucket = queryBucket;
+          key = queryKey;
+        } else {
+          const splat = (params as { _splat?: string })._splat ?? "";
+          const [pathBucket, ...rest] = splat.split("/");
+          bucket = pathBucket;
+          key = rest.map((s) => decodeURIComponent(s)).join("/");
+        }
 
         const { verifySignedUrl, readObject, mimeFromKey, BUCKETS } =
           await import("@/server/storage.server");

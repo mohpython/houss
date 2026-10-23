@@ -45,6 +45,7 @@ import { canViewPharmacy, updateReservationAs, type ReservationPatch } from "@/l
 import { updateAppointmentAs } from "@/lib/appointments-core.server";
 import { createAbsoluteSignedUrl, extFromMime, saveObject } from "./storage.server";
 import { haversineKm } from "@/lib/routing-core.server";
+import { TEMPLATE_KEYS, defaultTemplate, type BotLang, type TemplateKey } from "@/lib/whatsapp-copy";
 import { rateLimit } from "./rate-limit.server";
 import { env } from "./env.server";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
@@ -2861,6 +2862,764 @@ async function adminCourierDecision(ctx: Ctx) {
   return json({ ok: true });
 }
 
+// --- Praticiens (admin) ----------------------------------------------------
+
+/** Liste des praticiens et des spécialités disponibles. */
+async function adminPractitioners(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const [rows, specialties] = await Promise.all([
+    prisma.practitioners.findMany({
+      select: {
+        id: true,
+        full_name: true,
+        type: true,
+        specialty_code: true,
+        license_number: true,
+        phone: true,
+        address: true,
+        city: true,
+        lat: true,
+        lng: true,
+        home_visits: true,
+        consultation_fee: true,
+        is_available: true,
+        status: true,
+        bio: true,
+        user_id: true,
+        claim_email: true,
+        user: { select: { email: true } },
+      },
+      orderBy: { full_name: "asc" },
+    }),
+    prisma.practitioner_specialties.findMany({
+      select: {
+        code: true,
+        label_fr: true,
+        label_en: true,
+        label_ar: true,
+        practitioner_type: true,
+      },
+      orderBy: { code: "asc" },
+    }),
+  ]);
+  return json(
+    toPlain({
+      practitioners: rows.map(({ user, ...r }) => ({
+        ...r,
+        owner_email: r.user_id ? (user?.email ?? null) : null,
+      })),
+      specialties,
+    }),
+  );
+}
+
+const AdminPractitionerInput = z.object({
+  id: z.string().uuid().optional(),
+  full_name: z.string().trim().min(2).max(120),
+  type: z.enum(["doctor", "nurse"]),
+  specialty_code: z.string().trim().min(2),
+  license_number: z.string().trim().max(80).nullable().optional(),
+  phone: z.string().trim().max(40).nullable().optional(),
+  address: z.string().trim().max(300).nullable().optional(),
+  city: z.string().trim().max(120).nullable().optional(),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
+  home_visits: z.boolean().default(false),
+  consultation_fee: z.number().min(0).nullable().optional(),
+  is_available: z.boolean().default(true),
+  status: z.enum(["pending", "approved", "rejected"]).default("approved"),
+  bio: z.string().trim().max(1000).nullable().optional(),
+  claim_email: z.string().email().nullable().optional(),
+});
+
+/** Rattache un praticien invité à un compte existant (comme le web). */
+async function linkPractitionerUser(
+  practitionerId: string,
+  email: string | null | undefined,
+  type: "doctor" | "nurse",
+) {
+  if (!email) return;
+  const normalized = normalizeEmail(email);
+  const match = await prisma.users.findFirst({
+    where: { email: { equals: normalized, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (!match) return;
+  try {
+    await prisma.practitioners.update({
+      where: { id: practitionerId },
+      data: { user_id: match.id, claim_email: null },
+    });
+  } catch {
+    return;
+  }
+  await addRole(match.id, type);
+}
+
+/** Création ou mise à jour d'un praticien par l'admin. */
+async function adminPractitionerUpsert(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const data = await body(ctx, AdminPractitionerInput);
+  const payload = {
+    full_name: data.full_name,
+    type: data.type,
+    specialty_code: data.specialty_code,
+    license_number: data.license_number ?? null,
+    phone: data.phone ?? null,
+    address: data.address ?? null,
+    city: data.city ?? null,
+    lat: data.lat ?? null,
+    lng: data.lng ?? null,
+    home_visits: data.home_visits,
+    consultation_fee: data.consultation_fee ?? null,
+    is_available: data.is_available,
+    status: data.status,
+    bio: data.bio ?? null,
+    claim_email: data.claim_email ? normalizeEmail(data.claim_email) : null,
+  };
+  let id = data.id;
+  if (id) {
+    await prisma.practitioners.update({ where: { id }, data: payload });
+  } else {
+    const inserted = await prisma.practitioners.create({
+      data: payload,
+      select: { id: true },
+    });
+    id = inserted.id;
+  }
+  await linkPractitionerUser(id, payload.claim_email, data.type);
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: data.id ? "practitioner_updated" : "practitioner_created",
+      entity: "practitioner",
+      entity_id: id,
+    },
+  });
+  return json(toPlain({ ok: true, id }));
+}
+
+/** Statut d'un praticien : en attente, approuvé ou suspendu. */
+async function adminPractitionerStatus(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const data = await body(
+    ctx,
+    z.object({ status: z.enum(["pending", "approved", "rejected"]) }),
+  );
+  const found = await prisma.practitioners.findUnique({ where: { id }, select: { id: true } });
+  if (!found) throw new NotFoundError("Praticien introuvable");
+  await prisma.practitioners.update({ where: { id }, data: { status: data.status } });
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: `practitioner_${data.status}`,
+      entity: "practitioner",
+      entity_id: id,
+    },
+  });
+  return json({ ok: true });
+}
+
+/** Suppression définitive d'un praticien. */
+async function adminPractitionerDelete(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const found = await prisma.practitioners.findUnique({ where: { id }, select: { id: true } });
+  if (!found) throw new NotFoundError("Praticien introuvable");
+  await prisma.practitioners.delete({ where: { id } });
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "practitioner_deleted",
+      entity: "practitioner",
+      entity_id: id,
+    },
+  });
+  return json({ ok: true });
+}
+
+// --- Rendez-vous, patients, avis (admin) -----------------------------------
+
+/** Tous les rendez-vous avec patient et praticien (lecture seule côté web). */
+async function adminAppointments(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const rows = await prisma.appointments.findMany({
+    select: {
+      id: true,
+      status: true,
+      reason: true,
+      symptoms: true,
+      at_home: true,
+      requested_at: true,
+      scheduled_at: true,
+      proposed_at: true,
+      patient_address: true,
+      patient_phone: true,
+      patient_lat: true,
+      patient_lng: true,
+      practitioner_notes: true,
+      triage: true,
+      patient: {
+        select: { email: true, profile: { select: { full_name: true, phone: true } } },
+      },
+      practitioners: {
+        select: { full_name: true, type: true, specialty_code: true, phone: true, city: true },
+      },
+    },
+    orderBy: { requested_at: "desc" },
+    take: 200,
+  });
+  return json(
+    toPlain({
+      appointments: rows.map((r) => {
+        const prof = r.patient?.profile;
+        const pr = r.practitioners;
+        return {
+          id: r.id,
+          status: r.status,
+          reason: r.reason,
+          symptoms: r.symptoms,
+          at_home: r.at_home,
+          requested_at: r.requested_at,
+          scheduled_at: r.scheduled_at,
+          proposed_at: r.proposed_at,
+          patient_address: r.patient_address,
+          patient_phone: r.patient_phone,
+          patient_lat: r.patient_lat,
+          patient_lng: r.patient_lng,
+          practitioner_notes: r.practitioner_notes,
+          triage: r.triage ?? null,
+          patient_name: prof?.full_name ?? null,
+          patient_email: r.patient?.email ?? null,
+          patient_profile_phone: prof?.phone ?? null,
+          practitioner_name: pr?.full_name ?? null,
+          practitioner_type: pr?.type ?? null,
+          practitioner_specialty: pr?.specialty_code ?? null,
+          practitioner_phone: pr?.phone ?? null,
+          practitioner_city: pr?.city ?? null,
+        };
+      }),
+    }),
+  );
+}
+
+/** Tous les comptes avec leurs rôles et leur activité de commande. */
+async function adminPatients(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const [rawUsers, profiles, roles, rawOrders] = await Promise.all([
+    prisma.users.findMany({
+      select: {
+        id: true,
+        email: true,
+        created_at: true,
+        last_sign_in_at: true,
+        raw_user_meta_data: true,
+      },
+      orderBy: { created_at: "asc" },
+      take: 2000,
+    }),
+    prisma.profiles.findMany({
+      select: { id: true, full_name: true, phone: true, language: true },
+    }),
+    prisma.user_roles.findMany({ select: { user_id: true, role: true } }),
+    prisma.reservations.findMany({
+      select: { patient_id: true, created_at: true, neighborhoods: { select: { name: true } } },
+      orderBy: { created_at: "desc" },
+      take: 5000,
+    }),
+  ]);
+  const orders = toPlain(rawOrders);
+  const profMap = new Map(profiles.map((p) => [p.id, p]));
+  const roleMap = new Map<string, string[]>();
+  for (const r of roles) roleMap.set(r.user_id, [...(roleMap.get(r.user_id) ?? []), r.role]);
+  const orderMap = new Map<
+    string,
+    { count: number; last: string; neighborhood: string | null }
+  >();
+  for (const o of orders as Array<{
+    patient_id: string;
+    created_at: string;
+    neighborhoods: { name: string } | null;
+  }>) {
+    const cur = orderMap.get(o.patient_id);
+    if (cur) {
+      cur.count += 1;
+      if (!cur.neighborhood && o.neighborhoods?.name) cur.neighborhood = o.neighborhoods.name;
+    } else {
+      orderMap.set(o.patient_id, {
+        count: 1,
+        last: o.created_at,
+        neighborhood: o.neighborhoods?.name ?? null,
+      });
+    }
+  }
+  const rows = rawUsers.map((u) => {
+    const meta = (u.raw_user_meta_data ?? {}) as Record<string, unknown>;
+    const p = profMap.get(u.id);
+    const o = orderMap.get(u.id);
+    return {
+      user_id: u.id,
+      email: u.email ?? null,
+      full_name: p?.full_name ?? null,
+      phone: p?.phone ?? null,
+      language: p?.language ?? "fr",
+      roles: roleMap.get(u.id) ?? [],
+      created_at: u.created_at,
+      last_sign_in_at: u.last_sign_in_at,
+      neighborhood: o?.neighborhood ?? null,
+      orders_count: o?.count ?? 0,
+      last_order_at: o?.last ?? null,
+      source: typeof meta.source === "string" ? meta.source : null,
+    };
+  });
+  rows.sort((a, b) =>
+    (b.last_order_at?.toString() ?? b.created_at.toString()).localeCompare(
+      a.last_order_at?.toString() ?? a.created_at.toString(),
+    ),
+  );
+  return json(toPlain({ patients: rows }));
+}
+
+/** Historique des commandes d'un patient. */
+async function adminPatientOrders(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const rows = await prisma.reservations.findMany({
+    where: { patient_id: id },
+    select: {
+      id: true,
+      created_at: true,
+      source: true,
+      status: true,
+      delivery_status: true,
+      fulfillment_method: true,
+      total_amount: true,
+      payment_status: true,
+      patient_address: true,
+      pharmacies: { select: { name: true } },
+      neighborhoods: { select: { name: true } },
+    },
+    orderBy: { created_at: "desc" },
+    take: 100,
+  });
+  return json(
+    toPlain({
+      orders: rows.map((r) => ({
+        id: r.id,
+        created_at: r.created_at,
+        source: r.source,
+        status: r.status,
+        delivery_status: r.delivery_status,
+        fulfillment_method: r.fulfillment_method,
+        total_amount: Number(r.total_amount ?? 0),
+        payment_status: r.payment_status,
+        pharmacy: r.pharmacies?.name ?? null,
+        neighborhood: r.neighborhoods?.name ?? null,
+        patient_address: r.patient_address,
+      })),
+    }),
+  );
+}
+
+/** Attribue ou retire le rôle administrateur. */
+async function adminPatientSetAdmin(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const data = await body(ctx, z.object({ admin: z.boolean() }));
+  if (!data.admin && id === userId) {
+    throw new ApiError(400, "Vous ne pouvez pas retirer votre propre rôle admin");
+  }
+  if (data.admin) {
+    await prisma.user_roles.upsert({
+      where: { user_id_role: { user_id: id, role: "admin" } },
+      create: { user_id: id, role: "admin" },
+      update: {},
+    });
+  } else {
+    await prisma.user_roles.deleteMany({ where: { user_id: id, role: "admin" } });
+  }
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: data.admin ? "admin.grant" : "admin.revoke",
+      entity: "user_roles",
+      entity_id: id,
+    },
+  });
+  return json({ ok: true });
+}
+
+/** Avis clients + moyennes par pharmacie. */
+async function adminFeedback(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const rows = await prisma.feedback.findMany({
+    select: {
+      id: true,
+      rating: true,
+      comment: true,
+      phone: true,
+      created_at: true,
+      reservation_id: true,
+      pharmacy_id: true,
+      pharmacies: { select: { name: true } },
+    },
+    orderBy: { created_at: "desc" },
+    take: 200,
+  });
+  const mapped = rows.map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    phone: r.phone,
+    createdAt: r.created_at,
+    pharmacyId: r.pharmacy_id,
+    pharmacyName: r.pharmacies?.name ?? null,
+  }));
+  const byPharmacy = new Map<string, { name: string; total: number; count: number }>();
+  for (const r of mapped) {
+    const key = r.pharmacyName ?? "—";
+    const cur = byPharmacy.get(key) ?? { name: key, total: 0, count: 0 };
+    cur.total += r.rating;
+    cur.count += 1;
+    byPharmacy.set(key, cur);
+  }
+  const averages = [...byPharmacy.values()].map((p) => ({
+    name: p.name,
+    count: p.count,
+    average: Math.round((p.total / p.count) * 10) / 10,
+  }));
+  const overall = mapped.length
+    ? Math.round((mapped.reduce((s, r) => s + r.rating, 0) / mapped.length) * 10) / 10
+    : 0;
+  return json(toPlain({ rows: mapped, averages, overall }));
+}
+
+// --- Quartiers (admin) ------------------------------------------------------
+
+async function adminNeighborhoods(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const rows = await prisma.neighborhoods.findMany({
+    select: { id: true, name: true, city: true, lat: true, lng: true, is_active: true },
+    orderBy: { name: "asc" },
+  });
+  return json(toPlain({ neighborhoods: rows }));
+}
+
+const AdminNeighborhoodInput = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2).max(80),
+  city: z.string().trim().min(2).max(80).default("Bamako"),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  is_active: z.boolean().default(true),
+});
+
+async function adminNeighborhoodUpsert(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const data = await body(ctx, AdminNeighborhoodInput);
+  const payload = {
+    name: data.name,
+    city: data.city,
+    lat: data.lat,
+    lng: data.lng,
+    is_active: data.is_active,
+  };
+  let row: { id: string };
+  try {
+    row = data.id
+      ? await prisma.neighborhoods.update({
+          where: { id: data.id },
+          data: payload,
+          select: { id: true },
+        })
+      : await prisma.neighborhoods.create({ data: payload, select: { id: true } });
+  } catch (err) {
+    if ((err as { code?: string }).code === "P2002") {
+      throw new ApiError(400, "Ce quartier existe déjà dans cette ville");
+    }
+    throw new ApiError(400, "Enregistrement impossible");
+  }
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: data.id ? "neighborhood_updated" : "neighborhood_created",
+      entity: "neighborhood",
+      entity_id: row.id,
+      meta: payload,
+    },
+  });
+  return json({ ok: true, id: row.id });
+}
+
+async function adminNeighborhoodToggle(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const data = await body(ctx, z.object({ is_active: z.boolean() }));
+  const found = await prisma.neighborhoods.findUnique({ where: { id }, select: { id: true } });
+  if (!found) throw new NotFoundError("Quartier introuvable");
+  await prisma.neighborhoods.update({ where: { id }, data: { is_active: data.is_active } });
+  return json({ ok: true });
+}
+
+// --- Stocks des pharmacies (admin) ------------------------------------------
+
+async function adminInventoryPharmacies(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const rows = await prisma.pharmacies.findMany({
+    where: { status: "approved" },
+    select: { id: true, name: true, address: true, city: true },
+    orderBy: { name: "asc" },
+  });
+  return json(toPlain({ pharmacies: rows }));
+}
+
+async function adminInventoryList(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const pharmacyId = ctx.params[0];
+  const rows = await prisma.inventory.findMany({
+    where: { pharmacy_id: pharmacyId },
+    select: {
+      id: true,
+      stock_qty: true,
+      price: true,
+      medicines: {
+        select: { id: true, normalized_name: true, strength: true, generic_name: true },
+      },
+    },
+    orderBy: { medicines: { normalized_name: "asc" } },
+  });
+  return json(toPlain({ rows }));
+}
+
+async function adminInventoryUpsert(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const pharmacyId = ctx.params[0];
+  const data = await body(
+    ctx,
+    z.object({
+      name: z.string().trim().min(1).max(300),
+      generic: z.string().trim().max(300).optional().default(""),
+      strength: z.string().trim().max(100).optional().default(""),
+      stock: z.number().int().min(-10_000_000).max(10_000_000),
+      price: z.number().finite().nullable(),
+    }),
+  );
+  const normalized = data.name
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const existing = await prisma.medicines.findFirst({
+    where: { normalized_name: normalized, strength: data.strength || "" },
+    select: { id: true },
+  });
+  let medId = existing?.id;
+  if (!medId) {
+    const med = await prisma.medicines.create({
+      data: {
+        normalized_name: normalized,
+        generic_name: data.generic || null,
+        strength: data.strength || null,
+      },
+      select: { id: true },
+    });
+    medId = med.id;
+  }
+  await prisma.inventory.upsert({
+    where: { pharmacy_id_medicine_id: { pharmacy_id: pharmacyId, medicine_id: medId } },
+    create: {
+      pharmacy_id: pharmacyId,
+      medicine_id: medId,
+      stock_qty: data.stock,
+      price: data.price,
+    },
+    update: { stock_qty: data.stock, price: data.price },
+  });
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "inventory_upserted",
+      entity: "inventory",
+      entity_id: pharmacyId,
+    },
+  });
+  return json({ ok: true });
+}
+
+async function adminInventoryUpdate(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  const data = await body(
+    ctx,
+    z.object({
+      stock_qty: z.number().int().min(-10_000_000).max(10_000_000).optional(),
+      price: z.number().finite().nullable().optional(),
+    }),
+  );
+  const row = await prisma.inventory.findUnique({ where: { id }, select: { id: true } });
+  if (!row) throw new NotFoundError("Ligne de stock introuvable");
+  await prisma.inventory.update({
+    where: { id },
+    data: {
+      ...(data.stock_qty !== undefined ? { stock_qty: data.stock_qty } : {}),
+      ...(data.price !== undefined ? { price: data.price } : {}),
+    },
+  });
+  return json({ ok: true });
+}
+
+async function adminInventoryDelete(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const id = ctx.params[0];
+  await prisma.inventory.deleteMany({ where: { id } });
+  return json({ ok: true });
+}
+
+// --- WhatsApp (admin) -------------------------------------------------------
+
+async function adminWhatsapp(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const [res, sessions] = await Promise.all([
+    prisma.reservations.findMany({
+      where: { source: "whatsapp" },
+      select: {
+        id: true,
+        created_at: true,
+        patient_name: true,
+        patient_phone: true,
+        delivery_mode: true,
+        patient_address: true,
+        status: true,
+        delivery_status: true,
+        fulfillment_method: true,
+        total_amount: true,
+        payment_status: true,
+        is_partial: true,
+        neighborhoods: { select: { name: true } },
+        pharmacies: { select: { name: true } },
+        couriers: { select: { full_name: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: 200,
+    }),
+    prisma.whatsapp_sessions.findMany({
+      select: {
+        wa_phone: true,
+        wa_name: true,
+        language: true,
+        state: true,
+        last_message_at: true,
+        user_id: true,
+      },
+      orderBy: { last_message_at: { sort: "desc", nulls: "last" } },
+      take: 100,
+    }),
+  ]);
+  return json(
+    toPlain({
+      orders: res.map((r) => ({
+        id: r.id,
+        created_at: r.created_at,
+        patient_name: r.patient_name,
+        patient_phone: r.patient_phone,
+        neighborhood: r.neighborhoods?.name ?? null,
+        delivery_mode: r.delivery_mode,
+        patient_address: r.patient_address,
+        pharmacy: r.pharmacies?.name ?? null,
+        courier: r.couriers?.full_name ?? null,
+        status: r.status,
+        delivery_status: r.delivery_status,
+        fulfillment_method: r.fulfillment_method,
+        total_amount: Number(r.total_amount ?? 0),
+        payment_status: r.payment_status,
+        is_partial: r.is_partial,
+      })),
+      sessions: sessions.map((s) => ({
+        wa_phone: s.wa_phone,
+        wa_name: s.wa_name,
+        language: s.language,
+        state: s.state,
+        last_message_at: s.last_message_at,
+        linked: !!s.user_id,
+      })),
+    }),
+  );
+}
+
+const TEMPLATE_KEY_SET = new Set(TEMPLATE_KEYS.map((t) => t.key as string));
+
+async function adminWhatsappTemplates(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const data = await prisma.whatsapp_templates.findMany({
+    select: { key: true, lang: true, body: true },
+  });
+  const custom = new Map<string, string>();
+  for (const r of data) custom.set(`${r.key}:${r.lang}`, r.body);
+  const langs: BotLang[] = ["fr", "en", "ar"];
+  return json(
+    toPlain({
+      templates: TEMPLATE_KEYS.map((t) => {
+        const values: Record<string, { body: string; custom: boolean }> = {};
+        for (const l of langs) {
+          const c = custom.get(`${t.key}:${l}`);
+          values[l] = {
+            body: c ?? defaultTemplate(t.key as TemplateKey, l),
+            custom: c !== undefined,
+          };
+        }
+        return { key: t.key, label: t.label, placeholders: t.placeholders, values };
+      }),
+    }),
+  );
+}
+
+async function adminWhatsappTemplateSave(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  await assertAdmin(userId);
+  const data = await body(
+    ctx,
+    z.object({
+      key: z.string().min(1).max(80),
+      lang: z.enum(["fr", "en", "ar"]),
+      body: z.string().max(2000),
+    }),
+  );
+  if (!TEMPLATE_KEY_SET.has(data.key)) throw new ApiError(400, "Modèle inconnu");
+  const text = data.body.trim();
+  if (!text || text === defaultTemplate(data.key as TemplateKey, data.lang)) {
+    await prisma.whatsapp_templates.deleteMany({
+      where: { key: data.key, lang: data.lang },
+    });
+    return json({ ok: true, custom: false });
+  }
+  await prisma.whatsapp_templates.upsert({
+    where: { key_lang: { key: data.key, lang: data.lang } },
+    create: { key: data.key, lang: data.lang, body: text, updated_by: userId },
+    update: { body: text, updated_by: userId },
+  });
+  return json({ ok: true, custom: true });
+}
+
 // ============================================================================
 // Table de routage
 // ============================================================================
@@ -2949,6 +3708,26 @@ const ROUTES: Array<[string, string, Handler]> = [
   ["POST", "admin/pharmacies", adminCreatePharmacy],
   ["POST", "admin/pharmacies/:id", adminPharmacyDecision],
   ["POST", "admin/couriers/:id", adminCourierDecision],
+  ["GET", "admin/practitioners", adminPractitioners],
+  ["POST", "admin/practitioners", adminPractitionerUpsert],
+  ["POST", "admin/practitioners/:id", adminPractitionerStatus],
+  ["DELETE", "admin/practitioners/:id", adminPractitionerDelete],
+  ["GET", "admin/appointments", adminAppointments],
+  ["GET", "admin/patients", adminPatients],
+  ["GET", "admin/patients/:id/orders", adminPatientOrders],
+  ["POST", "admin/patients/:id/admin", adminPatientSetAdmin],
+  ["GET", "admin/feedback", adminFeedback],
+  ["GET", "admin/neighborhoods", adminNeighborhoods],
+  ["POST", "admin/neighborhoods", adminNeighborhoodUpsert],
+  ["POST", "admin/neighborhoods/:id", adminNeighborhoodToggle],
+  ["GET", "admin/inventory/pharmacies", adminInventoryPharmacies],
+  ["GET", "admin/inventory/:id", adminInventoryList],
+  ["POST", "admin/inventory/:id", adminInventoryUpsert],
+  ["PUT", "admin/inventory/row/:id", adminInventoryUpdate],
+  ["DELETE", "admin/inventory/row/:id", adminInventoryDelete],
+  ["GET", "admin/whatsapp", adminWhatsapp],
+  ["GET", "admin/whatsapp/templates", adminWhatsappTemplates],
+  ["POST", "admin/whatsapp/templates", adminWhatsappTemplateSave],
   ["GET", "admin/reviews", adminListReviews],
   ["POST", "admin/reviews/:id/resolve", adminResolveReview],
   ["POST", "admin/reviews/:id/retake", adminRequestRetake],

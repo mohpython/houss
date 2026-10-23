@@ -9,6 +9,7 @@ import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
+import 'package:saha_sante/features/admin/admin_management_screens.dart';
 import 'package:saha_sante/features/spaces/space_widgets.dart';
 
 /// Espace Administration : vue d'ensemble, validations et comptes.
@@ -28,6 +29,8 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
   Map<String, dynamic>? _overview;
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _couriers = [];
+  List<Map<String, dynamic>> _practitioners = [];
+  List<Map<String, dynamic>> _specialties = [];
 
   // Gérants de pharmacie (par id) et emails en cours de saisie.
   Map<String, Map<String, dynamic>> _ownersById = const {};
@@ -59,11 +62,16 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
       final users = await ApiService.instance.adminUsers();
       final couriers = await ApiService.instance.adminCouriers();
       final owners = await ApiService.instance.adminPharmacyOwners();
+      final practitioners = await ApiService.instance.adminPractitioners();
       if (!mounted) return;
       setState(() {
         _overview = overview;
         _users = users;
         _couriers = couriers;
+        _practitioners = ((practitioners['practitioners'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>();
+        _specialties = ((practitioners['specialties'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>();
         _ownersById = {
           for (final o in owners)
             if (o['id'] != null) '${o['id']}': o,
@@ -93,16 +101,19 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     super.dispose();
   }
 
-  Future<void> _act(Future<void> Function() action) async {
-    if (_busy) return;
+  Future<bool> _act(Future<void> Function() action) async {
+    if (_busy) return false;
     setState(() => _busy = true);
     try {
       await action();
       await _load();
+      return true;
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
+      return false;
     } catch (_) {
       if (mounted) showSnack(context, L10n.c('adm.actionFailed'), error: true);
+      return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -357,6 +368,8 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
           ),
           const SizedBox(height: 16),
           _ReviewEntryCard(),
+          const SizedBox(height: 16),
+          const _ManagementEntries(),
           const SizedBox(height: 16),
           sectionTitle(L10n.c('adm.latestPharmacies')),
           const SizedBox(height: 8),
@@ -962,6 +975,394 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
     );
   }
 
+  // --- Praticiens -----------------------------------------------------------
+
+  String _specialtyLabel(String code) {
+    for (final s in _specialties) {
+      if ('${s['code']}' == code) {
+        final key = switch (AppLocale.instance.current) {
+          SahaLang.en => 'label_en',
+          SahaLang.ar => 'label_ar',
+          _ => 'label_fr',
+        };
+        return '${s[key] ?? s['label_fr'] ?? code}';
+      }
+    }
+    return code.isEmpty ? L10n.c('adm.specialty') : code;
+  }
+
+  String _practitionerTypeLabel(String type) =>
+      type == 'nurse' ? L10n.c('prac.nurse') : L10n.c('prac.doctor');
+
+  Future<void> _openPractitionerEditor([Map<String, dynamic>? p]) async {
+    final isNew = p == null;
+    if (_specialties.isEmpty) {
+      showSnack(context, L10n.c('adm.noSpecialties'), error: true);
+      return;
+    }
+    final name = TextEditingController(text: '${p?['full_name'] ?? ''}');
+    final phone = TextEditingController(text: '${p?['phone'] ?? ''}');
+    final city = TextEditingController(text: '${p?['city'] ?? ''}');
+    final address = TextEditingController(text: '${p?['address'] ?? ''}');
+    final license = TextEditingController(text: '${p?['license_number'] ?? ''}');
+    final initialFee = p?['consultation_fee'];
+    final fee = TextEditingController(
+      text: initialFee is num ? initialFee.toStringAsFixed(0) : '',
+    );
+    final claimEmail = TextEditingController(text: '${p?['claim_email'] ?? ''}');
+    final bio = TextEditingController(text: '${p?['bio'] ?? ''}');
+
+    var type = '${p?['type'] ?? 'doctor'}';
+    if (type != 'doctor' && type != 'nurse') type = 'doctor';
+    var specialty = '${p?['specialty_code'] ?? ''}';
+    if (!_specialties.any((s) => '${s['code']}' == specialty)) {
+      specialty = '${_specialties.first['code']}';
+    }
+    var status = '${p?['status'] ?? 'pending'}';
+    if (!const ['pending', 'approved', 'rejected'].contains(status)) {
+      status = 'pending';
+    }
+    var homeVisits = p?['home_visits'] == true;
+    var available = p?['is_available'] != false;
+
+    // Codes de spécialité (la valeur courante reste sélectionnable même si la
+    // liste serveur a changé entre-temps).
+    final codes = <String>{
+      ..._specialties.map((s) => '${s['code']}'),
+      specialty,
+    }.toList();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) => StatefulBuilder(
+        builder: (dctx, setLocal) {
+          Future<void> save() async {
+            if (name.text.trim().length < 2) {
+              showSnack(dctx, L10n.c('adm.nameRequired'), error: true);
+              return;
+            }
+            if (specialty.isEmpty) {
+              showSnack(dctx, L10n.c('adm.specialtyRequired'), error: true);
+              return;
+            }
+            double? feeValue;
+            final feeText = fee.text.trim().replaceAll(',', '.');
+            if (feeText.isNotEmpty) {
+              feeValue = double.tryParse(feeText);
+              if (feeValue == null || feeValue < 0) {
+                showSnack(dctx, L10n.c('adm.invalidFee'), error: true);
+                return;
+              }
+            }
+            final payload = <String, dynamic>{
+              if (!isNew) 'id': '${p['id']}',
+              'full_name': name.text.trim(),
+              'type': type,
+              'specialty_code': specialty,
+              'license_number': _nullIfEmpty(license.text),
+              'phone': _nullIfEmpty(phone.text),
+              'address': _nullIfEmpty(address.text),
+              'city': _nullIfEmpty(city.text),
+              'home_visits': homeVisits,
+              'consultation_fee': feeValue,
+              'is_available': available,
+              'status': status,
+              'bio': _nullIfEmpty(bio.text),
+              'claim_email': _nullIfEmpty(claimEmail.text)?.toLowerCase(),
+            };
+            Navigator.pop(dctx);
+            final ok = await _act(
+              () => ApiService.instance.adminSavePractitioner(payload),
+            );
+            if (ok && mounted) {
+              showSnack(context, L10n.c('adm.practitionerSaved'));
+            }
+          }
+
+          return AlertDialog(
+            scrollable: true,
+            title: Text(isNew ? L10n.c('adm.addPractitioner') : L10n.c('adm.editPractitioner')),
+            content: SizedBox(
+              width: 460,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: name,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(labelText: L10n.c('adm.fullName')),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: type,
+                    decoration: InputDecoration(labelText: L10n.c('adm.typeLabel')),
+                    items: [
+                      DropdownMenuItem(value: 'doctor', child: Text(L10n.c('prac.doctor'))),
+                      DropdownMenuItem(value: 'nurse', child: Text(L10n.c('prac.nurse'))),
+                    ],
+                    onChanged: (v) => setLocal(() => type = v ?? 'doctor'),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: specialty,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: L10n.c('adm.specialty')),
+                    items: codes
+                        .map((c) => DropdownMenuItem(
+                              value: c,
+                              child: Text(_specialtyLabel(c), overflow: TextOverflow.ellipsis),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setLocal(() => specialty = v ?? specialty),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: license,
+                    decoration: InputDecoration(labelText: L10n.c('adm.license')),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(labelText: L10n.c('adm.phone')),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: city,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(labelText: L10n.c('adm.city')),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: address,
+                    decoration: InputDecoration(labelText: L10n.c('adm.address')),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: fee,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(labelText: L10n.c('adm.fee')),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: claimEmail,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(labelText: L10n.c('adm.claimEmail')),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: bio,
+                    maxLines: 3,
+                    decoration: InputDecoration(labelText: L10n.c('adm.bio')),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(L10n.c('adm.homeVisits')),
+                    value: homeVisits,
+                    onChanged: (v) => setLocal(() => homeVisits = v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(L10n.c('adm.available')),
+                    value: available,
+                    onChanged: (v) => setLocal(() => available = v),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: status,
+                    decoration: InputDecoration(labelText: L10n.c('adm.statusLabel')),
+                    items: const ['pending', 'approved', 'rejected']
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(reviewLabel(s)),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setLocal(() => status = v ?? status),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dctx),
+                child: Text(L10n.c('adm.cancel')),
+              ),
+              FilledButton(
+                onPressed: save,
+                child: Text(L10n.c('adm.save')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    name.dispose();
+    phone.dispose();
+    city.dispose();
+    address.dispose();
+    license.dispose();
+    fee.dispose();
+    claimEmail.dispose();
+    bio.dispose();
+  }
+
+  String? _nullIfEmpty(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  Widget _practitionerCard(Map<String, dynamic> p) {
+    final status = (p['status'] as String?) ?? 'pending';
+    final type = (p['type'] as String?) ?? 'doctor';
+    final specialty = _specialtyLabel('${p['specialty_code'] ?? ''}');
+    final phone = (p['phone'] as String?) ?? '';
+    final city = (p['city'] as String?) ?? '';
+    final fee = p['consultation_fee'] as num?;
+    final available = p['is_available'] != false;
+    final id = '${p['id']}';
+
+    return SpaceCard(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${p['full_name']}',
+                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+                ),
+              ),
+              statusChip(reviewLabel(status), statusColor(status)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${_practitionerTypeLabel(type)} · $specialty',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            [
+              if (phone.isNotEmpty) phone,
+              if (city.isNotEmpty) city,
+              if (fee != null) '${fee.toStringAsFixed(0)} FCFA',
+            ].join(' · '),
+            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+          ),
+          if (!available)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                L10n.c('adm.unavailable'),
+                style: TextStyle(fontSize: 11.5, color: AppColors.warning),
+              ),
+            ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              actionButton(
+                L10n.c('adm.edit'),
+                _busy ? null : () => _openPractitionerEditor(p),
+                icon: Icons.edit_outlined,
+                dense: true,
+              ),
+              if (status != 'approved')
+                actionButton(
+                  L10n.c('adm.approve'),
+                  _busy
+                      ? null
+                      : () => _act(() => ApiService.instance
+                          .adminPractitionerStatus(id, 'approved')),
+                  color: AppColors.success,
+                  icon: Icons.check,
+                  dense: true,
+                ),
+              if (status == 'approved')
+                actionButton(
+                  L10n.c('adm.suspend'),
+                  _busy
+                      ? null
+                      : () => _act(() => ApiService.instance
+                          .adminPractitionerStatus(id, 'rejected')),
+                  color: Colors.orange.shade800,
+                  icon: Icons.pause_circle_outline,
+                  dense: true,
+                ),
+              actionButton(
+                L10n.c('adm.delete'),
+                _busy ? null : () => _confirmDeletePractitioner(p),
+                color: Colors.red.shade700,
+                icon: Icons.delete_outline,
+                dense: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDeletePractitioner(Map<String, dynamic> p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: Text(L10n.c('adm.deletePractitionerTitle')),
+        content: Text(
+          L10n.tArgs(context, 'adm.deletePractitionerBody', {'name': '${p['full_name']}'}),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dctx, false),
+            child: Text(L10n.c('adm.cancel')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(dctx, true),
+            child: Text(L10n.c('adm.delete')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final done = await _act(
+      () => ApiService.instance.adminDeletePractitioner('${p['id']}'),
+    );
+    if (done && mounted) showSnack(context, L10n.c('adm.practitionerDeleted'));
+  }
+
+  Widget _practitionersView() {
+    final pending = _practitioners.where((p) => p['status'] == 'pending').length;
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 90),
+        children: [
+          if (pending > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                L10n.tArgs(context, 'adm.pendingPractitioners', {'count': '$pending'}),
+                style: TextStyle(fontSize: 12, color: AppColors.warning),
+              ),
+            ),
+          if (_practitioners.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 28),
+              child: Center(child: Text(L10n.c('adm.noPractitioners'))),
+            )
+          else
+            ..._practitioners.map(_practitionerCard),
+        ],
+      ),
+    );
+  }
+
   // --- Comptes --------------------------------------------------------------
 
   Widget _userCard(Map<String, dynamic> u) {
@@ -1038,12 +1439,20 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
             : switch (_tab) {
                 1 => _pharmaciesView(),
                 2 => _couriersView(),
-                3 => _usersView(),
+                3 => _practitionersView(),
+                4 => _usersView(),
                 _ => _overviewView(),
               };
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      floatingActionButton: _tab == 3 && !_loading
+          ? FloatingActionButton.extended(
+              onPressed: _busy ? null : () => _openPractitionerEditor(),
+              icon: const Icon(Icons.add),
+              label: Text(L10n.c('adm.addPractitioner')),
+            )
+          : null,
       body: Container(
         decoration: AppTheme.subtleGradient,
         child: SafeArea(
@@ -1062,14 +1471,17 @@ class _AdminSpaceScreenState extends State<AdminSpaceScreen> {
                     L10n.t(context, 'adm.tabOverview'),
                     L10n.t(context, 'adm.pharmacies'),
                     L10n.t(context, 'adm.couriers'),
+                    L10n.t(context, 'adm.tabPractitioners'),
                     L10n.t(context, 'adm.accounts'),
                   ],
                   icons: const [
                     Icons.dashboard_outlined,
                     Icons.local_pharmacy_outlined,
                     Icons.delivery_dining_outlined,
+                    Icons.medical_services_outlined,
                     Icons.group_outlined,
                   ],
+                  scrollable: true,
                   selected: _tab,
                   onChanged: (i) {
                     setState(() => _tab = i);
@@ -1138,6 +1550,145 @@ class _ReviewEntryCard extends StatelessWidget {
                 ),
               ),
               Icon(Icons.chevron_right, color: AppColors.textMuted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Accès aux autres sections du back-office web (rendez-vous, patients, avis,
+/// quartiers, stocks et WhatsApp).
+class _ManagementEntries extends StatelessWidget {
+  const _ManagementEntries();
+
+  @override
+  Widget build(BuildContext context) {
+    L10n.bind(context);
+    final items =
+        <({String title, IconData icon, Color color, WidgetBuilder builder})>[
+      (
+        title: L10n.c('adm.appointments'),
+        icon: Icons.event_outlined,
+        color: AppColors.accentLight,
+        builder: (_) => const AdminAppointmentsScreen(),
+      ),
+      (
+        title: L10n.c('adm.patients'),
+        icon: Icons.people_outline,
+        color: AppColors.success,
+        builder: (_) => const AdminPatientsScreen(),
+      ),
+      (
+        title: L10n.c('adm.feedback'),
+        icon: Icons.star_outline,
+        color: AppColors.warning,
+        builder: (_) => const AdminFeedbackScreen(),
+      ),
+      (
+        title: L10n.c('adm.neighborhoods'),
+        icon: Icons.map_outlined,
+        color: AppColors.primaryLight,
+        builder: (_) => const AdminNeighborhoodsScreen(),
+      ),
+      (
+        title: L10n.c('adm.stocks'),
+        icon: Icons.inventory_2_outlined,
+        color: AppColors.accentLight,
+        builder: (_) => const AdminStocksScreen(),
+      ),
+      (
+        title: L10n.c('adm.whatsapp'),
+        icon: Icons.chat_outlined,
+        color: AppColors.success,
+        builder: (_) => const AdminWhatsappScreen(),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        sectionTitle(L10n.c('adm.manage')),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = (constraints.maxWidth - 8) / 2;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final item in items)
+                  SizedBox(
+                    width: width,
+                    child: _ManagementTile(
+                      title: item.title,
+                      icon: item.icon,
+                      color: item.color,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: item.builder),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ManagementTile extends StatelessWidget {
+  const _ManagementTile({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: 34,
+                width: 34,
+                decoration: BoxDecoration(
+                  color: color.withAlpha(36),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 19),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
