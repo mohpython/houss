@@ -281,7 +281,17 @@ export function friendlyAiError(err: unknown): Error {
       "Trop de demandes en ce moment : le service de lecture est saturé. Attendez une minute puis réessayez.",
     );
   }
-  return err instanceof Error ? err : new Error("Extraction impossible");
+  if (err instanceof Error) {
+    const msg = err.message || "";
+    if (msg.includes("No output generated") || msg.includes("NoObjectGeneratedError") || msg.includes("could not generate")) {
+      return new Error("L'IA n'a pas pu générer de résultat. Réessayez avec une photo plus nette ou reformatez l'ordonnance.");
+    }
+    if (msg.includes("This request requires more credits") || msg.includes("insufficient credits")) {
+      return new Error("Crédits OpenRouter insuffisants. Rechargez votre compte ou réduisez l'usage.");
+    }
+    return err;
+  }
+  return new Error("Extraction impossible");
 }
 
 /**
