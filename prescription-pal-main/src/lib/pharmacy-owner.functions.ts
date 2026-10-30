@@ -11,6 +11,7 @@ export type PharmacyOwnerRow = {
   owner_user_id: string | null;
   owner_email: string | null;
   claim_email: string | null;
+  orange_merchant_key: string | null;
 };
 
 export const listPharmaciesWithOwners = createServerFn({ method: "POST" })
@@ -29,6 +30,7 @@ export const listPharmaciesWithOwners = createServerFn({ method: "POST" })
         status: true,
         owner_user_id: true,
         claim_email: true,
+        orange_merchant_key: true,
         owner: { select: { email: true } },
       },
       orderBy: { name: "asc" },
@@ -195,4 +197,65 @@ export const unassignPharmacyOwner = createServerFn({ method: "POST" })
     });
 
     return { ok: true };
+  });
+
+/**
+ * Enregistre le merchant_key Orange Money d'une pharmacie.
+ *
+ * Une seule app Orange (client_id/client_secret SAHA) sert à toutes les
+ * pharmacies ; le merchant_key, lui, est propre à chaque pharmacie : c'est
+ * lui qui détermine sur quel compte Orange Money les fonds sont encaissés.
+ * Laisser vide efface la clé (la pharmacie ne pourra plus encaisser en ligne).
+ */
+export const setPharmacyOrangeMerchantKey = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        pharmacyId: z.string().uuid(),
+        merchantKey: z
+          .string()
+          .trim()
+          .max(64)
+          .regex(/^[A-Za-z0-9_-]*$/, "Caractères autorisés : lettres, chiffres, - et _")
+          .nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { prisma } = await import("@/server/db.server");
+    const { assertAdmin } = await import("@/server/authz.server");
+    await assertAdmin(context.userId);
+
+    const merchantKey = data.merchantKey?.trim() || null;
+
+    const pharmacy = await prisma.pharmacies.findUnique({
+      where: { id: data.pharmacyId },
+      select: { id: true, name: true, orange_merchant_key: true },
+    });
+    if (!pharmacy) throw new Error("Pharmacie introuvable");
+
+    await prisma.pharmacies.update({
+      where: { id: data.pharmacyId },
+      data: {
+        orange_merchant_key: merchantKey,
+        updated_at: new Date(),
+      },
+    });
+
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "pharmacy.orange_key_updated",
+        entity: "pharmacy",
+        entity_id: data.pharmacyId,
+        // On ne journalise jamais la clé en clair, seulement le changement.
+        meta: {
+          had_key: Boolean(pharmacy.orange_merchant_key),
+          has_key: Boolean(merchantKey),
+        },
+      },
+    });
+
+    return { ok: true, hasKey: Boolean(merchantKey) };
   });

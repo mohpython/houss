@@ -11,7 +11,13 @@ import { nitro } from "nitro/vite";
 export default defineConfig(() => {
   // Les variables VITE_* du fichier .env sont injectées au build (navigateur).
   return {
-    server: { port: 3000, host: true },
+    server: {
+      port: 3000,
+      host: true,
+      // Tunnels de test (cloudflared) et domaine de production : Vite refuse
+      // par défaut les Host inconnus.
+      allowedHosts: [".trycloudflare.com", "sahasantemali.com", "www.sahasantemali.com"],
+    },
     resolve: {
       dedupe: ["react", "react-dom", "@tanstack/react-router", "@tanstack/react-query"],
     },

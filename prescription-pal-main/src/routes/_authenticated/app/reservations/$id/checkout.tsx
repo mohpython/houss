@@ -2,7 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { getReservationCheckout } from "@/lib/reservations.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { declareMobileMoneyPayment } from "@/lib/payment.functions";
+import { declareMobileMoneyPayment, startOrangePayment } from "@/lib/payment.functions";
 import { setFulfillmentMethod } from "@/lib/fulfillment.functions";
 import {
   MERCHANT_NUMBERS,
@@ -40,6 +40,7 @@ type Row = {
   delivery_fee: number | null;
   total_amount: number | null;
   payment_status: string;
+  orange_enabled: boolean;
   fulfillment_method: string;
   patient_address: string | null;
   patient_phone: string | null;
@@ -71,8 +72,10 @@ function Checkout() {
   const [reference, setReference] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const [orangeBusy, setOrangeBusy] = useState(false);
   const phoneValid = /^\+?[0-9 ]{8,20}$/.test(phone.trim());
   const declare = useServerFn(declareMobileMoneyPayment);
+  const startOrange = useServerFn(startOrangePayment);
   const setMethodFn = useServerFn(setFulfillmentMethod);
   /**
    * Numero du dernier changement de mode demande. Une reponse arrivee pour un
@@ -142,6 +145,19 @@ function Checkout() {
       toast.error(err instanceof Error ? err.message : t("pay.error"));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const payOnline = async () => {
+    setOrangeBusy(true);
+    try {
+      const res = await startOrange({ data: { reservationId: id } });
+      if (res?.paymentUrl) {
+        window.location.href = res.paymentUrl;
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("pay.error"));
+      setOrangeBusy(false);
     }
   };
 
@@ -277,6 +293,35 @@ function Checkout() {
         </div>
       ) : (
         <div className="mt-6 space-y-3">
+          {/* --- Paiement en ligne Orange Money WebPay (si la pharmacie a un code marchand) --- */}
+          {row.orange_enabled && (
+            <>
+              <Button
+                className="w-full rounded-full"
+                size="lg"
+                disabled={orangeBusy}
+                onClick={payOnline}
+              >
+                {orangeBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {orangeBusy
+                  ? t("pay.orange.redirecting", "Redirection…")
+                  : t("pay.orange.payOnline", "💳 Payer en ligne (Orange Money)")}{" "}
+                · {formatAmount(row.total_amount)}
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-background px-2 text-foreground/50">
+                    {t("pay.orange.orManual", "ou payer manuellement")}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             {(["orange_money", "moov_money"] as PaymentMethod[]).map((m) => (
               <button

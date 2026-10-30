@@ -49,12 +49,14 @@ import { Route as AuthenticatedAppAdminCouriersRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppAdminAppointmentsRouteImport } from './routes/_authenticated/app/admin/appointments'
 import { Route as AuthenticatedAppReservationsIdIndexRouteImport } from './routes/_authenticated/app/reservations/$id/index'
 import { Route as AuthenticatedAppPrescriptionsIdIndexRouteImport } from './routes/_authenticated/app/prescriptions/$id/index'
+import { Route as ApiPublicPaymentsOrangeNotifyRouteImport } from './routes/api/public/payments/orange/notify'
 import { Route as AuthenticatedAppReservationsIdTrackRouteImport } from './routes/_authenticated/app/reservations/$id/track'
 import { Route as AuthenticatedAppReservationsIdCheckoutRouteImport } from './routes/_authenticated/app/reservations/$id/checkout'
 import { Route as AuthenticatedAppPrescriptionsIdPharmaciesRouteImport } from './routes/_authenticated/app/prescriptions/$id/pharmacies'
 import { Route as AuthenticatedAppPraticienRdvIdRouteImport } from './routes/_authenticated/app/praticien/rdv/$id'
 import { Route as AuthenticatedAppPharmacyPharmacyIdReservationsRouteImport } from './routes/_authenticated/app/pharmacy/$pharmacyId/reservations'
 import { Route as AuthenticatedAppPharmacyPharmacyIdInventoryRouteImport } from './routes/_authenticated/app/pharmacy/$pharmacyId/inventory'
+import { Route as AuthenticatedAppPaymentsOrangeReturnRouteImport } from './routes/_authenticated/app/payments/orange/return'
 import { Route as AuthenticatedAppCourierDeliveriesIdRouteImport } from './routes/_authenticated/app/courier/deliveries/$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -279,6 +281,12 @@ const AuthenticatedAppPrescriptionsIdIndexRoute =
     path: '/app/prescriptions/$id/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicPaymentsOrangeNotifyRoute =
+  ApiPublicPaymentsOrangeNotifyRouteImport.update({
+    id: '/api/public/payments/orange/notify',
+    path: '/api/public/payments/orange/notify',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedAppReservationsIdTrackRoute =
   AuthenticatedAppReservationsIdTrackRouteImport.update({
     id: '/app/reservations/$id/track',
@@ -313,6 +321,12 @@ const AuthenticatedAppPharmacyPharmacyIdInventoryRoute =
   AuthenticatedAppPharmacyPharmacyIdInventoryRouteImport.update({
     id: '/app/pharmacy/$pharmacyId/inventory',
     path: '/app/pharmacy/$pharmacyId/inventory',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAppPaymentsOrangeReturnRoute =
+  AuthenticatedAppPaymentsOrangeReturnRouteImport.update({
+    id: '/app/payments/orange/return',
+    path: '/app/payments/orange/return',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAppCourierDeliveriesIdRoute =
@@ -361,12 +375,14 @@ export interface FileRoutesByFullPath {
   '/app/reservations/': typeof AuthenticatedAppReservationsIndexRoute
   '/api/auth/google/': typeof ApiAuthGoogleIndexRoute
   '/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
+  '/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
   '/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
   '/app/praticien/rdv/$id': typeof AuthenticatedAppPraticienRdvIdRoute
   '/app/prescriptions/$id/pharmacies': typeof AuthenticatedAppPrescriptionsIdPharmaciesRoute
   '/app/reservations/$id/checkout': typeof AuthenticatedAppReservationsIdCheckoutRoute
   '/app/reservations/$id/track': typeof AuthenticatedAppReservationsIdTrackRoute
+  '/api/public/payments/orange/notify': typeof ApiPublicPaymentsOrangeNotifyRoute
   '/app/prescriptions/$id/': typeof AuthenticatedAppPrescriptionsIdIndexRoute
   '/app/reservations/$id/': typeof AuthenticatedAppReservationsIdIndexRoute
 }
@@ -409,12 +425,14 @@ export interface FileRoutesByTo {
   '/app/reservations': typeof AuthenticatedAppReservationsIndexRoute
   '/api/auth/google': typeof ApiAuthGoogleIndexRoute
   '/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
+  '/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
   '/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
   '/app/praticien/rdv/$id': typeof AuthenticatedAppPraticienRdvIdRoute
   '/app/prescriptions/$id/pharmacies': typeof AuthenticatedAppPrescriptionsIdPharmaciesRoute
   '/app/reservations/$id/checkout': typeof AuthenticatedAppReservationsIdCheckoutRoute
   '/app/reservations/$id/track': typeof AuthenticatedAppReservationsIdTrackRoute
+  '/api/public/payments/orange/notify': typeof ApiPublicPaymentsOrangeNotifyRoute
   '/app/prescriptions/$id': typeof AuthenticatedAppPrescriptionsIdIndexRoute
   '/app/reservations/$id': typeof AuthenticatedAppReservationsIdIndexRoute
 }
@@ -459,12 +477,14 @@ export interface FileRoutesById {
   '/_authenticated/app/reservations/': typeof AuthenticatedAppReservationsIndexRoute
   '/api/auth/google/': typeof ApiAuthGoogleIndexRoute
   '/_authenticated/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
+  '/_authenticated/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
   '/_authenticated/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/_authenticated/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
   '/_authenticated/app/praticien/rdv/$id': typeof AuthenticatedAppPraticienRdvIdRoute
   '/_authenticated/app/prescriptions/$id/pharmacies': typeof AuthenticatedAppPrescriptionsIdPharmaciesRoute
   '/_authenticated/app/reservations/$id/checkout': typeof AuthenticatedAppReservationsIdCheckoutRoute
   '/_authenticated/app/reservations/$id/track': typeof AuthenticatedAppReservationsIdTrackRoute
+  '/api/public/payments/orange/notify': typeof ApiPublicPaymentsOrangeNotifyRoute
   '/_authenticated/app/prescriptions/$id/': typeof AuthenticatedAppPrescriptionsIdIndexRoute
   '/_authenticated/app/reservations/$id/': typeof AuthenticatedAppReservationsIdIndexRoute
 }
@@ -509,12 +529,14 @@ export interface FileRouteTypes {
     | '/app/reservations/'
     | '/api/auth/google/'
     | '/app/courier/deliveries/$id'
+    | '/app/payments/orange/return'
     | '/app/pharmacy/$pharmacyId/inventory'
     | '/app/pharmacy/$pharmacyId/reservations'
     | '/app/praticien/rdv/$id'
     | '/app/prescriptions/$id/pharmacies'
     | '/app/reservations/$id/checkout'
     | '/app/reservations/$id/track'
+    | '/api/public/payments/orange/notify'
     | '/app/prescriptions/$id/'
     | '/app/reservations/$id/'
   fileRoutesByTo: FileRoutesByTo
@@ -557,12 +579,14 @@ export interface FileRouteTypes {
     | '/app/reservations'
     | '/api/auth/google'
     | '/app/courier/deliveries/$id'
+    | '/app/payments/orange/return'
     | '/app/pharmacy/$pharmacyId/inventory'
     | '/app/pharmacy/$pharmacyId/reservations'
     | '/app/praticien/rdv/$id'
     | '/app/prescriptions/$id/pharmacies'
     | '/app/reservations/$id/checkout'
     | '/app/reservations/$id/track'
+    | '/api/public/payments/orange/notify'
     | '/app/prescriptions/$id'
     | '/app/reservations/$id'
   id:
@@ -606,12 +630,14 @@ export interface FileRouteTypes {
     | '/_authenticated/app/reservations/'
     | '/api/auth/google/'
     | '/_authenticated/app/courier/deliveries/$id'
+    | '/_authenticated/app/payments/orange/return'
     | '/_authenticated/app/pharmacy/$pharmacyId/inventory'
     | '/_authenticated/app/pharmacy/$pharmacyId/reservations'
     | '/_authenticated/app/praticien/rdv/$id'
     | '/_authenticated/app/prescriptions/$id/pharmacies'
     | '/_authenticated/app/reservations/$id/checkout'
     | '/_authenticated/app/reservations/$id/track'
+    | '/api/public/payments/orange/notify'
     | '/_authenticated/app/prescriptions/$id/'
     | '/_authenticated/app/reservations/$id/'
   fileRoutesById: FileRoutesById
@@ -632,6 +658,7 @@ export interface RootRouteChildren {
   ApiAuthGoogleCallbackRoute: typeof ApiAuthGoogleCallbackRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
   ApiAuthGoogleIndexRoute: typeof ApiAuthGoogleIndexRoute
+  ApiPublicPaymentsOrangeNotifyRoute: typeof ApiPublicPaymentsOrangeNotifyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -916,6 +943,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppPrescriptionsIdIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/payments/orange/notify': {
+      id: '/api/public/payments/orange/notify'
+      path: '/api/public/payments/orange/notify'
+      fullPath: '/api/public/payments/orange/notify'
+      preLoaderRoute: typeof ApiPublicPaymentsOrangeNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/app/reservations/$id/track': {
       id: '/_authenticated/app/reservations/$id/track'
       path: '/app/reservations/$id/track'
@@ -958,6 +992,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppPharmacyPharmacyIdInventoryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/app/payments/orange/return': {
+      id: '/_authenticated/app/payments/orange/return'
+      path: '/app/payments/orange/return'
+      fullPath: '/app/payments/orange/return'
+      preLoaderRoute: typeof AuthenticatedAppPaymentsOrangeReturnRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/app/courier/deliveries/$id': {
       id: '/_authenticated/app/courier/deliveries/$id'
       path: '/app/courier/deliveries/$id'
@@ -993,6 +1034,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAppPrescriptionsIndexRoute: typeof AuthenticatedAppPrescriptionsIndexRoute
   AuthenticatedAppReservationsIndexRoute: typeof AuthenticatedAppReservationsIndexRoute
   AuthenticatedAppCourierDeliveriesIdRoute: typeof AuthenticatedAppCourierDeliveriesIdRoute
+  AuthenticatedAppPaymentsOrangeReturnRoute: typeof AuthenticatedAppPaymentsOrangeReturnRoute
   AuthenticatedAppPharmacyPharmacyIdInventoryRoute: typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   AuthenticatedAppPharmacyPharmacyIdReservationsRoute: typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
   AuthenticatedAppPraticienRdvIdRoute: typeof AuthenticatedAppPraticienRdvIdRoute
@@ -1037,6 +1079,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAppReservationsIndexRoute,
   AuthenticatedAppCourierDeliveriesIdRoute:
     AuthenticatedAppCourierDeliveriesIdRoute,
+  AuthenticatedAppPaymentsOrangeReturnRoute:
+    AuthenticatedAppPaymentsOrangeReturnRoute,
   AuthenticatedAppPharmacyPharmacyIdInventoryRoute:
     AuthenticatedAppPharmacyPharmacyIdInventoryRoute,
   AuthenticatedAppPharmacyPharmacyIdReservationsRoute:
@@ -1074,6 +1118,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthGoogleCallbackRoute: ApiAuthGoogleCallbackRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
   ApiAuthGoogleIndexRoute: ApiAuthGoogleIndexRoute,
+  ApiPublicPaymentsOrangeNotifyRoute: ApiPublicPaymentsOrangeNotifyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

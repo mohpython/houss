@@ -129,7 +129,15 @@ export const getReservationCheckout = createServerFn({ method: "GET" })
         neighborhood_id: true,
         patient_lat: true,
         patient_lng: true,
-        pharmacies: { select: { name: true, address: true, status: true, owner_user_id: true } },
+        pharmacies: {
+          select: {
+            name: true,
+            address: true,
+            status: true,
+            owner_user_id: true,
+            orange_merchant_key: true,
+          },
+        },
         reservation_items: {
           select: {
             id: true,
@@ -145,8 +153,10 @@ export const getReservationCheckout = createServerFn({ method: "GET" })
     void pharmacy_id;
     void courier_id;
     const itemsVisible = await canViewPrescriptionItems(context.userId, r.prescription_id);
+    const orangeEnabled = Boolean(pharmacies.orange_merchant_key?.trim());
     return toPlain({
       ...rest,
+      orange_enabled: orangeEnabled,
       pharmacies: (await canViewPharmacy(context.userId, pharmacies))
         ? { name: pharmacies.name, address: pharmacies.address }
         : null,

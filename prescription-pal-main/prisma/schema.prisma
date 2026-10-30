@@ -206,6 +206,9 @@ model pharmacies {
   status          pharmacy_status @default(pending)
   rating          Float?          @default(0)
   google_place_id String?         @unique
+  // Orange Money WebPay — merchant_key propre à chaque pharmacie
+  // (le client_id/client_secret sont ceux de l'app SAHA, commun à toutes)
+  orange_merchant_key String?
   created_at      DateTime        @default(now()) @db.Timestamptz(6)
   updated_at      DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
 
@@ -387,6 +390,11 @@ model reservations {
   payment_status           String             @default("unpaid") // 'unpaid' | 'pending_verification' | 'paid' | 'failed'
   payment_method           String?
   payment_reference        String?
+  // Identifiant de transaction Orange Money WebPay (order_id)
+  payment_order_id         String?            @unique
+  // Jeton de vérification Orange (pay_token) — nécessaire pour interroger
+  // le statut réel via POST /transactionstatus
+  payment_pay_token        String?
   paid_at                  DateTime?          @db.Timestamptz(6)
   // Horodatages du cycle de vie
   accepted_at              DateTime?          @db.Timestamptz(6)

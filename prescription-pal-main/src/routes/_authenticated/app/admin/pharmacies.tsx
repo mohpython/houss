@@ -5,6 +5,7 @@ import {
   listPharmaciesWithOwners,
   assignPharmacyOwner,
   unassignPharmacyOwner,
+  setPharmacyOrangeMerchantKey,
   type PharmacyOwnerRow,
 } from "@/lib/pharmacy-owner.functions";
 import { Card } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ListSkeleton } from "@/components/ui/skeletons";
 import { toast } from "sonner";
-import { Store, UserCheck, MailQuestion, UserX } from "lucide-react";
+import { Store, UserCheck, MailQuestion, UserX, CreditCard, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/app/admin/pharmacies")({
@@ -25,10 +26,12 @@ function AdminPharmacies() {
   const listFn = useServerFn(listPharmaciesWithOwners);
   const assignFn = useServerFn(assignPharmacyOwner);
   const unassignFn = useServerFn(unassignPharmacyOwner);
+  const setOrangeKeyFn = useServerFn(setPharmacyOrangeMerchantKey);
 
   const [rows, setRows] = useState<PharmacyOwnerRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [emails, setEmails] = useState<Record<string, string>>({});
+  const [orangeKeys, setOrangeKeys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -70,6 +73,23 @@ function AdminPharmacies() {
     try {
       await unassignFn({ data: { pharmacyId: id } });
       toast.success(t("admin.ownerRemoved"));
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveOrangeKey = async (id: string) => {
+    const raw = orangeKeys[id] ?? "";
+    setBusy(id);
+    try {
+      await setOrangeKeyFn({
+        data: { pharmacyId: id, merchantKey: raw.trim() || null },
+      });
+      toast.success(t("admin.orangeKeySaved"));
+      setOrangeKeys((s) => ({ ...s, [id]: "" }));
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("common.error"));
@@ -154,6 +174,44 @@ function AdminPharmacies() {
                 </Button>
               </form>
             )}
+
+            {/* --- Orange Money : code marchand propre à la pharmacie --- */}
+            <div className="mt-4 rounded-xl border border-border/60 bg-muted/30 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                  {t("admin.orangeKeyTitle")}
+                </div>
+                {p.orange_merchant_key ? (
+                  <Badge variant="secondary" className="bg-success/10 text-success">
+                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                    {t("admin.orangeKeyConfigured")}
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-muted text-muted-foreground">
+                    {t("admin.orangeKeyMissing")}
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{t("admin.orangeKeyHelp")}</p>
+              <form
+                className="mt-2 flex flex-wrap gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveOrangeKey(p.id);
+                }}
+              >
+                <Input
+                  placeholder={t("admin.orangeKeyPh")}
+                  className="max-w-xs font-mono"
+                  value={orangeKeys[p.id] ?? ""}
+                  onChange={(e) => setOrangeKeys((s) => ({ ...s, [p.id]: e.target.value }))}
+                />
+                <Button size="sm" type="submit" disabled={busy === p.id}>
+                  {busy === p.id ? "…" : t("admin.orangeKeySave")}
+                </Button>
+              </form>
+            </div>
           </Card>
         ))}
       </div>
