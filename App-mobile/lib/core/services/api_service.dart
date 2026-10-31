@@ -191,6 +191,21 @@ class ApiService {
     });
   }
 
+  /// Démarre un paiement Orange Money WebPay : renvoie l'URL de la page
+  /// Orange que l'application ouvre dans le navigateur du téléphone.
+  ///
+  /// L'argent est encaissé directement sur le compte Orange Money de la
+  /// pharmacie (code marchand propre à chaque pharmacie, côté serveur).
+  Future<({String paymentUrl, String orderId})> startOrangePayment(
+    String reservationId,
+  ) async {
+    final data = await _api.post('/reservations/$reservationId/pay/orange');
+    return (
+      paymentUrl: data['payment_url'] as String? ?? '',
+      orderId: data['order_id'] as String? ?? '',
+    );
+  }
+
   Future<void> cancelReservation(String reservationId) async {
     await _api.post('/reservations/$reservationId/cancel');
   }

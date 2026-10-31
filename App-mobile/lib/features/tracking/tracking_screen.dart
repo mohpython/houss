@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/config/app_config.dart';
 import 'package:saha_sante/core/models/reservation.dart';
@@ -53,7 +54,7 @@ class TrackingScreen extends StatefulWidget {
   State<TrackingScreen> createState() => _TrackingScreenState();
 }
 
-class _TrackingScreenState extends State<TrackingScreen> {
+class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObserver {
   final _phoneController = TextEditingController();
   final _referenceController = TextEditingController();
 
@@ -67,6 +68,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
   String? _error;
   bool _empty = false;
 
+  /// Vrai entre l'ouverture de la page Orange Money et le retour dans
+  /// l'application : au retour, on recharge la commande pour récupérer le
+  /// statut réel (le webhook peut avoir marqué le paiement payé entre-temps).
+  bool _awaitingOrangeReturn = false;
+
   /// Numero du dernier changement de mode de remise demande. Une reponse qui
   /// arrive pour un numero anterieur est ignoree : sans cela, cliquer vite sur
   /// « retrait » puis « livraison » pouvait reafficher « retrait » alors que la
@@ -76,7 +82,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _awaitingOrangeReturn) {
+      _awaitingOrangeReturn = false;
+      _load();
+    }
   }
 
   @override
@@ -90,6 +105,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _phoneController.dispose();
     _referenceController.dispose();
     super.dispose();
@@ -260,6 +276,47 @@ class _TrackingScreenState extends State<TrackingScreen> {
       if (!mounted) return;
       setState(() => _busy = false);
       _showError(L10n.c('trk.payDeclareFailed'));
+    }
+  }
+
+  /// Démarre un paiement en ligne Orange Money WebPay : l'application demande
+  /// au serveur une URL de paiement puis l'ouvre dans le navigateur du
+  /// téléphone. L'argent (médicaments + livraison) est versé directement sur
+  /// le compte Orange Money de la pharmacie.
+  Future<void> _payOnline() async {
+    final id = _currentId;
+    if (id == null || _busy) return;
+    if (_raw?['orange_enabled'] != true) {
+      _showError(L10n.c('trk.orangeUnavailable'));
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final result = await ApiService.instance.startOrangePayment(id);
+      final uri = Uri.tryParse(result.paymentUrl);
+      if (uri == null || result.paymentUrl.isEmpty) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        _showError(L10n.c('trk.payOpenFailed'));
+        return;
+      }
+      _awaitingOrangeReturn = true;
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      if (!opened) {
+        _awaitingOrangeReturn = false;
+        _showError(L10n.c('trk.payOpenFailed'));
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _showError(e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _showError(L10n.c('trk.payOpenFailed'));
     }
   }
 
@@ -446,6 +503,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                         referenceController: _referenceController,
                         onMethodChanged: (m) => setState(() => _method = m),
                         onPay: _pay,
+                        onPayOnline: _payOnline,
                       ),
                     ] else if (paymentStatus == 'pending_verification' && active) ...[
                       const SizedBox(height: 20),
@@ -875,6 +933,7 @@ class _PaymentCard extends StatelessWidget {
   final TextEditingController referenceController;
   final ValueChanged<String> onMethodChanged;
   final VoidCallback onPay;
+  final VoidCallback onPayOnline;
 
   const _PaymentCard({
     required this.raw,
@@ -885,6 +944,7 @@ class _PaymentCard extends StatelessWidget {
     required this.referenceController,
     required this.onMethodChanged,
     required this.onPay,
+    required this.onPayOnline,
   });
 
   @override
@@ -892,6 +952,7 @@ class _PaymentCard extends StatelessWidget {
     final itemsTotal = (raw['items_total'] as num?)?.toDouble() ?? 0;
     final deliveryFee = (raw['delivery_fee'] as num?)?.toDouble() ?? 0;
     final merchant = AppConfig.merchantNumbers[method];
+    final orangeEnabled = raw['orange_enabled'] == true;
 
     return Container(
       width: double.infinity,
@@ -919,6 +980,53 @@ class _PaymentCard extends StatelessWidget {
             value: _frAmount(total),
             highlight: true,
           ),
+          if (orangeEnabled) ...[
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              height: 56,
+              decoration: AppTheme.gradientButton,
+              child: ElevatedButton.icon(
+                onPressed: busy ? null : onPayOnline,
+                icon: busy
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.credit_card, size: 18, color: Colors.white),
+                label: Text(
+                  '${L10n.t(context, 'trk.payOnline')} · ${_frAmount(total)}',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              L10n.t(context, 'trk.payOnlineHint'),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: Divider(color: AppColors.border, height: 1)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    L10n.t(context, 'trk.orManual'),
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ),
+                Expanded(child: Divider(color: AppColors.border, height: 1)),
+              ],
+            ),
+          ],
           const SizedBox(height: 20),
           Text(
             L10n.t(context, 'trk.mobileMoney'),

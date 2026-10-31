@@ -718,7 +718,18 @@ async function getReservation(ctx: Ctx) {
   const userId = requireUser(ctx);
   const row = await prisma.reservations.findUnique({
     where: { id: ctx.params[0] },
-    select: { ...RESERVATION_SELECT, patient_id: true, pharmacy_id: true, courier_id: true },
+    select: {
+      ...RESERVATION_SELECT,
+      patient_id: true,
+      pharmacy_id: true,
+      courier_id: true,
+      pharmacies: {
+        select: {
+          ...RESERVATION_SELECT.pharmacies.select,
+          orange_merchant_key: true,
+        },
+      },
+    },
   });
   if (!row) throw new ApiError(404, "Commande introuvable");
   const access = await reservationAccess(userId, {
@@ -747,14 +758,34 @@ async function getReservation(ctx: Ctx) {
       });
     }
   }
-  const { patient_id, pharmacy_id, courier_id, ...rest } = row;
+  const { patient_id, pharmacy_id, courier_id, pharmacies, ...rest } = row;
   // Les codes de retrait / réception n'appartiennent qu'au patient : la
   // pharmacie et le livreur ne doivent pas pouvoir les lire.
   if (!access.isPatient && !access.isAdmin) {
     rest.pickup_code = null;
     rest.receipt_code = null;
   }
-  return json({ reservation: toPlain(rest), courier: toPlain(courier) });
+  // Le code marchand Orange Money ne sort JAMAIS de l'API : le mobile a
+  // seulement besoin de savoir si le paiement en ligne est possible.
+  const orangeEnabled = Boolean(pharmacies?.orange_merchant_key?.trim());
+  const publicPharmacy = pharmacies
+    ? {
+        id: pharmacies.id,
+        name: pharmacies.name,
+        address: pharmacies.address,
+        phone: pharmacies.phone,
+        lat: pharmacies.lat,
+        lng: pharmacies.lng,
+      }
+    : null;
+  return json({
+    reservation: toPlain({
+      ...rest,
+      pharmacies: publicPharmacy,
+      orange_enabled: orangeEnabled,
+    }),
+    courier: toPlain(courier),
+  });
 }
 
 /** Envoie l'ordonnance à la pharmacie la plus proche qui a les médicaments. */
@@ -909,6 +940,62 @@ async function declarePayment(ctx: Ctx) {
     patient_phone: data.phone,
   });
   return json({ reservation: toPlain(row) });
+}
+
+/**
+ * Initie un paiement Orange Money WebPay depuis l'app mobile.
+ * Renvoie `payment_url` : l'app l'ouvre dans le navigateur du téléphone.
+ * L'encaissement va directement sur le compte Orange Money de la pharmacie.
+ */
+async function startOrangePayment(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const res = await prisma.reservations.findUnique({
+    where: { id: ctx.params[0] },
+    select: {
+      id: true,
+      patient_id: true,
+      payment_status: true,
+      total_amount: true,
+      pharmacies: { select: { name: true, orange_merchant_key: true } },
+    },
+  });
+  if (!res || res.patient_id !== userId) throw new ApiError(404, "Commande introuvable");
+  if (res.payment_status === "paid") throw new ApiError(400, "Cette commande est déjà payée");
+  if (!res.total_amount || res.total_amount <= 0) throw new ApiError(400, "Montant invalide");
+
+  const merchantKey = res.pharmacies?.orange_merchant_key?.trim();
+  if (!merchantKey) {
+    throw new ApiError(400, "Le paiement en ligne n'est pas encore activé pour cette pharmacie.");
+  }
+
+  const { initOrangePayment } = await import("@/lib/orange-money.server");
+  const baseUrl = process.env.APP_URL || "http://localhost:3000";
+  const init = await initOrangePayment(
+    {
+      reservationId: res.id,
+      amount: Number(res.total_amount),
+      description: `SAHA Santé — ${res.pharmacies?.name || "Pharmacie"}`,
+      merchantKey,
+    },
+    baseUrl,
+  );
+
+  await prisma.reservations.update({
+    where: { id: res.id },
+    data: { payment_order_id: init.orderId, payment_pay_token: init.payToken },
+  });
+
+  await prisma.audit_logs.create({
+    data: {
+      actor_user_id: userId,
+      action: "payment_orange_initiated",
+      entity: "reservation",
+      entity_id: res.id,
+      meta: { orderId: init.orderId, amount: res.total_amount, source: "mobile" },
+    },
+  });
+
+  return json({ payment_url: init.paymentUrl, order_id: init.orderId });
 }
 
 async function cancelReservation(ctx: Ctx) {
@@ -3658,6 +3745,7 @@ const ROUTES: Array<[string, string, Handler]> = [
   ["GET", "reservations/:id", getReservation],
   ["POST", "reservations/:id/fulfillment", setFulfillment],
   ["POST", "reservations/:id/pay", declarePayment],
+  ["POST", "reservations/:id/pay/orange", startOrangePayment],
   ["POST", "reservations/:id/cancel", cancelReservation],
 
   ["GET", "pharmacies", listPharmacies],
