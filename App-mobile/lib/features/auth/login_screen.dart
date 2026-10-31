@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _loading = false;
   bool _googleLoading = false;
-  int _method = 0; // 0 = email, 1 = téléphone
+  int _method = 1; // 0 = email, 1 = téléphone (téléphone par défaut sur mobile)
   bool _otpSent = false;
   bool _otpLoading = false;
 
