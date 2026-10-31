@@ -286,10 +286,6 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
   Future<void> _payOnline() async {
     final id = _currentId;
     if (id == null || _busy) return;
-    if (_raw?['orange_enabled'] != true) {
-      _showError(L10n.c('trk.orangeUnavailable'));
-      return;
-    }
 
     setState(() => _busy = true);
     try {
@@ -951,8 +947,6 @@ class _PaymentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final itemsTotal = (raw['items_total'] as num?)?.toDouble() ?? 0;
     final deliveryFee = (raw['delivery_fee'] as num?)?.toDouble() ?? 0;
-    final merchant = AppConfig.merchantNumbers[method];
-    final orangeEnabled = raw['orange_enabled'] == true;
 
     return Container(
       width: double.infinity,
@@ -980,144 +974,13 @@ class _PaymentCard extends StatelessWidget {
             value: _frAmount(total),
             highlight: true,
           ),
-          if (orangeEnabled) ...[
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              height: 56,
-              decoration: AppTheme.gradientButton,
-              child: ElevatedButton.icon(
-                onPressed: busy ? null : onPayOnline,
-                icon: busy
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.credit_card, size: 18, color: Colors.white),
-                label: Text(
-                  '${L10n.t(context, 'trk.payOnline')} · ${_frAmount(total)}',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              L10n.t(context, 'trk.payOnlineHint'),
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: Divider(color: AppColors.border, height: 1)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    L10n.t(context, 'trk.orManual'),
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                  ),
-                ),
-                Expanded(child: Divider(color: AppColors.border, height: 1)),
-              ],
-            ),
-          ],
           const SizedBox(height: 20),
-          Text(
-            L10n.t(context, 'trk.mobileMoney'),
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            L10n.t(context, 'trk.payFirst'),
-            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _MethodChip(
-                  label: _methodLabels['orange_money']!,
-                  selected: method == 'orange_money',
-                  onTap: busy ? null : () => onMethodChanged('orange_money'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MethodChip(
-                  label: _methodLabels['moov_money']!,
-                  selected: method == 'moov_money',
-                  onTap: busy ? null : () => onMethodChanged('moov_money'),
-                ),
-              ),
-            ],
-          ),
-          if (merchant != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceLight,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.smartphone, size: 18, color: AppColors.accent),
-                  const SizedBox(width: 12),
-                  Text(
-                    L10n.t(context, 'trk.merchantNumber'),
-                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                  ),
-                  const Spacer(),
-                  Flexible(
-                    child: Text(
-                      merchant,
-                      textAlign: TextAlign.end,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          TextField(
-            controller: phoneController,
-            keyboardType: TextInputType.phone,
-            enabled: !busy,
-            decoration: InputDecoration(
-              hintText: L10n.t(context, 'trk.yourPhone'),
-              prefixIcon: Icon(Icons.call, size: 18, color: AppColors.textMuted),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: referenceController,
-            textCapitalization: TextCapitalization.characters,
-            enabled: !busy,
-            decoration: InputDecoration(
-              hintText: L10n.t(context, 'trk.transactionRef'),
-              prefixIcon: Icon(Icons.confirmation_number_outlined, size: 18, color: AppColors.textMuted),
-            ),
-          ),
-          const SizedBox(height: 18),
           Container(
             width: double.infinity,
             height: 56,
             decoration: AppTheme.gradientButton,
             child: ElevatedButton.icon(
-              onPressed: busy ? null : onPay,
+              onPressed: busy ? null : onPayOnline,
               icon: busy
                   ? const SizedBox(
                       height: 20,
@@ -1137,38 +1000,6 @@ class _PaymentCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MethodChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  const _MethodChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accent.withAlpha(30) : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? AppColors.accent : AppColors.border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? AppColors.accentLight : AppColors.textSecondary,
-          ),
-        ),
       ),
     );
   }

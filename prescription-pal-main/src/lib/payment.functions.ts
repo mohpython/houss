@@ -131,9 +131,11 @@ export const startOrangePayment = createServerFn({ method: "POST" })
     const baseUrl = process.env.APP_URL || "http://localhost:3000";
     const pharmacyName = res.pharmacies?.name || "SAHA Santé";
 
-    // Chaque pharmacie encaisse sur SON compte Orange Money : sans code
-    // marchand, on refuse plutôt que de faire tomber l'argent chez SAHA.
-    const merchantKey = res.pharmacies?.orange_merchant_key?.trim();
+    // Chaque pharmacie encaisse sur SON compte Orange Money (ou clé par défaut
+    // configurée dans l'environnement tant que la pharmacie n'a pas la sienne).
+    const merchantKey =
+      res.pharmacies?.orange_merchant_key?.trim() ||
+      process.env.ORANGE_MONEY_MERCHANT_KEY?.trim();
     if (!merchantKey) {
       throw new Error(
         "Le paiement en ligne n'est pas encore activé pour cette pharmacie.",

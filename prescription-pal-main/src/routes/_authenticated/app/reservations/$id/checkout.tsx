@@ -2,16 +2,10 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { getReservationCheckout } from "@/lib/reservations.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { declareMobileMoneyPayment, startOrangePayment } from "@/lib/payment.functions";
+import { startOrangePayment } from "@/lib/payment.functions";
 import { setFulfillmentMethod } from "@/lib/fulfillment.functions";
-import {
-  MERCHANT_NUMBERS,
-  DELIVERY_FEE,
-  formatAmount,
-  type PaymentMethod,
-} from "@/lib/payment-config";
+import { DELIVERY_FEE, formatAmount } from "@/lib/payment-config";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bike, Check, Loader2, MapPin, Store } from "lucide-react";
 import { toast } from "sonner";
@@ -68,13 +62,7 @@ function Checkout() {
   const { id } = Route.useParams();
   const router = useRouter();
   const [row, setRow] = useState<Row | null>(null);
-  const [method, setMethod] = useState<PaymentMethod>("orange_money");
-  const [reference, setReference] = useState("");
-  const [phone, setPhone] = useState("");
-  const [busy, setBusy] = useState(false);
   const [orangeBusy, setOrangeBusy] = useState(false);
-  const phoneValid = /^\+?[0-9 ]{8,20}$/.test(phone.trim());
-  const declare = useServerFn(declareMobileMoneyPayment);
   const startOrange = useServerFn(startOrangePayment);
   const setMethodFn = useServerFn(setFulfillmentMethod);
   /**
@@ -83,44 +71,43 @@ function Checkout() {
    * « retrait » pouvait reappliquer l'ancien mode.
    */
   const fulfillmentSeq = useRef(0);
+  const pendingFulfillment = useRef<Promise<unknown> | null>(null);
 
   const chooseFulfillment = async (m: "delivery" | "pickup") => {
     const before = row;
     if (!before || before.fulfillment_method === m) return;
 
     // Application immediate : le bouton se selectionne dans la meme image, sans
-    // attendre le serveur. Avant, chaque clic enchainait deux aller-retours
-    // (l'ecriture puis un rechargement complet de la commande) et les deux
-    // boutons etaient desactives pendant ce temps — plusieurs secondes de
-    // latence percues entre le clic et le changement.
+    // attendre le serveur.
     const fee = m === "pickup" ? 0 : DELIVERY_FEE;
     const seq = ++fulfillmentSeq.current;
     setRow({ ...before, fulfillment_method: m, delivery_fee: fee, total_amount: itemsOf(before) + fee });
 
-    try {
-      // L'ecriture seule suffit : elle renvoie deja les nouveaux frais et le
-      // nouveau total, on n'a donc plus besoin de recharger la commande.
-      const res = await setMethodFn({ data: { reservationId: id, method: m } });
-      if (seq !== fulfillmentSeq.current) return;
-      if (res) {
-        setRow((r) =>
-          r
-            ? { ...r, delivery_fee: res.deliveryFee, total_amount: res.totalAmount }
-            : r,
-        );
+    const task = (async () => {
+      try {
+        const res = await setMethodFn({ data: { reservationId: id, method: m } });
+        if (seq !== fulfillmentSeq.current) return;
+        if (res) {
+          setRow((r) =>
+            r
+              ? { ...r, delivery_fee: res.deliveryFee, total_amount: res.totalAmount }
+              : r,
+          );
+        }
+      } catch (err) {
+        if (seq !== fulfillmentSeq.current) return;
+        setRow(before);
+        toast.error(err instanceof Error ? err.message : t("pay.error"));
       }
-    } catch (err) {
-      if (seq !== fulfillmentSeq.current) return;
-      setRow(before);
-      toast.error(err instanceof Error ? err.message : t("pay.error"));
-    }
+    })();
+    pendingFulfillment.current = task;
+    await task;
   };
 
   const load = async () => {
     const data = await getReservationCheckout({ data: { id } }).catch(() => null);
     const r = (data as unknown as Row) ?? null;
     setRow(r);
-    if (r?.patient_phone) setPhone((prev) => prev || r.patient_phone!);
   };
 
   useEffect(() => {
@@ -128,29 +115,12 @@ function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const submit = async () => {
-    if (reference.trim().length < 4) return;
-    if (!phoneValid) {
-      toast.error(t("pay.phoneInvalid"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await declare({
-        data: { reservationId: id, method, reference: reference.trim(), phone: phone.trim() },
-      });
-      toast.success(t("pay.sent"));
-      router.navigate({ to: "/app/reservations/$id/track", params: { id } });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("pay.error"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const payOnline = async () => {
     setOrangeBusy(true);
     try {
+      if (pendingFulfillment.current) {
+        await pendingFulfillment.current;
+      }
       const res = await startOrange({ data: { reservationId: id } });
       if (res?.paymentUrl) {
         window.location.href = res.paymentUrl;
@@ -292,85 +262,17 @@ function Checkout() {
           </Button>
         </div>
       ) : (
-        <div className="mt-6 space-y-3">
-          {/* --- Paiement en ligne Orange Money WebPay (si la pharmacie a un code marchand) --- */}
-          {row.orange_enabled && (
-            <>
-              <Button
-                className="w-full rounded-full"
-                size="lg"
-                disabled={orangeBusy}
-                onClick={payOnline}
-              >
-                {orangeBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {orangeBusy
-                  ? t("pay.orange.redirecting", "Redirection…")
-                  : t("pay.orange.payOnline", "💳 Payer en ligne (Orange Money)")}{" "}
-                · {formatAmount(row.total_amount)}
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-background px-2 text-foreground/50">
-                    {t("pay.orange.orManual", "ou payer manuellement")}
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-
-          <div className="grid grid-cols-2 gap-2">
-            {(["orange_money", "moov_money"] as PaymentMethod[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMethod(m)}
-                className={`rounded-2xl border px-4 py-3 text-sm transition-colors ${
-                  method === m
-                    ? "border-primary bg-primary/10 text-foreground"
-                    : "border-border text-foreground/60"
-                }`}
-              >
-                {m === "orange_money" ? t("pay.orange") : t("pay.moov")}
-              </button>
-            ))}
-          </div>
-
-          <p className="text-center text-xs text-foreground/60">
-            {t("pay.sendTo")} <span className="font-medium">{MERCHANT_NUMBERS[method]}</span>
-          </p>
-
-          <div className="space-y-1">
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              type="tel"
-              inputMode="tel"
-              maxLength={24}
-              placeholder={t("pay.phonePlaceholder")}
-              aria-label={t("pay.phoneLabel")}
-            />
-            <p className="text-xs text-foreground/60">{t("pay.phoneHint")}</p>
-          </div>
-
-          <Input
-            value={reference}
-            onChange={(e) => setReference(e.target.value)}
-            maxLength={64}
-            placeholder={t("pay.refPlaceholder")}
-            aria-label={t("pay.reference")}
-          />
-
+        <div className="mt-6">
           <Button
             className="w-full rounded-full"
-            disabled={busy || reference.trim().length < 4 || !phoneValid}
-            onClick={submit}
+            size="lg"
+            disabled={orangeBusy}
+            onClick={payOnline}
           >
-            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {t("pay.pay")} · {formatAmount(row.total_amount)}
+            {orangeBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {orangeBusy
+              ? t("pay.orange.redirecting", "Redirection…")
+              : `${t("pay.pay")} · ${formatAmount(row.total_amount)}`}
           </Button>
         </div>
       )}

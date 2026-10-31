@@ -971,7 +971,9 @@ async function startOrangePayment(ctx: Ctx) {
   if (res.payment_status === "paid") throw new ApiError(400, "Cette commande est déjà payée");
   if (!res.total_amount || res.total_amount <= 0) throw new ApiError(400, "Montant invalide");
 
-  const merchantKey = res.pharmacies?.orange_merchant_key?.trim();
+  const merchantKey =
+    res.pharmacies?.orange_merchant_key?.trim() ||
+    process.env.ORANGE_MONEY_MERCHANT_KEY?.trim();
   if (!merchantKey) {
     throw new ApiError(400, "Le paiement en ligne n'est pas encore activé pour cette pharmacie.");
   }
