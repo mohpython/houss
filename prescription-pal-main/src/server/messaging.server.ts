@@ -26,8 +26,12 @@ export function otpChannelAvailable(): boolean {
   }
 }
 
-export async function sendOtp(phone: string, code: string): Promise<void> {
-  const text = `SAHA Santé : votre code de connexion est ${code}. Il expire dans 10 minutes.`;
+export async function sendOtp(phone: string, code: string, appHash?: string): Promise<void> {
+  // Format compatible à la fois avec :
+  // - Android SMS Retriever API (hash de signature à 11 caractères en fin de SMS : 0 clic)
+  // - W3C WebOTP / Autofill iOS & Android (@domaine #code sur la dernière ligne)
+  const hash = appHash && /^[A-Za-z0-9+/=_-]{11}$/.test(appHash) ? appHash : "JUxjDqTvDuX";
+  const text = `SAHA Sante : votre code de connexion est ${code}. Valable 10 min.\n@sahasantemali.com #${code} ${hash}`;
 
   if (env.otpChannel === "twilio") {
     const auth = Buffer.from(`${env.twilioAccountSid}:${env.twilioAuthToken}`).toString("base64");

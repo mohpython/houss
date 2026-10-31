@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
@@ -16,6 +17,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const _smsChannel = MethodChannel('com.sahasantemali.saha_sante/sms_otp');
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -29,7 +32,25 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _otpLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _smsChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onOtpReceived' && mounted) {
+        final raw = (call.arguments as String? ?? '').replaceAll(RegExp(r'\D'), '');
+        if (raw.length == 6 && _otpSent && !_otpLoading) {
+          _codeController.text = raw;
+          await _verifyOtp();
+        }
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    try {
+      _smsChannel.invokeMethod<void>('stopListening');
+    } catch (_) {}
+    _smsChannel.setMethodCallHandler(null);
     _emailController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
@@ -88,7 +109,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _otpLoading = true);
     try {
-      await AuthService.instance.sendOtp(phone);
+      String? appHash;
+      try {
+        appHash = await _smsChannel.invokeMethod<String>('getAppHash');
+        await _smsChannel.invokeMethod<void>('startListening');
+      } catch (_) {}
+      await AuthService.instance.sendOtp(phone, appHash: appHash);
       if (!mounted) return;
       setState(() => _otpSent = true);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -278,7 +304,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextField(
                             controller: _codeController,
                             keyboardType: TextInputType.number,
+                            autofillHints: const [AutofillHints.oneTimeCode],
                             maxLength: 6,
+                            onChanged: (v) {
+                              final digits = v.replaceAll(RegExp(r'\D'), '');
+                              if (digits.length == 6 && !_otpLoading) {
+                                _verifyOtp();
+                              }
+                            },
                             onSubmitted: (_) => _verifyOtp(),
                             textInputAction: TextInputAction.done,
                             decoration: InputDecoration(

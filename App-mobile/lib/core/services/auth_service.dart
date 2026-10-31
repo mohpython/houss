@@ -164,8 +164,11 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Envoie un code OTP SMS vers le téléphone (connexion ou création de compte).
-  Future<void> sendOtp(String phone) async {
-    await api.post('/auth/otp/send', {'phone': phone.trim()});
+  Future<void> sendOtp(String phone, {String? appHash}) async {
+    await api.post('/auth/otp/send', {
+      'phone': phone.trim(),
+      if (appHash != null && appHash.isNotEmpty) 'app_hash': appHash,
+    });
   }
 
   /// Vérifie le code OTP et ouvre (ou crée) la session.

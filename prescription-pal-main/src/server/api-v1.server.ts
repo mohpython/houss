@@ -202,6 +202,7 @@ async function requestPhoneOtp(ctx: Ctx) {
     z.object({
       phone: phoneSchema,
       full_name: z.string().trim().max(120).optional(),
+      app_hash: z.string().trim().max(16).optional(),
     }),
   );
   const { sendOtp, otpChannelAvailable } = await import("./messaging.server");
@@ -226,7 +227,7 @@ async function requestPhoneOtp(ctx: Ctx) {
       expires_at: new Date(Date.now() + 10 * 60_000),
     },
   });
-  await sendOtp(data.phone, code);
+  await sendOtp(data.phone, code, data.app_hash);
   return json({ ok: true });
 }
 

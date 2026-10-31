@@ -141,15 +141,14 @@ function AuthPage() {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp.length !== 6) {
+  const submitOtpCode = async (codeToVerify: string) => {
+    if (codeToVerify.length !== 6) {
       toast.error(t("auth.invalidCode"));
       return;
     }
     setLoading(true);
     try {
-      const { error } = await auth.verifyOtp({ phone: normalizedPhone, token: otp });
+      const { error } = await auth.verifyOtp({ phone: normalizedPhone, token: codeToVerify });
       if (error) throw error;
       navigate({ to: "/app" });
     } catch (err) {
@@ -158,6 +157,33 @@ function AuthPage() {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitOtpCode(otp);
+  };
+
+  // WebOTP API : lecture automatique du code SMS sur navigateur mobile (Android Chrome).
+  useEffect(() => {
+    if (!otpSent || typeof window === "undefined" || !("OTPCredential" in window)) return;
+    const ac = new AbortController();
+    (navigator.credentials as unknown as {
+      get: (opts: { otp: { transport: string[] }; signal: AbortSignal }) => Promise<{ code?: string } | null>;
+    })
+      .get({ otp: { transport: ["sms"] }, signal: ac.signal })
+      .then((cred) => {
+        const code = cred?.code?.replace(/\D/g, "").slice(0, 6);
+        if (code && code.length === 6) {
+          setOtp(code);
+          void submitOtpCode(code);
+        }
+      })
+      .catch(() => {
+        // Ignoré si annulé ou non supporté.
+      });
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otpSent]);
 
   const handleGoogle = () => {
     setLoading(true);
@@ -414,7 +440,13 @@ function AuthPage() {
                     pattern="[0-9]{6}"
                     maxLength={6}
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) => {
+                      const next = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setOtp(next);
+                      if (next.length === 6 && !loading) {
+                        void submitOtpCode(next);
+                      }
+                    }}
                     required
                     autoComplete="one-time-code"
                     className="h-12 rounded-xl border-border bg-muted text-center text-2xl tracking-[0.5em]"
