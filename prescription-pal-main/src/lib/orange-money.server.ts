@@ -82,17 +82,20 @@ export function _resetOrangeTokenCache() {
 }
 
 /**
- * Orange Money refuse les caractères non ASCII dans `reference`
- * (« bad syntax »). On translittère les accents et on remplace tout le reste.
+ * Orange Money refuse les caractères non ASCII et toute `reference` de plus
+ * de 30 caractères (« Invalid body field: reference ... bad syntax »).
  */
-function toAsciiReference(input: string, max = 60): string {
+function toAsciiReference(input: string, max = 30): string {
   const ascii = input
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\x20-\x7E]/g, "-")
+    .replace(/[^A-Za-z0-9 ._-]/g, " ")
     .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max)
+    .replace(/[\s._-]+$/, "")
     .trim();
-  return ascii.slice(0, max) || "SAHA Sante";
+  return ascii || "SAHA Sante";
 }
 
 export interface OrangePaymentInitParams {
