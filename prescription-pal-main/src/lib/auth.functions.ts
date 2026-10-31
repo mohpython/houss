@@ -5,9 +5,17 @@ import { requireAuth } from "@/integrations/auth/middleware";
 
 const emailSchema = z.string().trim().toLowerCase().email().max(255);
 const passwordSchema = z.string().min(6, "Mot de passe trop court (6 caractères minimum)").max(200);
+function normalizePhoneInput(raw: string): string {
+  const cleaned = raw.replace(/[\s\-().]/g, "");
+  if (/^\d{8}$/.test(cleaned)) return `+223${cleaned}`;
+  if (/^223\d{8}$/.test(cleaned)) return `+${cleaned}`;
+  if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`;
+  return cleaned;
+}
+
 const phoneSchema = z
   .string()
-  .transform((v) => v.replace(/[\s\-().]/g, ""))
+  .transform(normalizePhoneInput)
   .refine((v) => /^\+[1-9]\d{7,14}$/.test(v), "Numéro de téléphone invalide");
 
 function clientIp(request: Request | undefined) {

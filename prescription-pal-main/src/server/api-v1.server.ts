@@ -182,9 +182,17 @@ async function login(ctx: Ctx) {
 
 // --- Connexion par téléphone (code OTP SMS) ---
 
+function normalizePhoneInput(raw: string): string {
+  const cleaned = raw.replace(/[\s\-().]/g, "");
+  if (/^\d{8}$/.test(cleaned)) return `+223${cleaned}`;
+  if (/^223\d{8}$/.test(cleaned)) return `+${cleaned}`;
+  if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`;
+  return cleaned;
+}
+
 const phoneSchema = z
   .string()
-  .transform((v) => v.replace(/[\s\-().]/g, ""))
+  .transform(normalizePhoneInput)
   .refine((v) => /^\+[1-9]\d{7,14}$/.test(v), "Numéro de téléphone invalide");
 
 /** Envoie un code OTP à 6 chiffres par SMS (canal twilio / whatsapp / log). */
