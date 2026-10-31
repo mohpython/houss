@@ -72,10 +72,41 @@ function Checkout() {
    */
   const fulfillmentSeq = useRef(0);
   const pendingFulfillment = useRef<Promise<unknown> | null>(null);
+  const payingRef = useRef(false);
 
+  const payOnline = async () => {
+    if (payingRef.current) return;
+    payingRef.current = true;
+    setOrangeBusy(true);
+    try {
+      if (pendingFulfillment.current) {
+        await pendingFulfillment.current;
+      }
+      const res = await startOrange({ data: { reservationId: id } });
+      if (res?.paymentUrl) {
+        window.location.href = res.paymentUrl;
+      }
+    } catch (err) {
+      payingRef.current = false;
+      toast.error(err instanceof Error ? err.message : t("pay.error"));
+      setOrangeBusy(false);
+    }
+  };
+
+  /**
+   * Choix du mode de remise. Le mode est enregistre puis le paiement Orange
+   * s'ouvre immediatement : le patient ne doit plus cliquer une seconde fois
+   * sur « Payer » apres avoir choisi la livraison ou le retrait.
+   */
   const chooseFulfillment = async (m: "delivery" | "pickup") => {
     const before = row;
-    if (!before || before.fulfillment_method === m) return;
+    if (!before || payingRef.current) return;
+
+    // Le mode est deja celui choisi : on va directement au paiement.
+    if (before.fulfillment_method === m) {
+      await payOnline();
+      return;
+    }
 
     // Application immediate : le bouton se selectionne dans la meme image, sans
     // attendre le serveur.
@@ -83,6 +114,7 @@ function Checkout() {
     const seq = ++fulfillmentSeq.current;
     setRow({ ...before, fulfillment_method: m, delivery_fee: fee, total_amount: itemsOf(before) + fee });
 
+    let failed = false;
     const task = (async () => {
       try {
         const res = await setMethodFn({ data: { reservationId: id, method: m } });
@@ -96,12 +128,17 @@ function Checkout() {
         }
       } catch (err) {
         if (seq !== fulfillmentSeq.current) return;
+        failed = true;
         setRow(before);
         toast.error(err instanceof Error ? err.message : t("pay.error"));
       }
     })();
     pendingFulfillment.current = task;
     await task;
+
+    // Ne jamais ouvrir le paiement avec un mode different de celui choisi.
+    if (failed || seq !== fulfillmentSeq.current) return;
+    await payOnline();
   };
 
   const load = async () => {
@@ -114,22 +151,6 @@ function Checkout() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-
-  const payOnline = async () => {
-    setOrangeBusy(true);
-    try {
-      if (pendingFulfillment.current) {
-        await pendingFulfillment.current;
-      }
-      const res = await startOrange({ data: { reservationId: id } });
-      if (res?.paymentUrl) {
-        window.location.href = res.paymentUrl;
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("pay.error"));
-      setOrangeBusy(false);
-    }
-  };
 
   if (!row) {
     return (

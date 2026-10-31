@@ -90,7 +90,28 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _awaitingOrangeReturn) {
       _awaitingOrangeReturn = false;
-      _load();
+      _verifyAfterOrangeReturn();
+    }
+  }
+
+  Future<void> _verifyAfterOrangeReturn() async {
+    await _load();
+    if (!mounted) return;
+    if (_reservation?.paymentStatus != 'paid') {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      await _load();
+    }
+    if (!mounted) return;
+    if (_reservation?.paymentStatus == 'paid') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(L10n.c('st.pay.paid')),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } else {
+      _showError(L10n.c('trk.payNotConfirmed'));
     }
   }
 
