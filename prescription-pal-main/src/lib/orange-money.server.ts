@@ -131,8 +131,11 @@ export async function initOrangePayment(
 
   // Orange ne renvoie aucun identifiant dans l'URL de retour : on l'encode
   // nous-mêmes pour que la page de retour sache quelle commande vérifier.
+  // `cancel_url` ajoute `cancelled=1` pour distinguer immédiatement un clic sur
+  // « Annuler la Transaction » / « Revenir sur le site du marchand ».
   const sep = returnUrl.includes("?") ? "&" : "?";
   const returnWithOrder = `${returnUrl}${sep}rid=${encodeURIComponent(params.reservationId)}`;
+  const cancelWithOrder = `${returnWithOrder}&cancelled=1`;
   const token = await getOrangeAccessToken();
 
   // order_id unique : format SAHA-{8 premiers caractères reservationId}-{timestamp}
@@ -145,7 +148,7 @@ export async function initOrangePayment(
     order_id: orderId,
     amount,
     return_url: returnWithOrder,
-    cancel_url: returnWithOrder,
+    cancel_url: cancelWithOrder,
     notif_url: notifyUrl,
     lang: params.lang || "fr",
     reference: toAsciiReference(params.description),

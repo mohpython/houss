@@ -50,30 +50,45 @@ export const Route = createFileRoute("/api/public/payments/orange/notify")({
             return new Response("ok", { status: 200 });
           }
 
-          // 2. Vérification serveur-à-serveur : on interroge l'API Orange avec
-          // le montant et le pay_token connus du serveur (jamais ceux du payload).
-          const payToken = res.payment_pay_token || notifPayToken;
-          let finalStatus = status;
-          if (payToken && res.total_amount > 0) {
-            try {
-              const { checkOrangePaymentStatus } = await import("@/lib/orange-money.server");
-              const check = await checkOrangePaymentStatus(orderId, res.total_amount, payToken);
-              finalStatus = check.status.toUpperCase();
-              console.log(`[orange-money] vérification API → ${finalStatus}`);
-            } catch (err) {
-              console.error("[orange-money] échec vérification statut", err);
-              // On garde le statut de la notification en secours.
-            }
-          } else {
-            console.warn("[orange-money] pay_token ou montant indisponible, statut non vérifié");
-          }
-
-          if (finalStatus !== "SUCCESS") {
-            console.log(`[orange-money] paiement non validé (${finalStatus}), commande inchangée`);
+          // 2. Vérification serveur-à-serveur STRICTE : on interroge l'API Orange
+          // avec le montant et le pay_token connus de NOTRE base (jamais ceux du
+          // payload HTTP, qui n'est pas signé). En cas d'erreur réseau vers Orange,
+          // on renvoie 500 pour qu'Orange réessaie, sans jamais faire confiance au payload.
+          const payToken = res.payment_pay_token;
+          if (!payToken || !res.total_amount || res.total_amount <= 0) {
+            console.warn("[orange-money] pay_token ou montant absent en base, notification rejetée");
             return new Response("ok", { status: 200 });
           }
 
-          // 3. Paiement confirmé : on passe la commande en « payée ».
+          let finalStatus = "UNKNOWN";
+          try {
+            const { checkOrangePaymentStatus } = await import("@/lib/orange-money.server");
+            const check = await checkOrangePaymentStatus(orderId, res.total_amount, payToken);
+            finalStatus = check.status.toUpperCase();
+            console.log(`[orange-money] vérification API → ${finalStatus}`);
+          } catch (err) {
+            console.error("[orange-money] échec vérification statut auprès d'Orange", err);
+            return new Response("Verification failed", { status: 502 });
+          }
+
+          if (finalStatus !== "SUCCESS") {
+            console.log(`[orange-money] paiement non validé (${finalStatus}), commande maintenue impayée`);
+            if (finalStatus === "FAILED" || finalStatus === "EXPIRED" || finalStatus === "CANCELLED") {
+              await prisma.audit_logs.create({
+                data: {
+                  actor_user_id: "system",
+                  action: "payment_orange_failed",
+                  entity: "reservation",
+                  entity_id: res.id,
+                  meta: { orderId, amount: res.total_amount, status: finalStatus },
+                },
+              });
+            }
+            return new Response("ok", { status: 200 });
+          }
+
+          // 3. Paiement confirmé par Orange : on passe la commande en « payée »
+          // et on déclenche l'assignation automatique d'un livreur.
           const { updateReservationAs } = await import("@/lib/reservation-rules.server");
           await updateReservationAs("system", res.id, {
             payment_status: "paid",
@@ -81,6 +96,13 @@ export const Route = createFileRoute("/api/public/payments/orange/notify")({
             payment_reference: orderId,
             paid_at: new Date(),
           });
+
+          try {
+            const { assignCourierCore } = await import("@/lib/routing-core.server");
+            await assignCourierCore(res.id, "system");
+          } catch (err) {
+            console.error("[orange-money] assignation livreur après paiement", err);
+          }
 
           await prisma.audit_logs.create({
             data: {

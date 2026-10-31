@@ -180,7 +180,12 @@ export const startOrangePayment = createServerFn({ method: "POST" })
 export const getOrangePaymentStatus = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((input: unknown) =>
-    z.object({ reservationId: z.string().uuid() }).parse(input),
+    z
+      .object({
+        reservationId: z.string().uuid(),
+        cancelled: z.boolean().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { userId } = context;
@@ -188,7 +193,14 @@ export const getOrangePaymentStatus = createServerFn({ method: "GET" })
 
     const res = await prisma.reservations.findUnique({
       where: { id: data.reservationId },
-      select: { id: true, patient_id: true, payment_status: true, total_amount: true, payment_order_id: true, payment_pay_token: true },
+      select: {
+        id: true,
+        patient_id: true,
+        payment_status: true,
+        total_amount: true,
+        payment_order_id: true,
+        payment_pay_token: true,
+      },
     });
     if (!res || res.patient_id !== userId) throw new Error("Commande introuvable");
 
@@ -219,6 +231,12 @@ export const getOrangePaymentStatus = createServerFn({ method: "GET" })
           payment_reference: res.payment_order_id,
           paid_at: new Date(),
         });
+        try {
+          const { assignCourierCore } = await import("./routing-core.server");
+          await assignCourierCore(res.id, userId);
+        } catch (err) {
+          console.error("[orange-money] assignation livreur retour", err);
+        }
         await prisma.audit_logs.create({
           data: {
             actor_user_id: userId,
@@ -228,11 +246,40 @@ export const getOrangePaymentStatus = createServerFn({ method: "GET" })
             meta: { orderId: res.payment_order_id, state },
           },
         });
+        return { state: "SUCCESS" as const, paymentStatus: "paid" };
       }
 
-      return { state, paymentStatus: state === "SUCCESS" ? "paid" : res.payment_status };
+      // Échec, expiration ou annulation explicite : la commande reste strictement
+      // impayée (invisible pour la pharmacie) et l'utilisateur peut réessayer.
+      if (
+        state === "FAILED" ||
+        state === "EXPIRED" ||
+        state === "CANCELLED" ||
+        state === "NOT FOUND" ||
+        data.cancelled
+      ) {
+        await prisma.audit_logs.create({
+          data: {
+            actor_user_id: userId,
+            action: "payment_orange_failed",
+            entity: "reservation",
+            entity_id: res.id,
+            meta: {
+              orderId: res.payment_order_id,
+              state,
+              cancelledByUser: Boolean(data.cancelled),
+            },
+          },
+        });
+        return { state: "FAILED" as const, paymentStatus: res.payment_status };
+      }
+
+      return { state, paymentStatus: res.payment_status };
     } catch (err) {
       console.error("[orange-money] vérification retour échouée", err);
+      if (data.cancelled) {
+        return { state: "FAILED" as const, paymentStatus: res.payment_status };
+      }
       return { state: "UNKNOWN" as const, paymentStatus: res.payment_status };
     }
   });

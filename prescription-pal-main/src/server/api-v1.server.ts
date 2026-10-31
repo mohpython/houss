@@ -731,6 +731,8 @@ async function getReservation(ctx: Ctx) {
       patient_id: true,
       pharmacy_id: true,
       courier_id: true,
+      payment_order_id: true,
+      payment_pay_token: true,
       pharmacies: {
         select: {
           ...RESERVATION_SELECT.pharmacies.select,
@@ -747,6 +749,46 @@ async function getReservation(ctx: Ctx) {
     payment_status: row.payment_status,
   });
   if (!access.canRead) throw new ApiError(404, "Commande introuvable");
+
+  // Si un paiement Orange Money est en cours et que le webhook n'est pas encore
+  // arrivé au moment où le patient revient dans l'APK, on interroge Orange
+  // directement côté serveur.
+  if (
+    access.isPatient &&
+    row.payment_status === "unpaid" &&
+    row.payment_order_id &&
+    row.payment_pay_token &&
+    row.total_amount > 0
+  ) {
+    try {
+      const { checkOrangePaymentStatus } = await import("@/lib/orange-money.server");
+      const check = await checkOrangePaymentStatus(
+        row.payment_order_id,
+        row.total_amount,
+        row.payment_pay_token,
+      );
+      if (check.status.toUpperCase() === "SUCCESS") {
+        const { updateReservationAs } = await import("@/lib/reservation-rules.server");
+        await updateReservationAs("system", row.id, {
+          payment_status: "paid",
+          payment_method: "orange_money",
+          payment_reference: row.payment_order_id,
+          paid_at: new Date(),
+        });
+        row.payment_status = "paid";
+        row.payment_method = "orange_money";
+        row.payment_reference = row.payment_order_id;
+        try {
+          const { assignCourierCore } = await import("@/lib/routing-core.server");
+          await assignCourierCore(row.id, userId);
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      // On garde le statut courant si Orange ne répond pas.
+    }
+  }
 
   // Position du livreur, seulement pendant une livraison active (ancienne RLS).
   let courier: unknown = null;
@@ -766,7 +808,17 @@ async function getReservation(ctx: Ctx) {
       });
     }
   }
-  const { patient_id, pharmacy_id, courier_id, pharmacies, ...rest } = row;
+  const {
+    patient_id,
+    pharmacy_id,
+    courier_id,
+    payment_order_id,
+    payment_pay_token,
+    pharmacies,
+    ...rest
+  } = row;
+  void payment_order_id;
+  void payment_pay_token;
   // Les codes de retrait / réception n'appartiennent qu'au patient : la
   // pharmacie et le livreur ne doivent pas pouvoir les lire.
   if (!access.isPatient && !access.isAdmin) {

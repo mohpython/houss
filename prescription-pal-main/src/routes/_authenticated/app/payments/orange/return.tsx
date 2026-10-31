@@ -33,10 +33,14 @@ function OrangeReturn() {
   const startedAt = useRef(Date.now());
 
   const [reservationId, setReservationId] = useState<string | null>(null);
+  const [cancelledParam, setCancelledParam] = useState(false);
   // null = URL pas encore lue ; "" = rid absent de l'URL.
 
   useEffect(() => {
-    const rid = new URLSearchParams(window.location.search).get("rid") || "";
+    const params = new URLSearchParams(window.location.search);
+    const rid = params.get("rid") || "";
+    const isCancelled = params.get("cancelled") === "1";
+    setCancelledParam(isCancelled);
     setReservationId(rid);
   }, []);
 
@@ -51,14 +55,31 @@ function OrangeReturn() {
 
     const run = async (attempt: number) => {
       try {
-        const res = await check({ data: { reservationId } });
+        const res = await check({
+          data: { reservationId, cancelled: cancelledParam },
+        });
         if (cancelled) return;
         if (res?.state === "SUCCESS") {
           setState("success");
           return;
         }
-        // Tant qu'Orange n'a pas fini de confirmer, on relance (6 essais max).
-        if (res?.state === "INITIATED" || res?.state === "PENDING" || res?.state === "UNKNOWN") {
+        if (cancelledParam || res?.state === "FAILED" || res?.state === "EXPIRED" || res?.state === "NONE") {
+          setState("failed");
+          return;
+        }
+        // Si le statut est encore INITIATED au retour, le patient a quitté la
+        // page Orange sans valider le code OTP : après 1 relance de sécurité
+        // (2 s), on affiche clairement que le paiement n'a pas été finalisé.
+        if (res?.state === "INITIATED") {
+          if (attempt < 1) {
+            timer = setTimeout(() => run(attempt + 1), 2_000);
+            return;
+          }
+          setState("failed");
+          return;
+        }
+        // PENDING = code OTP soumis chez Orange, confirmation en cours.
+        if (res?.state === "PENDING" || res?.state === "UNKNOWN") {
           if (attempt < 6 && Date.now() - startedAt.current < 30_000) {
             timer = setTimeout(() => run(attempt + 1), 3_000);
             return;
@@ -66,18 +87,13 @@ function OrangeReturn() {
           setState("pending");
           return;
         }
-        if (res?.state === "NONE") {
-          setState("pending");
-          return;
-        }
-        // FAILED / EXPIRED / NOT FOUND
         setState("failed");
       } catch {
         if (cancelled) return;
-        if (attempt < 3) {
+        if (!cancelledParam && attempt < 2) {
           timer = setTimeout(() => run(attempt + 1), 3_000);
         } else {
-          setState("pending");
+          setState("failed");
         }
       }
     };
@@ -88,9 +104,16 @@ function OrangeReturn() {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservationId]);
+  }, [reservationId, cancelledParam]);
 
-  const goOrders = () => router.navigate({ to: "/app/reservations" });
+  const goOrders = () =>
+    reservationId
+      ? router.navigate({ to: "/app/reservations/$id/track", params: { id: reservationId } })
+      : router.navigate({ to: "/app/reservations" });
+  const goRetry = () =>
+    reservationId
+      ? router.navigate({ to: "/app/reservations/$id/checkout", params: { id: reservationId } })
+      : router.navigate({ to: "/app/reservations" });
   const goHome = () => router.navigate({ to: "/app" });
 
   return (
@@ -156,8 +179,8 @@ function OrangeReturn() {
                 "Le paiement a été annulé ou a échoué. Vous pouvez réessayer depuis votre commande.",
               )}
             </p>
-            <Button onClick={goOrders} className="mt-6 w-full" size="lg" variant="outline">
-              {t("pay.orange.retry", "Réessayer")}
+            <Button onClick={goRetry} className="mt-6 w-full" size="lg">
+              {t("pay.orange.retry", "Réessayer le paiement")}
             </Button>
             <Button onClick={goHome} className="mt-2 w-full" size="lg" variant="ghost">
               {t("nav.home", "Accueil")}
