@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/services/api_service.dart';
+import 'package:saha_sante/core/services/delivery_location_store.dart';
+import 'package:saha_sante/features/location/delivery_location_sheet.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
@@ -28,7 +30,19 @@ class _ScanScreenState extends State<ScanScreen> {
   /// de la verification.
   bool _reviewSent = false;
 
+  /// Au clic sur la caméra / galerie, le patient doit d'abord confirmer où il
+  /// veut être livré (si son choix est déjà mémorisé pour cette session, on
+  /// enchaîne directement pour ne pas le harceler).
   Future<void> _pick(ImageSource source) async {
+    if (_uploading || _sending) return;
+    if (!DeliveryLocationStore.instance.hasLocation) {
+      final ok = await showDeliveryLocationSheet(context);
+      if (ok != true) return; // annulé : on ne lance pas la capture
+    }
+    await _capture(source);
+  }
+
+  Future<void> _capture(ImageSource source) async {
     if (_uploading || _sending) return;
     XFile? picked;
     try {

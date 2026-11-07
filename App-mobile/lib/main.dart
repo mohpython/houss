@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:saha_sante/app.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
+import 'package:saha_sante/core/services/alert_service.dart';
 import 'package:saha_sante/core/services/push_service.dart';
 import 'package:saha_sante/core/theme/app_theme_mode.dart';
 
@@ -44,6 +45,7 @@ Future<void> main() async {
 
   // Notifications push (FCM) : enregistrer le téléphone et écouter.
   unawaited(PushService.instance.init());
+  unawaited(AlertService.instance.init());
 
   runApp(const SahaSanteApp());
 }

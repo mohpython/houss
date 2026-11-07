@@ -1,0 +1,58 @@
+# Codemagic — build iOS de SAHA Santé.
+#
+# Prérequis :
+#  1. Le projet doit être hébergé sur GitHub / GitLab / Bitbucket.
+#  2. Dans Codemagic → Teams → Integrations, ajouter le compte Apple Developer
+#     (App Store Connect API key ou certificat + profil de distribution).
+#  3. Le Bundle ID com.sahasantemali.sahaSante doit exister dans le compte Apple.
+#
+# Ce workflow produit un IPA signé et peut l'envoyer à TestFlight.
+
+workflows:
+  ios-release:
+    name: SAHA Santé iOS
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    environment:
+      flutter: 3.47.5
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.sahasantemali.sahaSante
+
+    scripts:
+      - name: Dépendances Flutter
+        script: |
+          flutter pub get
+
+      - name: Dépendances CocoaPods
+        script: |
+          cd ios
+          pod install
+          cd ..
+
+      - name: Vérification du fichier Firebase iOS
+        script: |
+          if [ ! -f ios/Runner/GoogleService-Info.plist ]; then
+            echo "ERREUR : ios/Runner/GoogleService-Info.plist manquant."
+            echo "Créez l'app iOS dans Firebase et ajoutez le fichier à la cible Runner."
+            exit 1
+          fi
+
+      - name: Build IPA
+        script: |
+          flutter build ipa --release --build-number=$BUILD_NUMBER
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      email:
+        recipients:
+          - housseinifofana91@gmail.com
+        notify:
+          success: true
+          failure: true

@@ -50,3 +50,6 @@ app.*.map.json
 
 # APK construit localement (60 Mo, jamais versionne).
 saha-sante-*.apk
+
+# Caches locaux Kotlin/Gradle (fichiers de session IDE).
+/android/.kotlin/

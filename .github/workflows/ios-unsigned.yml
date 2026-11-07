@@ -1,0 +1,79 @@
+name: iOS IPA (non signé, Sideloadly)
+
+# Construit un IPA iOS NON SIGNÉ sur un runner macOS GitHub.
+# L'IPA est ensuite signé avec un Apple ID gratuit via Sideloadly (Windows).
+#
+# Le dépôt étant public, les minutes macOS de GitHub Actions sont gratuites.
+# Déclenchement : automatique à chaque push sur main (fichiers iOS) ou manuel
+# depuis l'onglet Actions.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ios-unsigned.yml"
+      - "App-mobile/ios/**"
+      - "App-mobile/lib/**"
+      - "App-mobile/assets/**"
+      - "App-mobile/pubspec.yaml"
+      - "App-mobile/pubspec.lock"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-unsigned-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-unsigned-ipa:
+    name: Compiler l'IPA iOS non signé
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        working-directory: App-mobile
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Flutter 3.47.5
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.5"
+          channel: stable
+          cache: true
+
+      - name: Dépendances Flutter
+        run: flutter pub get
+
+      - name: Dépendances iOS (CocoaPods)
+        run: |
+          cd ios
+          pod install
+          cd ..
+
+      - name: Compiler l'app sans signature
+        run: flutter build ios --release --no-codesign
+
+      - name: Empaqueter l'IPA non signé
+        run: |
+          set -euo pipefail
+          rm -rf Payload SAHA-Sante-unsigned.ipa
+          mkdir -p Payload
+          # ditto préserve les liens symboliques et permissions des frameworks.
+          ditto build/ios/iphoneos/Runner.app Payload/Runner.app
+          zip -qry SAHA-Sante-unsigned.ipa Payload
+          shasum -a 256 SAHA-Sante-unsigned.ipa
+          ls -lh SAHA-Sante-unsigned.ipa
+
+      - name: Publier l'IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SAHA-Sante-unsigned-ipa
+          path: App-mobile/SAHA-Sante-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14

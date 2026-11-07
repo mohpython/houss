@@ -2,10 +2,11 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/router/app_router.dart';
+import 'package:saha_sante/core/services/alert_service.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
 
 const _channelId = 'saha_default';
@@ -33,6 +34,11 @@ class PushService {
 
     const settings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      ),
     );
     await _local.initialize(settings, onDidReceiveNotificationResponse: _onLocalTap);
 
@@ -75,7 +81,7 @@ class PushService {
     try {
       await AuthService.instance.api.post('/devices', {
         'token': token,
-        'platform': 'android',
+        'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
         'language': lang == 'ar' || lang == 'en' ? lang : 'fr',
       });
       debugPrint('push: jeton enregistré');
@@ -98,9 +104,23 @@ class PushService {
           importance: Importance.high,
           priority: Priority.high,
         ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
       payload: m.data['link'],
     );
+    // Sonnerie + lecture vocale automatique du message (commande reçue,
+    // paiement, course livreur) en temps réel.
+    final spoken = [n.title, n.body].where((s) => s != null && s.trim().isNotEmpty).join('. ');
+    if (spoken.trim().isNotEmpty) {
+      unawaited(AlertService.instance.announce(
+        key: 'push-${m.messageId ?? m.hashCode}',
+        message: spoken,
+      ));
+    }
   }
 
   void _onLocalTap(NotificationResponse response) {

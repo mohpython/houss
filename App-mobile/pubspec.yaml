@@ -51,6 +51,8 @@ dependencies:
   firebase_core: ^4.0.0
   firebase_messaging: ^16.0.0
   flutter_local_notifications: ^18.0.1
+  flutter_tts: ^4.2.0
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -108,6 +110,7 @@ flutter:
 
   assets:
     - assets/branding/
+    - assets/sounds/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

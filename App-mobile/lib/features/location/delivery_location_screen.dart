@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/models/reservation.dart';
 import 'package:saha_sante/core/services/api_service.dart';
+import 'package:saha_sante/core/services/delivery_location_store.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
@@ -37,9 +37,10 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
   bool _checking = true;
   _Mode _mode = _Mode.gps;
 
-  // Position GPS.
+  // Position GPS (coordonnées plates : ne dépend pas de geolocator).
   bool _locating = false;
-  Position? _position;
+  double? _positionLat;
+  double? _positionLng;
 
   // Quartiers.
   List<Map<String, dynamic>>? _neighborhoods;
@@ -52,6 +53,24 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
   @override
   void initState() {
     super.initState();
+    // Pré-remplit avec le lieu choisi AVANT la photo : le patient peut le
+    // modifier, il n'a plus à le ressaisir.
+    final saved = DeliveryLocationStore.instance;
+    if (saved.hasLocation) {
+      _mode = saved.mode == 'neighborhood' ? _Mode.neighborhood : _Mode.gps;
+      _positionLat = saved.lat;
+      _positionLng = saved.lng;
+      _detailController.text = saved.detail;
+      _fulfillment = saved.fulfillment;
+      if (saved.mode == 'neighborhood' && saved.neighborhoodId != null) {
+        _selected = {
+          'id': saved.neighborhoodId,
+          'name': saved.neighborhoodName ?? '',
+          'lat': saved.lat,
+          'lng': saved.lng,
+        };
+      }
+    }
     _checkExisting();
     _locate();
     _loadNeighborhoods();
@@ -99,7 +118,11 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
     if (!mounted) return;
     setState(() {
       _locating = false;
-      _position = pos;
+      // On ne remplace pas une position mémorisée par un "null" (GPS coupé).
+      if (pos != null) {
+        _positionLat = pos.latitude;
+        _positionLng = pos.longitude;
+      }
     });
   }
 
@@ -126,7 +149,7 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
   }
 
   bool get _canConfirm {
-    if (_mode == _Mode.gps) return _position != null;
+    if (_mode == _Mode.gps) return _positionLat != null && _positionLng != null;
     return _selected != null;
   }
 
@@ -136,14 +159,29 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
   void _confirm() {
     if (!_canConfirm) return;
     final detail = _detailController.text.trim();
+    // Mémorise pour pré-remplir les prochains scans de la session.
+    final store = DeliveryLocationStore.instance;
+    if (_mode == _Mode.gps) {
+      store.setGps(lat: _positionLat!, lng: _positionLng!, detail: detail, fulfillment: _fulfillment);
+    } else {
+      final sel = _selected!;
+      store.setNeighborhood(
+        id: sel['id'] as String,
+        name: (sel['name'] as String?) ?? '',
+        lat: (sel['lat'] as num?)?.toDouble() ?? 0,
+        lng: (sel['lng'] as num?)?.toDouble() ?? 0,
+        detail: detail,
+        fulfillment: _fulfillment,
+      );
+    }
     final params = <String, String>{
       'fulfillment': _fulfillment,
       if (detail.isNotEmpty) 'address': detail,
     };
     if (_mode == _Mode.gps) {
       params['mode'] = 'gps';
-      params['lat'] = '${_position!.latitude}';
-      params['lng'] = '${_position!.longitude}';
+      params['lat'] = '$_positionLat';
+      params['lng'] = '$_positionLng';
     } else {
       params['mode'] = 'neighborhood';
       params['neighborhoodId'] = _selected!['id'] as String;
@@ -157,7 +195,7 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
     if (_mode == mode) return;
     setState(() {
       _mode = mode;
-      if (mode == _Mode.gps && _position == null && !_locating) {
+      if (mode == _Mode.gps && _positionLat == null && !_locating) {
         _locate();
       }
     });
@@ -282,7 +320,7 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
         ),
       );
     }
-    if (_position != null) {
+    if (_positionLat != null && _positionLng != null) {
       return _Panel(
         ok: true,
         child: Row(
