@@ -141,7 +141,6 @@ class _DeliveryLocationSheetState extends State<DeliveryLocationSheet> {
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -239,7 +238,6 @@ class _DeliveryLocationSheetState extends State<DeliveryLocationSheet> {
                 const SizedBox(height: 4),
               ],
             ),
-          ),
         ),
       ),
     );
