@@ -262,19 +262,34 @@ class _DeliveryLocationSheetState extends State<DeliveryLocationSheet> {
     if (_lat != null && _lng != null) {
       return _Panel(
         ok: true,
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.check_circle, color: AppColors.success),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                L10n.t(context, 'delivery.positionOk'),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+            Row(
+              children: [
+                Icon(Icons.check_circle, color: AppColors.success),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    L10n.t(context, 'delivery.positionOk'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _locate,
+                  child: Text(L10n.t(context, 'delivery.retryGeo')),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: _locate,
-              child: Text(L10n.t(context, 'delivery.retryGeo')),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                onPressed: _canConfirm ? _confirm : null,
+                icon: const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                label: Text(L10n.t(context, 'delivery.continue')),
+              ),
             ),
           ],
         ),
