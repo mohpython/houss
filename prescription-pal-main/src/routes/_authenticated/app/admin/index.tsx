@@ -27,6 +27,7 @@ import {
   Search,
   ChevronRight,
   MessageCircle,
+  ScrollText,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
@@ -38,8 +39,7 @@ export const Route = createFileRoute("/_authenticated/app/admin/")({
       { title: i18n.t("admin.metaTitle") },
       {
         name: "description",
-        content:
-          i18n.t("admin.metaDesc"),
+        content: i18n.t("admin.metaDesc"),
       },
       { property: "og:title", content: i18n.t("admin.metaTitle") },
       {
@@ -210,6 +210,12 @@ function Admin() {
             label: t("admin.secWhatsapp"),
             desc: t("admin.secWhatsappDesc"),
           },
+          {
+            to: "/app/admin/logs",
+            icon: <ScrollText className="h-5 w-5" />,
+            label: t("adminLogs.title"),
+            desc: t("adminLogs.linkDesc"),
+          },
         ],
       },
     ],
@@ -236,9 +242,7 @@ function Admin() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
         <h1 className="text-xl font-semibold">{t("admin.adminOnly")}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t("admin.contactAdmin")}
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("admin.contactAdmin")}</p>
       </div>
     );
   }
@@ -252,9 +256,7 @@ function Admin() {
           <ShieldCheck className="h-6 w-6 text-primary" aria-hidden="true" />
           <h1 className="text-2xl font-bold tracking-tight">{t("admin.title")}</h1>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("admin.subtitle")}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("admin.subtitle")}</p>
       </header>
 
       {pending.length > 0 && (
@@ -263,7 +265,9 @@ function Admin() {
             <ShieldAlert className="h-5 w-5 text-warning" aria-hidden="true" />
             <div>
               <div className="font-semibold">
-                {t(pending.length > 1 ? "admin.pendingPlural" : "admin.pendingOne", { n: pending.length })}
+                {t(pending.length > 1 ? "admin.pendingPlural" : "admin.pendingOne", {
+                  n: pending.length,
+                })}
               </div>
               <div className="text-xs text-muted-foreground">{t("admin.handleBelow")}</div>
             </div>
@@ -278,8 +282,16 @@ function Admin() {
         aria-label={t("admin.globalStats")}
         className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
       >
-        <Kpi icon={<Store className="h-4 w-4" />} label={t("admin.kpiPharmacies")} value={global.pharmacies} />
-        <Kpi icon={<Users className="h-4 w-4" />} label={t("admin.kpiCouriers")} value={global.couriers} />
+        <Kpi
+          icon={<Store className="h-4 w-4" />}
+          label={t("admin.kpiPharmacies")}
+          value={global.pharmacies}
+        />
+        <Kpi
+          icon={<Users className="h-4 w-4" />}
+          label={t("admin.kpiCouriers")}
+          value={global.couriers}
+        />
         <Kpi
           icon={<Package className="h-4 w-4" />}
           label={t("admin.kpiActive")}
@@ -314,9 +326,7 @@ function Admin() {
       </div>
 
       {filtered.length === 0 && (
-        <p className="mt-6 text-sm text-muted-foreground">
-          {t("admin.noMatch", { query })}
-        </p>
+        <p className="mt-6 text-sm text-muted-foreground">{t("admin.noMatch", { query })}</p>
       )}
 
       {filtered.map((s) => (
@@ -362,7 +372,9 @@ function Admin() {
         <div className="mt-3 space-y-3">
           {rows === null && <Skeleton className="h-24 w-full" />}
           {rows?.length === 0 && (
-            <Card className="p-6 text-center text-sm text-muted-foreground">{t("admin.noRequests")}</Card>
+            <Card className="p-6 text-center text-sm text-muted-foreground">
+              {t("admin.noRequests")}
+            </Card>
           )}
           {rows?.map((p) => (
             <Card key={p.id} className="p-4">

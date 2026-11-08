@@ -148,7 +148,6 @@ export async function createAccount(input: {
       },
       select: { id: true },
     });
-
     await tx.profiles.create({
       data: { id: user.id, full_name: input.fullName ?? "", phone: phone ?? "" },
     });
@@ -188,6 +187,24 @@ export async function createAccount(input: {
     }
     return user.id;
   });
+
+  // Journal d'activité : l'échec de l'écriture ne doit jamais empêcher
+  // la création du compte.
+  void basePrisma.audit_logs
+    .create({
+      data: {
+        actor_user_id: userId,
+        action: "auth.register",
+        entity: "user",
+        entity_id: userId,
+        meta: {
+          ...(email ? { email } : {}),
+          ...(phone ? { phone } : {}),
+          method: input.googleSub ? "google" : email ? "password" : phone ? "phone" : "unknown",
+        },
+      },
+    })
+    .catch(() => undefined);
 
   return userId;
 }
@@ -244,6 +261,21 @@ export async function createSession(
     },
   });
   await basePrisma.users.update({ where: { id: userId }, data: { last_sign_in_at: new Date() } });
+  // Journal d'activité : non bloquant, une erreur d'écriture est ignorée.
+  void basePrisma.audit_logs
+    .create({
+      data: {
+        actor_user_id: userId,
+        action: "auth.login",
+        entity: "user",
+        entity_id: userId,
+        meta: {
+          ...(meta.ip ? { ip: meta.ip.slice(0, 64) } : {}),
+          ...(meta.userAgent ? { user_agent: meta.userAgent.slice(0, 300) } : {}),
+        },
+      },
+    })
+    .catch(() => undefined);
   const user = await toAuthUser(userId);
   if (!user) throw new Error("Utilisateur introuvable");
   return { access_token: token, expires_at: Math.floor(expiresAt.getTime() / 1000), user };

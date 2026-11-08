@@ -43,6 +43,7 @@ import { Route as AuthenticatedAppAdminPractitionersRouteImport } from './routes
 import { Route as AuthenticatedAppAdminPharmaciesRouteImport } from './routes/_authenticated/app/admin/pharmacies'
 import { Route as AuthenticatedAppAdminPatientsRouteImport } from './routes/_authenticated/app/admin/patients'
 import { Route as AuthenticatedAppAdminNeighborhoodsRouteImport } from './routes/_authenticated/app/admin/neighborhoods'
+import { Route as AuthenticatedAppAdminLogsRouteImport } from './routes/_authenticated/app/admin/logs'
 import { Route as AuthenticatedAppAdminInventoryRouteImport } from './routes/_authenticated/app/admin/inventory'
 import { Route as AuthenticatedAppAdminFeedbackRouteImport } from './routes/_authenticated/app/admin/feedback'
 import { Route as AuthenticatedAppAdminCouriersRouteImport } from './routes/_authenticated/app/admin/couriers'
@@ -245,6 +246,12 @@ const AuthenticatedAppAdminNeighborhoodsRoute =
     path: '/app/admin/neighborhoods',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAppAdminLogsRoute =
+  AuthenticatedAppAdminLogsRouteImport.update({
+    id: '/app/admin/logs',
+    path: '/app/admin/logs',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAppAdminInventoryRoute =
   AuthenticatedAppAdminInventoryRouteImport.update({
     id: '/app/admin/inventory',
@@ -355,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
   '/app/admin/feedback': typeof AuthenticatedAppAdminFeedbackRoute
   '/app/admin/inventory': typeof AuthenticatedAppAdminInventoryRoute
+  '/app/admin/logs': typeof AuthenticatedAppAdminLogsRoute
   '/app/admin/neighborhoods': typeof AuthenticatedAppAdminNeighborhoodsRoute
   '/app/admin/patients': typeof AuthenticatedAppAdminPatientsRoute
   '/app/admin/pharmacies': typeof AuthenticatedAppAdminPharmaciesRoute
@@ -405,6 +413,7 @@ export interface FileRoutesByTo {
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
   '/app/admin/feedback': typeof AuthenticatedAppAdminFeedbackRoute
   '/app/admin/inventory': typeof AuthenticatedAppAdminInventoryRoute
+  '/app/admin/logs': typeof AuthenticatedAppAdminLogsRoute
   '/app/admin/neighborhoods': typeof AuthenticatedAppAdminNeighborhoodsRoute
   '/app/admin/patients': typeof AuthenticatedAppAdminPatientsRoute
   '/app/admin/pharmacies': typeof AuthenticatedAppAdminPharmaciesRoute
@@ -457,6 +466,7 @@ export interface FileRoutesById {
   '/_authenticated/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
   '/_authenticated/app/admin/feedback': typeof AuthenticatedAppAdminFeedbackRoute
   '/_authenticated/app/admin/inventory': typeof AuthenticatedAppAdminInventoryRoute
+  '/_authenticated/app/admin/logs': typeof AuthenticatedAppAdminLogsRoute
   '/_authenticated/app/admin/neighborhoods': typeof AuthenticatedAppAdminNeighborhoodsRoute
   '/_authenticated/app/admin/patients': typeof AuthenticatedAppAdminPatientsRoute
   '/_authenticated/app/admin/pharmacies': typeof AuthenticatedAppAdminPharmaciesRoute
@@ -509,6 +519,7 @@ export interface FileRouteTypes {
     | '/app/admin/couriers'
     | '/app/admin/feedback'
     | '/app/admin/inventory'
+    | '/app/admin/logs'
     | '/app/admin/neighborhoods'
     | '/app/admin/patients'
     | '/app/admin/pharmacies'
@@ -559,6 +570,7 @@ export interface FileRouteTypes {
     | '/app/admin/couriers'
     | '/app/admin/feedback'
     | '/app/admin/inventory'
+    | '/app/admin/logs'
     | '/app/admin/neighborhoods'
     | '/app/admin/patients'
     | '/app/admin/pharmacies'
@@ -610,6 +622,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/admin/couriers'
     | '/_authenticated/app/admin/feedback'
     | '/_authenticated/app/admin/inventory'
+    | '/_authenticated/app/admin/logs'
     | '/_authenticated/app/admin/neighborhoods'
     | '/_authenticated/app/admin/patients'
     | '/_authenticated/app/admin/pharmacies'
@@ -901,6 +914,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAdminNeighborhoodsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/app/admin/logs': {
+      id: '/_authenticated/app/admin/logs'
+      path: '/app/admin/logs'
+      fullPath: '/app/admin/logs'
+      preLoaderRoute: typeof AuthenticatedAppAdminLogsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/app/admin/inventory': {
       id: '/_authenticated/app/admin/inventory'
       path: '/app/admin/inventory'
@@ -1017,6 +1037,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAppAdminCouriersRoute: typeof AuthenticatedAppAdminCouriersRoute
   AuthenticatedAppAdminFeedbackRoute: typeof AuthenticatedAppAdminFeedbackRoute
   AuthenticatedAppAdminInventoryRoute: typeof AuthenticatedAppAdminInventoryRoute
+  AuthenticatedAppAdminLogsRoute: typeof AuthenticatedAppAdminLogsRoute
   AuthenticatedAppAdminNeighborhoodsRoute: typeof AuthenticatedAppAdminNeighborhoodsRoute
   AuthenticatedAppAdminPatientsRoute: typeof AuthenticatedAppAdminPatientsRoute
   AuthenticatedAppAdminPharmaciesRoute: typeof AuthenticatedAppAdminPharmaciesRoute
@@ -1054,6 +1075,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAppAdminCouriersRoute: AuthenticatedAppAdminCouriersRoute,
   AuthenticatedAppAdminFeedbackRoute: AuthenticatedAppAdminFeedbackRoute,
   AuthenticatedAppAdminInventoryRoute: AuthenticatedAppAdminInventoryRoute,
+  AuthenticatedAppAdminLogsRoute: AuthenticatedAppAdminLogsRoute,
   AuthenticatedAppAdminNeighborhoodsRoute:
     AuthenticatedAppAdminNeighborhoodsRoute,
   AuthenticatedAppAdminPatientsRoute: AuthenticatedAppAdminPatientsRoute,
