@@ -1,11 +1,13 @@
 name: iOS IPA (non signé, Sideloadly)
 
-# Construit un IPA iOS NON SIGNÉ sur un runner macOS GitHub.
-# L'IPA est ensuite signé avec un Apple ID gratuit via Sideloadly (Windows).
+# Construit les IPA iOS NON SIGNÉS sur un runner macOS GitHub :
+#   - SAHA Santé     (application patient)
+#   - SAHA Pharmacie (espace professionnel)
+# Les IPA sont ensuite signés avec un Apple ID gratuit via Sideloadly (Windows).
 #
 # Le dépôt étant public, les minutes macOS de GitHub Actions sont gratuites.
-# Déclenchement : automatique à chaque push sur main (fichiers iOS) ou manuel
-# depuis l'onglet Actions.
+# Déclenchement : automatique à chaque push sur main (fichiers mobiles) ou
+# manuel depuis l'onglet Actions.
 
 on:
   workflow_dispatch:
@@ -28,9 +30,17 @@ concurrency:
 
 jobs:
   build-unsigned-ipa:
-    name: Compiler l'IPA iOS non signé
+    name: IPA ${{ matrix.variant }}
     runs-on: macos-15
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: patient
+            artifact: SAHA-Sante
+          - variant: pharmacy
+            artifact: SAHA-Pharmacie
 
     defaults:
       run:
@@ -56,24 +66,34 @@ jobs:
           pod install
           cd ..
 
+      - name: Nom affiché (variante pharmacie)
+        if: matrix.variant == 'pharmacy'
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName SAHA Pharmacie" ios/Runner/Info.plist
+
       - name: Compiler l'app sans signature
-        run: flutter build ios --release --no-codesign
+        run: |
+          if [ "${{ matrix.variant }}" = "pharmacy" ]; then
+            flutter build ios --release --no-codesign --dart-define=APP_VARIANT=pharmacy
+          else
+            flutter build ios --release --no-codesign
+          fi
 
       - name: Empaqueter l'IPA non signé
         run: |
           set -euo pipefail
-          rm -rf Payload SAHA-Sante-unsigned.ipa
+          rm -rf Payload "${{ matrix.artifact }}-unsigned.ipa"
           mkdir -p Payload
           # ditto préserve les liens symboliques et permissions des frameworks.
           ditto build/ios/iphoneos/Runner.app Payload/Runner.app
-          zip -qry SAHA-Sante-unsigned.ipa Payload
-          shasum -a 256 SAHA-Sante-unsigned.ipa
-          ls -lh SAHA-Sante-unsigned.ipa
+          zip -qry "${{ matrix.artifact }}-unsigned.ipa" Payload
+          shasum -a 256 "${{ matrix.artifact }}-unsigned.ipa"
+          ls -lh "${{ matrix.artifact }}-unsigned.ipa"
 
       - name: Publier l'IPA
         uses: actions/upload-artifact@v4
         with:
-          name: SAHA-Sante-unsigned-ipa
-          path: App-mobile/SAHA-Sante-unsigned.ipa
+          name: ${{ matrix.artifact }}-unsigned-ipa
+          path: App-mobile/${{ matrix.artifact }}-unsigned.ipa
           if-no-files-found: error
           retention-days: 14

@@ -45,6 +45,28 @@ android {
         versionName = flutter.versionName
     }
 
+    // Deux variantes de l'application :
+    //   patient  : SAHA Santé (grand public)
+    //   pharmacy : SAHA Pharmacie (espace professionnel)
+    //
+    // Elles partagent le MÊME applicationId pour conserver Firebase
+    // (google-services.json ne contient que ce package), les notifications
+    // push et les liens profonds `sahasantemali://auth`. Seul le nom affiché
+    // change ; le code Dart bascule via --dart-define=APP_VARIANT=pharmacy.
+    flavorDimensions += "app"
+    productFlavors {
+        create("patient") {
+            dimension = "app"
+            applicationId = "com.sahasantemali.saha_sante"
+            resValue("string", "app_name", "SAHA Santé")
+        }
+        create("pharmacy") {
+            dimension = "app"
+            applicationId = "com.sahasantemali.saha_sante"
+            resValue("string", "app_name", "SAHA Pharmacie")
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (keystoreProperties.containsKey("storeFile")) {

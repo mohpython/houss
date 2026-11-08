@@ -15,6 +15,23 @@ class AppConfig {
 
   static String get apiUrl => '$baseUrl/api/v1';
 
+  /// Variante compilée de l'application :
+  ///   - `patient`  (défaut) : application grand public SAHA Santé ;
+  ///   - `pharmacy`          : application dédiée aux pharmacies.
+  ///
+  ///   flutter build apk --flavor pharmacy --dart-define=APP_VARIANT=pharmacy
+  static const String variant = String.fromEnvironment(
+    'APP_VARIANT',
+    defaultValue: 'patient',
+  );
+
+  /// true dans la version « SAHA Pharmacie ».
+  static bool get isPharmacy => variant == 'pharmacy';
+
+  /// Nom affiché dans l'application. Le nom du lanceur Android est défini
+  /// par le flavor (`@string/app_name`) et celui d'iOS par Info.plist.
+  static String get appName => isPharmacy ? 'SAHA Pharmacie' : 'SAHA Santé';
+
   /// Frais de livraison (FCFA) — identiques au site.
   static const int deliveryFee = 1000;
 

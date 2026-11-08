@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/api/api_client.dart';
+import 'package:saha_sante/core/config/app_config.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/l10n/language_picker.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
@@ -178,13 +179,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          IconButton(
-                            onPressed: () => context.pop(),
-                            icon: const Icon(Icons.arrow_back),
-                          ),
+                          if (context.canPop())
+                            IconButton(
+                              onPressed: () => context.pop(),
+                              icon: const Icon(Icons.arrow_back),
+                            )
+                          else
+                            const SizedBox(width: 48),
                           const SizedBox(width: 8),
                           Text(
-                            L10n.t(context, 'brand'),
+                            AppConfig.appName,
                             style:
                                 const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                           ),
@@ -206,7 +210,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             Icon(Icons.auto_awesome, size: 14, color: AppColors.accent),
                             const SizedBox(width: 6),
                             Text(
-                              L10n.t(context, 'tagline'),
+                              AppConfig.isPharmacy
+                                  ? L10n.t(context, 'ph.tagline')
+                                  : L10n.t(context, 'tagline'),
                               style: TextStyle(fontSize: 12, color: AppColors.accent),
                             ),
                           ],
@@ -219,7 +225,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        L10n.t(context, 'loginSub'),
+                        AppConfig.isPharmacy
+                            ? L10n.t(context, 'ph.loginSub')
+                            : L10n.t(context, 'loginSub'),
                         style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 24),
@@ -389,16 +397,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      Center(
-                        child: TextButton(
-                          onPressed: () => context.push('/register'),
-                          child: Text(
-                            L10n.t(context, 'createAccount'),
-                            style: TextStyle(color: AppColors.primaryLight),
+                      // Les comptes pharmacie sont créés par l'administrateur
+                      // (onboarding professionnel) : pas d'inscription libre ici.
+                      if (!AppConfig.isPharmacy) ...[
+                        Center(
+                          child: TextButton(
+                            onPressed: () => context.push('/register'),
+                            child: Text(
+                              L10n.t(context, 'createAccount'),
+                              style: TextStyle(color: AppColors.primaryLight),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                      ],
                     ],
                   ),
                 ),

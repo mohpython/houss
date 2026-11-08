@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:saha_sante/core/config/app_config.dart';
 import 'package:saha_sante/features/admin/admin_reviews_screen.dart';
 import 'package:saha_sante/features/auth/login_screen.dart';
 import 'package:saha_sante/features/auth/register_screen.dart';
@@ -8,6 +9,7 @@ import 'package:saha_sante/features/home/home_screen.dart';
 import 'package:saha_sante/features/home/patient_main_screen.dart';
 import 'package:saha_sante/features/location/delivery_location_screen.dart';
 import 'package:saha_sante/features/notifications/notifications_screen.dart';
+import 'package:saha_sante/features/pharmacy/pharmacy_main_screen.dart';
 import 'package:saha_sante/features/pharmacy_choice/pharmacy_quotes_screen.dart';
 import 'package:saha_sante/features/otc/otc_screen.dart';
 import 'package:saha_sante/features/prescriptions/prescriptions_screen.dart';
@@ -93,7 +95,11 @@ class AppRouter {
         routes: [
           GoRoute(
             path: '/',
-            builder: (context, state) => const OnboardingScreen(),
+            // La version Pharmacie n'a pas besoin de l'onboarding patient :
+            // elle ouvre directement l'écran de connexion professionnel.
+            builder: (context, state) => AppConfig.isPharmacy
+                ? const LoginScreen()
+                : const OnboardingScreen(),
           ),
           GoRoute(
             path: '/login',
@@ -105,7 +111,9 @@ class AppRouter {
           ),
           GoRoute(
             path: '/app',
-            builder: (context, state) => const PatientMainScreen(),
+            builder: (context, state) => AppConfig.isPharmacy
+                ? const PharmacyMainScreen()
+                : const PatientMainScreen(),
           ),
           GoRoute(
             path: '/home',

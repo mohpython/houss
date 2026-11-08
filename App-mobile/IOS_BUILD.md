@@ -53,16 +53,19 @@ l'application iOS créée dans Firebase doit utiliser **exactement**
 ### 3.1 Construire l'IPA non signé (GitHub Actions)
 
 Le dépôt `mohpython/houss` est public : les runners macOS de GitHub Actions
-sont **gratuits**. Le workflow compile l'app et publie un IPA **non signé**.
+sont **gratuits**. Le workflow compile **deux** IPA non signés (patient et
+pharmacie) et les publie séparément.
 
 1. Le workflow se lance automatiquement à chaque push sur `main` qui touche
    `App-mobile/ios`, `lib`, `assets` ou `pubspec`. Sinon : GitHub →
    **Actions** → **iOS IPA (non signé, Sideloadly)** → **Run workflow**.
-2. Attendre la fin du job (10–20 min la première fois : CocoaPods télécharge
+2. Attendre la fin des jobs (10–20 min la première fois : CocoaPods télécharge
    Firebase).
-3. En bas du résumé du job, télécharger l'artefact
-   **`SAHA-Sante-unsigned-ipa`** (un ZIP).
-4. Dézipper : on obtient **`SAHA-Sante-unsigned.ipa`**.
+3. En bas du résumé du run, télécharger l'artefact voulu :
+   - **`SAHA-Sante-unsigned-ipa`** (application patient) ;
+   - **`SAHA-Pharmacie-unsigned-ipa`** (espace pharmacie).
+4. Dézipper : on obtient **`SAHA-Sante-unsigned.ipa`** ou
+   **`SAHA-Pharmacie-unsigned.ipa`**.
 
 > L'IPA non signé ne s'installe pas directement : c'est normal. Il doit être
 > signé par Sideloadly avec l'Apple ID de l'iPhone.

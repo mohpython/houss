@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart' show CupertinoLocalizations;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:saha_sante/core/config/app_config.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/router/app_router.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
@@ -68,7 +69,7 @@ class SahaSanteApp extends StatelessWidget {
         // mode clair s'applique a tous les ecrans d'un seul coup.
         AppColors.light = AppThemeMode.instance.isLight;
         return MaterialApp.router(
-          title: 'SAHA Santé',
+          title: AppConfig.appName,
           debugShowCheckedModeBanner: false,
           // Un seul theme, deja resolu : `darkTheme`/`themeMode` baraient en double
           // (le theme sombre de Material remplacerait les couleurs resolues,
