@@ -282,17 +282,20 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton.icon(
-                              onPressed: _canConfirm ? _confirm : null,
-                              icon: const Icon(Icons.storefront, color: Colors.white),
-                              label: Text(L10n.t(context, 'delivery.seePharmacies')),
-                            ),
-                          ),
                           const SizedBox(height: 24),
                         ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton.icon(
+                        onPressed: _canConfirm ? _confirm : null,
+                        icon: const Icon(Icons.storefront, color: Colors.white),
+                        label: Text(L10n.t(context, 'delivery.seePharmacies')),
                       ),
                     ),
                   ),

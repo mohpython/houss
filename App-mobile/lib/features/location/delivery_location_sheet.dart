@@ -334,45 +334,61 @@ class _DeliveryLocationSheetState extends State<DeliveryLocationSheet> {
           ),
         ),
         const SizedBox(height: 10),
-        if (filtered.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              L10n.t(context, 'delivery.noNeighborhood'),
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-            ),
+        Container(
+          constraints: const BoxConstraints(maxHeight: 240),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE4E7EC)),
           ),
-        ...filtered.take(6).map((n) {
-          final id = n['id'] as String?;
-          final name = (n['name'] as String?) ?? '';
-          final selected = _selected != null && _selected!['id'] == id;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => setState(() => _selected = Map<String, dynamic>.from(n)),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: selected
-                      ? Border.all(color: AppColors.primary, width: 1.6)
-                      : Border.all(color: const Color(0xFFE4E7EC)),
-                ),
-                child: ListTile(
-                  leading: Icon(
-                    selected ? Icons.check_circle : Icons.place_outlined,
-                    color: selected ? AppColors.primary : AppColors.textSecondary,
+          child: filtered.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    L10n.t(context, 'delivery.noNeighborhood'),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   ),
-                  title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                  trailing: selected
-                      ? Icon(Icons.check, color: AppColors.primary)
-                      : null,
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    color: AppColors.border,
+                  ),
+                  itemBuilder: (context, i) {
+                    final n = filtered[i];
+                    final id = n['id'] as String?;
+                    final name = (n['name'] as String?) ?? '';
+                    final selected = _selected != null && _selected!['id'] == id;
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => setState(() => _selected = Map<String, dynamic>.from(n)),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppColors.primary.withAlpha(20)
+                              : AppColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: selected
+                              ? Border.all(color: AppColors.primary, width: 1.6)
+                              : null,
+                        ),
+                        child: ListTile(
+                          leading: Icon(
+                            selected ? Icons.check_circle : Icons.place_outlined,
+                            color: selected ? AppColors.primary : AppColors.textSecondary,
+                          ),
+                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                          trailing: selected
+                              ? Icon(Icons.check, color: AppColors.primary)
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-          );
-        }),
+        ),
       ],
     );
   }
