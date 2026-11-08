@@ -402,6 +402,18 @@ class _DeliveryLocationSheetState extends State<DeliveryLocationSheet> {
                   },
                 ),
         ),
+        if (_selected != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: _canConfirm ? _confirm : null,
+              icon: const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+              label: Text(L10n.t(context, 'delivery.continue')),
+            ),
+          ),
+        ],
       ],
     );
   }

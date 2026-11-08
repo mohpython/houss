@@ -89,7 +89,28 @@ class _ScanScreenState extends State<ScanScreen> {
         if (result.needsReview) {
           await _flagForReview(result);
         } else if (mounted) {
-          context.push('/localisation/${result.prescription.id}');
+          final store = DeliveryLocationStore.instance;
+          if (store.hasLocation) {
+            // Lieu deja choisi avant le scan : on enchaine directement vers
+            // les pharmacies, sans re-demander le lieu.
+            final params = <String, String>{
+              'fulfillment': store.fulfillment,
+              if (store.detail.isNotEmpty) 'address': store.detail,
+            };
+            if (store.mode == 'gps') {
+              params['mode'] = 'gps';
+              params['lat'] = '${store.lat}';
+              params['lng'] = '${store.lng}';
+            } else {
+              params['mode'] = 'neighborhood';
+              params['neighborhoodId'] = store.neighborhoodId!;
+            }
+            context.push(
+              '/pharmacies/${result.prescription.id}?${Uri(queryParameters: params).query}',
+            );
+          } else {
+            context.push('/localisation/${result.prescription.id}');
+          }
         }
       }
     } on ApiException catch (e) {
@@ -115,7 +136,26 @@ class _ScanScreenState extends State<ScanScreen> {
   void _goToLocation() {
     final result = _result;
     if (result == null) return;
-    context.push('/localisation/${result.prescription.id}');
+    final store = DeliveryLocationStore.instance;
+    if (store.hasLocation) {
+      final params = <String, String>{
+        'fulfillment': store.fulfillment,
+        if (store.detail.isNotEmpty) 'address': store.detail,
+      };
+      if (store.mode == 'gps') {
+        params['mode'] = 'gps';
+        params['lat'] = '${store.lat}';
+        params['lng'] = '${store.lng}';
+      } else {
+        params['mode'] = 'neighborhood';
+        params['neighborhoodId'] = store.neighborhoodId!;
+      }
+      context.push(
+        '/pharmacies/${result.prescription.id}?${Uri(queryParameters: params).query}',
+      );
+    } else {
+      context.push('/localisation/${result.prescription.id}');
+    }
   }
 
   /// Transmet a l'equipe une ordonnance que l'IA n'a pas pu lire. Le patient
