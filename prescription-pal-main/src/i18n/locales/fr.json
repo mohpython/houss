@@ -190,7 +190,10 @@
     "aiAnalyzing": "Analyse IA de l'ordonnance…",
     "analyzed": "Ordonnance analysée — vérifiez les médicaments",
     "error": "Erreur",
-    "previewAlt": "Aperçu de l'ordonnance scannée"
+    "previewAlt": "Aperçu de l'ordonnance scannée",
+    "locationTitle": "D'abord, où s'il vous plaît ?",
+    "locationHint": "Choisissez votre lieu de livraison avant de photographier l'ordonnance.",
+    "locationContinue": "Continuer"
   },
   "rxList": {
     "title": "Mes ordonnances",
@@ -653,7 +656,25 @@
     "delivery": "Livraison",
     "total": "Total",
     "payWith": "Payer avec",
-    "orange": "Orange Money",
+    "orange": {
+      "label": "Orange Money",
+      "checking": "Vérification du paiement…",
+      "checkingDesc": "Nous confirmons votre paiement Orange Money.",
+      "success": "Paiement reçu !",
+      "successDesc": "Votre paiement Orange Money a été enregistré. La pharmacie va préparer votre commande.",
+      "viewOrder": "Voir ma commande",
+      "pending": "Paiement en cours de confirmation",
+      "pendingDesc": "Orange Money confirme encore la transaction. Votre commande sera mise à jour automatiquement dans quelques instants.",
+      "cancelled": "Paiement non confirmé",
+      "cancelledDesc": "Le paiement a été annulé ou a échoué. Vous pouvez réessayer depuis votre commande.",
+      "retry": "Réessayer le paiement",
+      "waiting": "Redirection vers Orange Money…",
+      "waitingTitle": "Paiement en cours sur la page Orange Money",
+      "waitingHint": "Terminez le paiement dans l'onglet Orange Money : cet onglet se fermera tout seul et vous arriverez sur le suivi de votre commande.",
+      "cancel": "Annuler le paiement",
+      "failed": "Le paiement n'a pas abouti.",
+      "redirecting": "Redirection…"
+    },
     "moov": "Moov Money",
     "sendTo": "Envoyez le montant au",
     "reference": "Référence de la transaction",

@@ -190,7 +190,10 @@
     "aiAnalyzing": "AI analyzing prescription…",
     "analyzed": "Prescription analyzed — please review the medications",
     "error": "Error",
-    "previewAlt": "Scanned prescription preview"
+    "previewAlt": "Scanned prescription preview",
+    "locationTitle": "First, where to?",
+    "locationHint": "Choose your delivery location before photographing the prescription.",
+    "locationContinue": "Continue"
   },
   "rxList": {
     "title": "My prescriptions",
@@ -653,7 +656,25 @@
     "delivery": "Delivery",
     "total": "Total",
     "payWith": "Pay with",
-    "orange": "Orange Money",
+    "orange": {
+      "label": "Orange Money",
+      "checking": "Checking the payment…",
+      "checkingDesc": "We are confirming your Orange Money payment.",
+      "success": "Payment received!",
+      "successDesc": "Your Orange Money payment has been recorded. The pharmacy will prepare your order.",
+      "viewOrder": "View my order",
+      "pending": "Payment being confirmed",
+      "pendingDesc": "Orange Money is still confirming the transaction. Your order will update automatically in a few moments.",
+      "cancelled": "Payment not confirmed",
+      "cancelledDesc": "The payment was cancelled or failed. You can try again from your order.",
+      "retry": "Retry the payment",
+      "waiting": "Redirecting to Orange Money…",
+      "waitingTitle": "Payment in progress on the Orange Money page",
+      "waitingHint": "Complete the payment in the Orange Money tab: it will close by itself and you will land on your order tracking.",
+      "cancel": "Cancel the payment",
+      "failed": "The payment did not go through.",
+      "redirecting": "Redirecting…"
+    },
     "moov": "Moov Money",
     "sendTo": "Send the amount to",
     "reference": "Transaction reference",

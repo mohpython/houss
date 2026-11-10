@@ -2,7 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { getReservationCheckout } from "@/lib/reservations.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { startOrangePayment } from "@/lib/payment.functions";
+import { startOrangePayment, getOrangePaymentStatus } from "@/lib/payment.functions";
 import { setFulfillmentMethod } from "@/lib/fulfillment.functions";
 import { DELIVERY_FEE, formatAmount } from "@/lib/payment-config";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,10 @@ function Checkout() {
   const router = useRouter();
   const [row, setRow] = useState<Row | null>(null);
   const [orangeBusy, setOrangeBusy] = useState(false);
+  /** Le paiement est en cours sur la page Orange Money (onglet séparé). */
+  const [waitingOrange, setWaitingOrange] = useState(false);
   const startOrange = useServerFn(startOrangePayment);
+  const checkOrange = useServerFn(getOrangePaymentStatus);
   const setMethodFn = useServerFn(setFulfillmentMethod);
   /**
    * Numero du dernier changement de mode demande. Une reponse arrivee pour un
@@ -73,8 +76,83 @@ function Checkout() {
   const fulfillmentSeq = useRef(0);
   const pendingFulfillment = useRef<Promise<unknown> | null>(null);
   const payingRef = useRef(false);
+  /** Onglet Orange Money ouvert, et minuteur de surveillance du paiement. */
+  const orangeWindow = useRef<Window | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const payOnline = async () => {
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  /**
+   * Ouvre la page Orange Money dans un onglet séparé. L'onglet est créé
+   * pendant le clic (sinon le navigateur le bloque) ; il sera fermé
+   * automatiquement dès que le paiement est confirmé.
+   */
+  const openOrangeWindow = (): Window | null => {
+    try {
+      const w = window.open("", "saha-orange-money", "width=560,height=780");
+      if (w) {
+        const msg = t("pay.orange.waiting", "Redirection vers Orange Money…");
+        w.document.title = msg;
+        w.document.body.innerHTML = `<p style="font-family:system-ui,sans-serif;padding:24px;color:#334155">${msg}</p>`;
+      }
+      return w;
+    } catch {
+      return null;
+    }
+  };
+
+  /**
+   * Surveille le paiement tant que le patient est sur la page Orange Money.
+   * Dès que la transaction est confirmée, l'onglet Orange se ferme et le
+   * patient arrive directement sur le suivi de sa commande ; en cas d'échec,
+   * il revient sur la page de paiement pour réessayer.
+   */
+  const watchOrangePayment = () => {
+    stopPolling();
+    const started = Date.now();
+    pollRef.current = setInterval(async () => {
+      // Filet de sécurité : on arrête de scruter au bout de 15 minutes.
+      if (Date.now() - started > 15 * 60_000) {
+        stopPolling();
+        return;
+      }
+      try {
+        const st = await checkOrange({ data: { reservationId: id } });
+        const state = (st as { state?: string } | null)?.state;
+        if (state === "SUCCESS") {
+          stopPolling();
+          try {
+            orangeWindow.current?.close();
+          } catch {
+            /* l'onglet est déjà fermé */
+          }
+          setWaitingOrange(false);
+          router.navigate({ to: "/app/reservations/$id/track", params: { id } });
+          return;
+        }
+        if (state === "FAILED" || state === "EXPIRED" || state === "CANCELLED") {
+          stopPolling();
+          try {
+            orangeWindow.current?.close();
+          } catch {
+            /* l'onglet est déjà fermé */
+          }
+          setWaitingOrange(false);
+          toast.error(t("pay.orange.failed", "Le paiement n'a pas abouti."));
+          router.navigate({ to: "/app/reservations/$id/checkout", params: { id } });
+        }
+      } catch {
+        // Erreur réseau passagère : on continue de scruter.
+      }
+    }, 3000);
+  };
+
+  const payOnline = async (popup: Window | null) => {
     if (payingRef.current) return;
     payingRef.current = true;
     setOrangeBusy(true);
@@ -84,13 +162,37 @@ function Checkout() {
       }
       const res = await startOrange({ data: { reservationId: id } });
       if (res?.paymentUrl) {
-        window.location.href = res.paymentUrl;
+        if (popup && !popup.closed) {
+          orangeWindow.current = popup;
+          popup.location.href = res.paymentUrl;
+          setOrangeBusy(false);
+          setWaitingOrange(true);
+          watchOrangePayment();
+        } else {
+          // Onglet bloqué par le navigateur : on bascule sur l'onglet courant.
+          window.location.href = res.paymentUrl;
+        }
       }
     } catch (err) {
       payingRef.current = false;
       toast.error(err instanceof Error ? err.message : t("pay.error"));
       setOrangeBusy(false);
     }
+  };
+
+  /** Ferme l'onglet Orange Money et revient à l'état initial. */
+  const cancelOrange = () => {
+    stopPolling();
+    try {
+      orangeWindow.current?.close();
+    } catch {
+      /* déjà fermé */
+    }
+    orangeWindow.current = null;
+    setWaitingOrange(false);
+    payingRef.current = false;
+    setOrangeBusy(false);
+    load();
   };
 
   /**
@@ -104,7 +206,7 @@ function Checkout() {
 
     // Le mode est deja celui choisi : on va directement au paiement.
     if (before.fulfillment_method === m) {
-      await payOnline();
+      await payOnline(openOrangeWindow());
       return;
     }
 
@@ -138,7 +240,7 @@ function Checkout() {
 
     // Ne jamais ouvrir le paiement avec un mode different de celui choisi.
     if (failed || seq !== fulfillmentSeq.current) return;
-    await payOnline();
+    await payOnline(openOrangeWindow());
   };
 
   const load = async () => {
@@ -270,7 +372,26 @@ function Checkout() {
         </div>
       </dl>
 
-      {settled ? (
+      {waitingOrange ? (
+        <div className="mt-6 space-y-3 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm font-medium">
+            {t(
+              "pay.orange.waitingTitle",
+              "Paiement en cours sur la page Orange Money",
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "pay.orange.waitingHint",
+              "Terminez le paiement dans l'onglet Orange Money : cette page se fermera toute seule et vous arriverez sur le suivi de votre commande.",
+            )}
+          </p>
+          <Button className="w-full rounded-full" variant="ghost" onClick={cancelOrange}>
+            {t("pay.orange.cancel", "Annuler le paiement")}
+          </Button>
+        </div>
+      ) : settled ? (
         <div className="mt-6 space-y-3 text-center">
           <p className="text-sm text-foreground/70">
             {row.payment_status === "paid" ? t("pay.paid") : t("pay.waiting")}
@@ -288,7 +409,7 @@ function Checkout() {
             className="w-full rounded-full"
             size="lg"
             disabled={orangeBusy}
-            onClick={payOnline}
+            onClick={() => payOnline(openOrangeWindow())}
           >
             {orangeBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {orangeBusy
