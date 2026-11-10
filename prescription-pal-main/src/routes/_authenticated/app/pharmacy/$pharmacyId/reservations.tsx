@@ -89,6 +89,8 @@ function Reservations() {
   const [rxUrls, setRxUrls] = useState<Record<string, string>>({});
   const respond = useServerFn(respondToReservation);
   const assign = useServerFn(assignCourier);
+  // Confirmation du paiement DÉCLARÉ à la main (Moov Money / virement) :
+  // seul cas où personne ne peut vérifier le paiement automatiquement.
   const confirmPayment = useServerFn(confirmPaymentReceived);
 
   const markPaid = async (reservationId: string) => {
@@ -321,13 +323,26 @@ function Reservations() {
                 )}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
+                {/*
+                  Paiement en ligne (Orange Money) : le système a déjà vérifié
+                  auprès d'Orange, la commande est « payée » — le pharmacien
+                  n'a rien à confirmer, il prépare et marque « prête ».
+                  Seul reste le cas du paiement DÉCLARÉ à la main (Moov Money,
+                  virement) : personne ne peut le vérifier automatiquement, la
+                  pharmacie doit donc confirmer la réception de l'argent.
+                */}
                 {r.payment_status === "pending_verification" && (
                   <Button size="sm" variant="outline" onClick={() => markPaid(r.id)}>
                     {t("pharm.confirmPayReceived")}
                   </Button>
                 )}
 
-                {r.status === "pending" && (
+                {r.status === "pending" && r.payment_status === "paid" && (
+                  <Button size="sm" onClick={() => act(r.id, "ready")}>
+                    {t("pharm.markReady")}
+                  </Button>
+                )}
+                {r.status === "pending" && r.payment_status !== "paid" && (
                   <>
                     <Button size="sm" onClick={() => act(r.id, "accepted")}>
                       {t("pharm.accept")}

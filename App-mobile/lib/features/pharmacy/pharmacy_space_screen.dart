@@ -147,7 +147,6 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
     final patient = (order['patient_name'] as String?) ?? '';
     final closed =
         status == 'completed' || status == 'cancelled' || status == 'rejected';
-    final pendingPayment = payment == 'pending_verification';
 
     return SpaceCard(
       child: Column(
@@ -279,7 +278,11 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     icon: Icons.description_outlined,
                     dense: true,
                   ),
-                if (pendingPayment) ...[
+                // Paiement DÉCLARÉ à la main (Moov Money / virement) : la
+                // pharmacie doit confirmer la réception de l'argent. Les
+                // paiements en ligne (Orange Money) sont vérifiés par le
+                // système, la pharmacie marque simplement « prête ».
+                if (payment == 'pending_verification') ...[
                   actionButton(
                     L10n.c('ph.paymentReceived'),
                     _on(() =>
@@ -296,7 +299,15 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     dense: true,
                   ),
                 ],
-                if (status == 'pending') ...[
+                if (status == 'pending' && payment == 'paid')
+                  actionButton(
+                    L10n.c('ph.markReady'),
+                    _on(() =>
+                        ApiService.instance.pharmacyDecision(id, decision: 'ready')),
+                    icon: Icons.inventory_2_outlined,
+                    dense: true,
+                  ),
+                if (status == 'pending' && payment != 'paid') ...[
                   actionButton(
                     L10n.c('ph.accept'),
                     _on(() =>
