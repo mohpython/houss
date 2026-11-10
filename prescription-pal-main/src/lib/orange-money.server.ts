@@ -177,6 +177,8 @@ export async function initOrangePayment(
   return {
     orderId,
     payToken,
+    // Le webhook Orange ne contient PAS d'order_id : seul le notif_token permet
+    // de relier la notification à la commande. On le conserve donc.
     notifToken: notifToken || "",
     paymentUrl,
   };

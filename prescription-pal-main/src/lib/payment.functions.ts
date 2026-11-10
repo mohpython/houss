@@ -152,11 +152,16 @@ export const startOrangePayment = createServerFn({ method: "POST" })
       baseUrl,
     );
 
-    // On mémorise l'order_id et le pay_token pour que le webhook Orange puisse
-    // retrouver la commande et vérifier le statut réel (payment_order_id unique).
+    // On mémorise l'order_id, le pay_token ET le notif_token : le webhook
+    // Orange ne contient que le notif_token, c'est la seule clé qui permet
+    // de retrouver la commande à partir de la notification.
     await prisma.reservations.update({
       where: { id: res.id },
-      data: { payment_order_id: init.orderId, payment_pay_token: init.payToken },
+      data: {
+        payment_order_id: init.orderId,
+        payment_pay_token: init.payToken,
+        payment_notif_token: init.notifToken || null,
+      },
     });
 
     await prisma.audit_logs.create({
@@ -224,8 +229,8 @@ export const getOrangePaymentStatus = createServerFn({ method: "GET" })
       // Le webhook peut avoir échoué (Orange n'envoie pas toujours la
       // notification) : on profite du passage du patient pour rattraper.
       if (state === "SUCCESS" && res.payment_status !== "paid") {
-        const { updateReservationAs } = await import("./reservation-rules.server");
-        await updateReservationAs("system", res.id, {
+        const { updateReservationAsSystem } = await import("./reservation-rules.server");
+        await updateReservationAsSystem(res.id, {
           payment_status: "paid",
           payment_method: "orange_money",
           payment_reference: res.payment_order_id,

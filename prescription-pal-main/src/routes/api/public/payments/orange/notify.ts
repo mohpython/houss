@@ -25,25 +25,39 @@ export const Route = createFileRoute("/api/public/payments/orange/notify")({
         const status = String(payload.status || "").toUpperCase();
         const orderId = String(payload.order_id || payload.orderId || "");
         const notifPayToken = String(payload.pay_token || "");
+        // Orange n'envoie PAS d'order_id dans la notification : le seul moyen
+        // de relier la notification à la commande est le notif_token
+        // (renvoyé à l'initiation du paiement). Some versions l'envoient
+        // aussi : on accepte les deux.
+        const notifToken = String(payload.notif_token || "");
 
         console.log(
-          `[orange-money] notification reçue status=${status} order_id=${orderId}`,
+          `[orange-money] notification reçue status=${status} order_id=${orderId} notif_token=${notifToken}`,
         );
 
-        if (!orderId) {
+        if (!orderId && !notifToken) {
           return new Response("Missing order_id", { status: 400 });
         }
 
         try {
           const { prisma } = await import("@/server/db.server");
 
-          // 1. On retrouve la commande à partir de l'order_id mémorisé à l'initiation.
-          const res = await prisma.reservations.findUnique({
-            where: { payment_order_id: orderId },
-            select: { id: true, payment_status: true, total_amount: true, payment_pay_token: true },
+          // 1. On retrouve la commande : par order_id si Orange l'envoie,
+          //    sinon par notif_token (le cas réel du portail Orange Money).
+          const res = await prisma.reservations.findFirst({
+            where: orderId
+              ? { payment_order_id: orderId }
+              : { payment_notif_token: notifToken },
+            select: {
+              id: true,
+              payment_status: true,
+              total_amount: true,
+              payment_pay_token: true,
+              payment_order_id: true,
+            },
           });
           if (!res) {
-            console.warn(`[orange-money] commande introuvable pour order_id ${orderId}`);
+            console.warn(`[orange-money] commande introuvable pour order_id ${orderId} / notif_token ${notifToken}`);
             return new Response("ok", { status: 200 });
           }
           if (res.payment_status === "paid") {
@@ -63,7 +77,13 @@ export const Route = createFileRoute("/api/public/payments/orange/notify")({
           let finalStatus = "UNKNOWN";
           try {
             const { checkOrangePaymentStatus } = await import("@/lib/orange-money.server");
-            const check = await checkOrangePaymentStatus(orderId, res.total_amount, payToken);
+            // L'API Orange exige l'order_id : on prend celui de NOTRE base
+            // (jamais celui du payload, qui peut être absent).
+            const check = await checkOrangePaymentStatus(
+              orderId || res.payment_order_id || "",
+              res.total_amount,
+              payToken,
+            );
             finalStatus = check.status.toUpperCase();
             console.log(`[orange-money] vérification API → ${finalStatus}`);
           } catch (err) {
@@ -76,7 +96,10 @@ export const Route = createFileRoute("/api/public/payments/orange/notify")({
             if (finalStatus === "FAILED" || finalStatus === "EXPIRED" || finalStatus === "CANCELLED") {
               await prisma.audit_logs.create({
                 data: {
-                  actor_user_id: "system",
+                  // Les actions du serveur sont tracées sans acteur : la
+                  // colonne actor_user_id est un UUID (clé étrangère users),
+                  // impossible d'y mettre « system ».
+                  actor_user_id: null,
                   action: "payment_orange_failed",
                   entity: "reservation",
                   entity_id: res.id,
@@ -89,24 +112,24 @@ export const Route = createFileRoute("/api/public/payments/orange/notify")({
 
           // 3. Paiement confirmé par Orange : on passe la commande en « payée »
           // et on déclenche l'assignation automatique d'un livreur.
-          const { updateReservationAs } = await import("@/lib/reservation-rules.server");
-          await updateReservationAs("system", res.id, {
+          const { updateReservationAsSystem } = await import("@/lib/reservation-rules.server");
+          await updateReservationAsSystem(res.id, {
             payment_status: "paid",
             payment_method: "orange_money",
-            payment_reference: orderId,
+            payment_reference: orderId || res.payment_order_id,
             paid_at: new Date(),
           });
 
           try {
             const { assignCourierCore } = await import("@/lib/routing-core.server");
-            await assignCourierCore(res.id, "system");
+            await assignCourierCore(res.id, null);
           } catch (err) {
             console.error("[orange-money] assignation livreur après paiement", err);
           }
 
           await prisma.audit_logs.create({
             data: {
-              actor_user_id: "system",
+              actor_user_id: null,
               action: "payment_orange_webpay",
               entity: "reservation",
               entity_id: res.id,

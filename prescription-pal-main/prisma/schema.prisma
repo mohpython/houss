@@ -395,6 +395,9 @@ model reservations {
   // Jeton de vérification Orange (pay_token) — nécessaire pour interroger
   // le statut réel via POST /transactionstatus
   payment_pay_token        String?
+  // Jeton de notification Orange (notif_token) : c'est la SEULE clé
+  // présente dans le webhook Orange (le webhook n'envoie pas order_id).
+  payment_notif_token      String?            @unique
   paid_at                  DateTime?          @db.Timestamptz(6)
   // Horodatages du cycle de vie
   accepted_at              DateTime?          @db.Timestamptz(6)

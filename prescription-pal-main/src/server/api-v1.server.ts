@@ -769,8 +769,8 @@ async function getReservation(ctx: Ctx) {
         row.payment_pay_token,
       );
       if (check.status.toUpperCase() === "SUCCESS") {
-        const { updateReservationAs } = await import("@/lib/reservation-rules.server");
-        await updateReservationAs("system", row.id, {
+        const { updateReservationAsSystem } = await import("@/lib/reservation-rules.server");
+        await updateReservationAsSystem(row.id, {
           payment_status: "paid",
           payment_method: "orange_money",
           payment_reference: row.payment_order_id,
@@ -1045,7 +1045,11 @@ async function startOrangePayment(ctx: Ctx) {
 
   await prisma.reservations.update({
     where: { id: res.id },
-    data: { payment_order_id: init.orderId, payment_pay_token: init.payToken },
+    data: {
+      payment_order_id: init.orderId,
+      payment_pay_token: init.payToken,
+      payment_notif_token: init.notifToken || null,
+    },
   });
 
   await prisma.audit_logs.create({

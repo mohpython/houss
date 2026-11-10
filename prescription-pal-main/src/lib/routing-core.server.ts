@@ -434,7 +434,9 @@ export async function autoRouteCore(input: AutoRouteInput): Promise<AutoRouteRes
 /** Assigns the closest online approved courier. Returns null when none is available. */
 export async function assignCourierCore(
   reservationId: string,
-  actorUserId: string,
+  // null = action du serveur (webhook Orange) : le journal est alors écrit
+  // sans acteur, car actor_user_id est une clé étrangère vers users (UUID).
+  actorUserId: string | null,
 ): Promise<{ courierId: string; courierName: string } | null> {
   const res = await prisma.reservations.findUnique({
     where: { id: reservationId },

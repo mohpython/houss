@@ -183,6 +183,28 @@ export async function updateReservationAs(
 }
 
 /**
+ * Mise à jour par le serveur lui-même (webhook Orange Money, réconciliation
+ * automatique) : il n'y a pas d'utilisateur derrière l'appel.
+ *
+ * On ne peut PAS passer par `updateReservationAs` : « system » n'est pas un
+ * UUID, donc les vérifications de rôles (`user_roles`, `pharmacies`,
+ * `pharmacy_staff`) lèvent une erreur Prisma. Les appelants de cette
+ * fonction ont déjà vérifié le paiement auprès d'Orange (statut réel via
+ * /transactionstatus), donc la mise à jour est justifiée.
+ */
+export async function updateReservationAsSystem(
+  reservationId: string,
+  patch: ReservationPatch,
+) {
+  const before = await prisma.reservations.findUnique({ where: { id: reservationId } });
+  if (!before) throw new NotFoundError("Commande introuvable");
+  return prisma.reservations.update({
+    where: { id: reservationId },
+    data: patch as Prisma.reservationsUncheckedUpdateInput,
+  });
+}
+
+/**
  * Ancienne RLS `couriers` : son propre profil, admin, ou patient / pharmacie
  * d'une livraison ACTIVE de ce livreur (private.user_can_view_courier).
  */
