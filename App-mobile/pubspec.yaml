@@ -46,6 +46,10 @@ dependencies:
   google_sign_in: ^6.1.0
   app_links: ^6.3.3
   url_launcher: ^6.3.1
+  # Page de paiement Orange Money affichée DANS l'application : l'app peut
+  # ainsi surveiller la transaction et refermer la page automatiquement dès
+  # que le paiement est confirmé (au lieu d'attendre le retour du navigateur).
+  webview_flutter: ^4.13.0
 
   # Notifications push en arrière-plan, façon WhatsApp (Firebase Cloud Messaging)
   firebase_core: ^4.0.0

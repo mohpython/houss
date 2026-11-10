@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/config/app_config.dart';
 import 'package:saha_sante/core/models/reservation.dart';
@@ -10,6 +9,7 @@ import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
+import 'package:saha_sante/features/payments/orange_payment_screen.dart';
 
 /// Montant en FCFA, arrondi et séparé par milliers (« 4 000 FCFA »).
 String _frAmount(num amount) {
@@ -68,11 +68,6 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
   String? _error;
   bool _empty = false;
 
-  /// Vrai entre l'ouverture de la page Orange Money et le retour dans
-  /// l'application : au retour, on recharge la commande pour récupérer le
-  /// statut réel (le webhook peut avoir marqué le paiement payé entre-temps).
-  bool _awaitingOrangeReturn = false;
-
   /// Numero du dernier changement de mode de remise demande. Une reponse qui
   /// arrive pour un numero anterieur est ignoree : sans cela, cliquer vite sur
   /// « retrait » puis « livraison » pouvait reafficher « retrait » alors que la
@@ -82,16 +77,7 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _load();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _awaitingOrangeReturn) {
-      _awaitingOrangeReturn = false;
-      _verifyAfterOrangeReturn();
-    }
   }
 
   Future<void> _verifyAfterOrangeReturn() async {
@@ -300,10 +286,13 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
     }
   }
 
-  /// Démarre un paiement en ligne Orange Money WebPay : l'application demande
-  /// au serveur une URL de paiement puis l'ouvre dans le navigateur du
-  /// téléphone. L'argent (médicaments + livraison) est versé directement sur
-  /// le compte Orange Money de la pharmacie.
+  /// Démarre un paiement en ligne Orange Money WebPay : la page de paiement
+  /// s'ouvre DANS l'application (WebView) afin que l'app puisse surveiller la
+  /// transaction et refermer la page automatiquement dès que le paiement est
+  /// confirmé — le patient revient alors directement sur le suivi.
+  ///
+  /// L'argent (médicaments + livraison) est versé directement sur le compte
+  /// Orange Money de la pharmacie.
   Future<void> _payOnline() async {
     final id = _currentId;
     if (id == null || _busy) return;
@@ -311,20 +300,35 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
     setState(() => _busy = true);
     try {
       final result = await ApiService.instance.startOrangePayment(id);
-      final uri = Uri.tryParse(result.paymentUrl);
-      if (uri == null || result.paymentUrl.isEmpty) {
+      if (result.paymentUrl.isEmpty) {
         if (!mounted) return;
         setState(() => _busy = false);
         _showError(L10n.c('trk.payOpenFailed'));
         return;
       }
-      _awaitingOrangeReturn = true;
-      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!mounted) return;
       setState(() => _busy = false);
-      if (!opened) {
-        _awaitingOrangeReturn = false;
-        _showError(L10n.c('trk.payOpenFailed'));
+      final paid = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => OrangePaymentScreen(
+            reservationId: id,
+            paymentUrl: result.paymentUrl,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      // Paiement confirmé : on recharge le suivi de la commande.
+      if (paid == true) {
+        await _load();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(L10n.c('st.pay.paid')),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      } else {
+        await _verifyAfterOrangeReturn();
       }
     } on ApiException catch (e) {
       if (!mounted) return;
