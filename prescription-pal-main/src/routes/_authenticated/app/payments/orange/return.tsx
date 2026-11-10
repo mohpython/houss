@@ -116,6 +116,23 @@ function OrangeReturn() {
       : router.navigate({ to: "/app/reservations" });
   const goHome = () => router.navigate({ to: "/app" });
 
+  /**
+   * La page de paiement Orange se ferme toute seule : on ne laisse pas le
+   * patient appuyer sur un bouton. Paiement réussi → suivi de livraison ;
+   * paiement échoué/annulé → retour à la page « Payer » pour réessayer.
+   * Un court délai laisse le temps de lire le message de confirmation.
+   */
+  useEffect(() => {
+    if (state === "success") {
+      const timer = setTimeout(() => goOrders(), 2_000);
+      return () => clearTimeout(timer);
+    }
+    if (state === "failed") {
+      const timer = setTimeout(() => goRetry(), 2_500);
+      return () => clearTimeout(timer);
+    }
+  }, [state, reservationId]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md rounded-2xl border bg-card p-8 text-center shadow-sm">
@@ -146,6 +163,9 @@ function OrangeReturn() {
             <Button onClick={goOrders} className="mt-6 w-full" size="lg">
               {t("pay.orange.viewOrder", "Voir ma commande")}
             </Button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Redirection automatique vers le suivi…
+            </p>
           </>
         )}
 
@@ -185,6 +205,9 @@ function OrangeReturn() {
             <Button onClick={goHome} className="mt-2 w-full" size="lg" variant="ghost">
               {t("nav.home", "Accueil")}
             </Button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Redirection automatique vers le paiement…
+            </p>
           </>
         )}
       </div>
