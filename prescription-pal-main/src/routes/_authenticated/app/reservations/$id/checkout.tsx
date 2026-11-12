@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { MissingItemsPanel, type MissingEntry } from "@/components/MissingItemsPanel";
+import { SpeakButton } from "@/components/speak-button";
 
 export const Route = createFileRoute("/_authenticated/app/reservations/$id/checkout")({
   head: () => ({
@@ -267,7 +268,13 @@ function Checkout() {
 
   return (
     <div className="mx-auto max-w-md px-6 py-8">
-      <h1 className="text-lg font-semibold">{t("pay.title")}</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-lg font-semibold">{t("pay.title")}</h1>
+        <SpeakButton
+          text={`${t("pay.title")}. ${t("pay.total")} ${formatAmount(row.total_amount)}. ${t("pay.fulfillment")}`}
+          className="ml-auto"
+        />
+      </div>
 
       <div className="mt-4 flex items-center gap-3 rounded-2xl border border-border px-4 py-3">
         <span

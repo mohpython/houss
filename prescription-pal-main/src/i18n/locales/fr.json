@@ -649,6 +649,12 @@
     "noMeds": "Aucun médicament extrait",
     "jsonSummary": "JSON extrait par l'IA"
   },
+  "voice": {
+    "listen": "Écouter",
+    "title": "Lecture vocale des instructions",
+    "enable": "Lire les instructions à voix haute",
+    "fallback": "Voix {lang} non disponible sur cet appareil : lecture en français."
+  },
   "pay": {
     "title": "Votre commande",
     "available": "Disponible",

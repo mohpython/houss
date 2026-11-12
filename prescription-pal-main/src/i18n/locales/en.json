@@ -649,6 +649,12 @@
     "noMeds": "No medicines extracted",
     "jsonSummary": "JSON extracted by AI"
   },
+  "voice": {
+    "listen": "Listen",
+    "title": "Spoken instructions",
+    "enable": "Read instructions aloud",
+    "fallback": "{lang} voice not available on this device: reading in French."
+  },
   "pay": {
     "title": "Your order",
     "available": "Available",

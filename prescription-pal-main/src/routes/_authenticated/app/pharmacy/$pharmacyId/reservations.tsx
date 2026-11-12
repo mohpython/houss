@@ -6,6 +6,7 @@ import { listPharmacyReservations } from "@/lib/pharmacy-portal.functions";
 import { assignCourier } from "@/lib/delivery.functions";
 import { confirmPaymentReceived } from "@/lib/payment.functions";
 import { verifyPickupCode } from "@/lib/fulfillment.functions";
+import { SpeakButton } from "@/components/speak-button";
 import { subscribeRealtime } from "@/integrations/realtime/client";
 import { Input } from "@/components/ui/input";
 import { formatAmount } from "@/lib/payment-config";
@@ -154,7 +155,13 @@ function Reservations() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold">{t("pharm.incoming")}</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold">{t("pharm.incoming")}</h2>
+        <SpeakButton
+          className="ml-auto"
+          text={`${t("pharm.incoming")}. ${t("pharm.markReady")}. ${t("pharm.pickupCode")}.`}
+        />
+      </div>
       <div className="mt-3 space-y-3">
         {rows === null && <Skeleton className="h-24 w-full" />}
         {rows?.length === 0 && (

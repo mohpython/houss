@@ -33,6 +33,7 @@ import { useTranslation } from "react-i18next";
 import { AutoFlowProgress, type StepState } from "@/components/AutoFlowProgress";
 import { parseFlexibleDate, rxDateStatus } from "@/lib/date-utils";
 import { DeliveryLocationPicker, type DeliveryLocation } from "@/components/DeliveryLocationPicker";
+import { SpeakButton } from "@/components/speak-button";
 
 export const Route = createFileRoute("/_authenticated/app/scan")({
   component: Scan,
@@ -107,6 +108,11 @@ function Scan() {
   /** Prescription en cours de parcours (étapes 1 à 3). */
   const [pendingRx, setPendingRx] = useState<string | null>(null);
   const [deliveryLoc, setDeliveryLoc] = useState<DeliveryLocation | null>(null);
+  /** Lieu choisi dans le prompt affiché au moment de photographier. */
+  const [locPromptOpen, setLocPromptOpen] = useState(false);
+  const [promptLoc, setPromptLoc] = useState<DeliveryLocation | null>(null);
+  /** Capture (caméra ou fichier) en attente de la confirmation du lieu. */
+  const [pendingCapture, setPendingCapture] = useState<"camera" | "file" | null>(null);
   /** Étape 1 : domicile (livrée) ou retrait (par un livreur / soi-même). */
   const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">("delivery");
   /** Étape 2 : devis classés, sans rien créer. */
@@ -175,6 +181,43 @@ function Scan() {
     }
   };
 
+  /**
+   * Clic sur la photo ou le fichier : le patient doit d'abord confirmer où il
+   * veut être livré. Si le lieu est déjà connu (choisi dans cette session ou
+   * mémorisé du dernier scan), on enchaîne directement.
+   */
+  const startCapture = (kind: "camera" | "file") => {
+    if (deliveryLoc) {
+      if (kind === "camera") void openCamera();
+      else inputRef.current?.click();
+      return;
+    }
+    // Pré-remplit avec le lieu du dernier scan, s'il existe.
+    try {
+      const raw = localStorage.getItem("saha:last-delivery-loc");
+      if (raw) setPromptLoc(JSON.parse(raw) as DeliveryLocation);
+    } catch {
+      /* ignore */
+    }
+    setPendingCapture(kind);
+    setLocPromptOpen(true);
+  };
+
+  const confirmLocationPrompt = () => {
+    if (!promptLoc) return;
+    setDeliveryLoc(promptLoc);
+    try {
+      localStorage.setItem("saha:last-delivery-loc", JSON.stringify(promptLoc));
+    } catch {
+      /* ignore */
+    }
+    setLocPromptOpen(false);
+    const kind = pendingCapture;
+    setPendingCapture(null);
+    if (kind === "camera") void openCamera();
+    else if (kind === "file") inputRef.current?.click();
+  };
+
   /** Lieu + mode sous forme d'entrée serveur (devis puis création). */
   const locData = (loc: DeliveryLocation) =>
     loc.mode === "neighborhood"
@@ -194,12 +237,17 @@ function Scan() {
    * règle la livraison et le paiement.
    */
   const continueToStep1 = async (rxId: string) => {
-    const pos = await getGeo();
     setPendingRx(rxId);
     setQuotes(null);
     setQuotesError(null);
     setSelectedQuote(null);
     setFulfillment("delivery");
+    // Lieu déjà choisi avant la photo : on l'utilise directement.
+    if (deliveryLoc) {
+      await loadQuotes(rxId, deliveryLoc);
+      return;
+    }
+    const pos = await getGeo();
     if (!pos) {
       // Sans position, on demande un quartier avant d'afficher les pharmacies.
       setDeliveryLoc(null);
@@ -458,11 +506,58 @@ function Scan() {
         }}
       />
 
+      {/* Lieu de livraison demandé au moment de photographier l'ordonnance. */}
+      {locPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => {
+              setLocPromptOpen(false);
+              setPendingCapture(null);
+            }}
+          />
+          <div className="relative w-full max-w-md rounded-3xl border border-border bg-background p-5 shadow-2xl">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              <h2 className="font-display text-lg">{t("scan.locationTitle")}</h2>
+              <SpeakButton
+                text={`${t("scan.locationTitle")}. ${t("scan.locationHint")}`}
+                className="ml-auto"
+              />
+            </div>
+            <p className="mt-1 text-sm text-foreground/70">{t("scan.locationHint")}</p>
+            <div className="mt-4">
+              <DeliveryLocationPicker value={promptLoc} onChange={setPromptLoc} />
+            </div>
+            <div className="mt-5 flex gap-2">
+              <Button
+                variant="ghost"
+                className="flex-1 rounded-full"
+                onClick={() => {
+                  setLocPromptOpen(false);
+                  setPendingCapture(null);
+                }}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                className="flex-1 rounded-full"
+                onClick={confirmLocationPrompt}
+                disabled={!promptLoc}
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                {t("scan.locationContinue")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {phase === 0 && !failed && !review && !correction && (
         <>
           <button
             type="button"
-            onClick={openCamera}
+            onClick={() => startCapture("camera")}
             aria-label={t("nav.scan")}
             className="flex h-40 w-40 items-center justify-center rounded-full aurora-bg text-on-aurora shadow-2xl shadow-primary/40 transition-transform active:scale-95"
           >
@@ -474,7 +569,7 @@ function Scan() {
               size="icon"
               className="h-12 w-12 rounded-full border border-border"
               aria-label={t("scan.file")}
-              onClick={() => inputRef.current?.click()}
+              onClick={() => startCapture("file")}
             >
               <Upload className="h-5 w-5" />
             </Button>

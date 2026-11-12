@@ -7,6 +7,7 @@ import { getReservationTracking } from "@/lib/reservations.functions";
 import { subscribeRealtime } from "@/integrations/realtime/client";
 import { getDeliveryRoute } from "@/lib/delivery.functions";
 import { loadLeaflet, decodePolyline, letterIcon, dotIcon } from "@/lib/osmap";
+import { SpeakButton } from "@/components/speak-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -208,9 +209,22 @@ function TrackPage() {
           {t("track.back")}
         </Link>
       </div>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">
-        {isPickup ? t("track.pickupTitle") : t("track.title")}
-      </h1>
+      <div className="mt-2 flex items-center gap-2">
+        <h1 className="text-2xl font-bold tracking-tight">
+          {isPickup ? t("track.pickupTitle") : t("track.title")}
+        </h1>
+        <SpeakButton
+          className="ml-auto"
+          text={[
+            isPickup ? t("track.pickupTitle") : t("track.title"),
+            t("track.pickupCode"),
+            res.fulfillment_method === "pickup"
+              ? t("track.pickupCodeHintPickup")
+              : t("track.pickupCodeHint"),
+            t("resStatus." + res.status, res.status),
+          ].join(". ")}
+        />
+      </div>
 
       {!isPickup && (
         <Card className="mt-4 overflow-hidden">
