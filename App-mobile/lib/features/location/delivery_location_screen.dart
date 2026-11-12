@@ -8,6 +8,7 @@ import 'package:saha_sante/core/services/delivery_location_store.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/voice_button.dart';
 
 /// Choix du lieu de livraison pour une ordonnance validée.
 ///
@@ -226,6 +227,9 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
                         L10n.t(context, 'delivery.title'),
                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
+                    ),
+                    VoiceButton(
+                      text: '${L10n.t(context, 'delivery.title')}. ${L10n.t(context, 'delivery.hint')}',
                     ),
                   ],
                 ),

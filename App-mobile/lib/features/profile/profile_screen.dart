@@ -5,6 +5,7 @@ import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/l10n/language_picker.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/theme/app_theme_mode.dart';
@@ -133,6 +134,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// Ouvre le fil de notifications (style SMS, cliquable).
   void _showNotifications() {
     context.push('/notifications');
+  }
+
+  /// Feuille de réglage de la lecture vocale : activation, test et langue.
+  Future<void> _showVoiceSheet(BuildContext context) async {
+    final voice = VoiceService.instance;
+    await voice.init();
+    if (!mounted) return;
+    if (!context.mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: AnimatedBuilder(
+            animation: voice,
+            builder: (context, _) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      L10n.t(context, 'voice.title'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    value: voice.enabled,
+                    onChanged: (v) => voice.setEnabled(v),
+                    title: Text(L10n.t(context, 'voice.enable')),
+                    subtitle: Text(
+                      '${L10n.t(context, 'language')} — ${AppLocale.instance.current.label}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  if (voice.usingFallback)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                      child: Text(
+                        L10n.tArgs(context, 'voice.fallback', {
+                          'lang': AppLocale.instance.current.label,
+                        }),
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          voice.speak(L10n.t(context, 'voice.testText')),
+                      icon: const Icon(Icons.volume_up_outlined),
+                      label: Text(L10n.t(context, 'voice.test')),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _signOut() async {
@@ -270,6 +338,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             title: '${L10n.t(context, 'theme')} — '
                                 '${L10n.t(context, 'theme.${AppThemeMode.instance.mode.code}')}',
                             onTap: () => showThemeSheet(context),
+                          ),
+                          _ProfileTile(
+                            icon: Icons.volume_up_outlined,
+                            title: '${L10n.t(context, 'voice')} — '
+                                '${VoiceService.instance.enabled ? L10n.t(context, 'voice.on') : L10n.t(context, 'voice.off')}',
+                            onTap: () => _showVoiceSheet(context),
                           ),
                           _ProfileTile(
                             icon: Icons.healing,

@@ -1,25 +1,22 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+
+import 'voice_service.dart';
 
 /// Sonnerie + lecture vocale pour les notifications push (commandes, paiements, courses).
+///
+/// La lecture suit la langue choisie par le patient (voir [VoiceService]).
 class AlertService {
   AlertService._();
   static final AlertService instance = AlertService._();
 
-  final FlutterTts _tts = FlutterTts();
   final AudioPlayer _player = AudioPlayer();
   bool _ready = false;
   final Set<String> _seen = <String>{};
 
   Future<void> init() async {
     if (_ready) return;
-    try {
-      await _tts.setLanguage('fr-FR');
-      await _tts.setSpeechRate(0.5);
-      await _tts.setVolume(1.0);
-      await _tts.setPitch(1.0);
-    } catch (_) {}
+    await VoiceService.instance.init();
     _ready = true;
   }
 
@@ -41,10 +38,10 @@ class AlertService {
       await HapticFeedback.heavyImpact();
     } catch (_) {}
 
-    // 3. Lecture vocale (après la sonnerie)
+    // 3. Lecture vocale (après la sonnerie), dans la langue choisie
     Future.delayed(const Duration(milliseconds: 900), () async {
       try {
-        await _tts.speak(message);
+        await VoiceService.instance.speak(message);
       } catch (_) {}
     });
   }

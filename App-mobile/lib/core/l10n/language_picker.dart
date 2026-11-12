@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 
 /// Sélecteur de langue partagé (onboarding, connexion, profil).
@@ -42,6 +43,8 @@ Future<void> showLanguageSheet(BuildContext context) {
                     : null,
                 onTap: () {
                   AppLocale.instance.setLang(lang);
+                  // La voix vocale suit la langue choisie.
+                  VoiceService.instance.setLanguage(lang);
                   Navigator.of(sheetContext).pop();
                 },
               );

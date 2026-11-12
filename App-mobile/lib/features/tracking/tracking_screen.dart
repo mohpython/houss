@@ -9,6 +9,7 @@ import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
+import 'package:saha_sante/core/widgets/voice_button.dart';
 import 'package:saha_sante/features/payments/orange_payment_screen.dart';
 
 /// Montant en FCFA, arrondi et séparé par milliers (« 4 000 FCFA »).
@@ -427,6 +428,19 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
     ];
   }
 
+  /// Texte lu à voix haute : les étapes de la commande et son état de
+  /// paiement, dans la langue choisie.
+  String _voiceStepsText() {
+    final steps = _steps().map((s) => s.status).join('. ');
+    final pay = switch (_reservation?.paymentStatus) {
+      'paid' => L10n.c('st.pay.paid'),
+      'pending_verification' => L10n.c('trk.payPending'),
+      'failed' => L10n.c('st.pay.failed'),
+      _ => L10n.c('st.pay.unpaid'),
+    };
+    return '${L10n.c('trk.title')}. $steps. $pay';
+  }
+
   @override
   Widget build(BuildContext context) {
     L10n.bind(context);
@@ -466,6 +480,9 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
                           L10n.t(context, 'trk.title'),
                           style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                         ),
+                      ),
+                      VoiceButton(
+                        text: _voiceStepsText(),
                       ),
                     ],
                   ),

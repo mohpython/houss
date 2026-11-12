@@ -9,6 +9,7 @@ import 'package:saha_sante/core/services/delivery_location_store.dart';
 import 'package:saha_sante/features/location/delivery_location_sheet.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
+import 'package:saha_sante/core/widgets/voice_button.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 
 class ScanScreen extends StatefulWidget {
@@ -231,10 +232,20 @@ class _ScanScreenState extends State<ScanScreen> {
           child: const Icon(Icons.camera_alt, size: 72, color: Colors.white),
         ),
         const SizedBox(height: 40),
-        Text(
-          L10n.t(context, 'scan.title'),
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                L10n.t(context, 'scan.title'),
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            VoiceButton(
+              text: '${L10n.t(context, 'scan.title')}. ${L10n.t(context, 'scan.subtitle')}',
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         Text(
