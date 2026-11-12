@@ -580,6 +580,10 @@ function Scan() {
             >
               <Pill className="h-5 w-5" />
             </Link>
+            <SpeakButton
+              className="h-12 w-12 rounded-full border border-border"
+              text={`${t("scan.locationTitle")}. ${t("scan.locationHint")}`}
+            />
           </div>
         </>
       )}
