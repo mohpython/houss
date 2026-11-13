@@ -2,32 +2,64 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/l10n/language_picker.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/voice_guide_toggle.dart';
 
 /// Première page d'installation (façon WhatsApp) : quelques mots de
 /// présentation + « Commencer ». La langue se choisit ici aussi.
-class OnboardingScreen extends StatelessWidget {
+///
+/// La voix lit automatiquement les instructions dans la langue choisie —
+/// comme l'app NIAGA qui parle au patient dès le premier écran.
+class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
+
+  @override
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // La voix guide le patient dès l'ouverture de l'application.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      VoiceService.instance.speak(_intro());
+    });
+  }
+
+  String _intro() => [
+        L10n.c('brand'),
+        L10n.c('tagline'),
+        L10n.c('hero1'),
+        L10n.c('hero2'),
+        L10n.c('heroDesc'),
+        L10n.c('getStarted'),
+      ].join('. ');
 
   @override
   Widget build(BuildContext context) {
     L10n.bind(context);
     return Scaffold(
-      body: Container(
-        decoration: AppTheme.subtleGradient,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                Row(
+      body: Stack(
+        children: [
+          Container(
+            decoration: AppTheme.subtleGradient,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
                   children: [
-                    const Spacer(),
-                    const LanguageChip(),
-                  ],
-                ),
+                    const SizedBox(height: 12),
+                    // Bouton pause / reprise vocale en haut à gauche (façon NIAGA).
+                    Row(
+                      children: [
+                        const VoiceGuideToggle(),
+                        const Spacer(),
+                        const LanguageChip(),
+                      ],
+                    ),
                 const Spacer(flex: 2),
                 // Logo officiel SAHA Santé (`assets/branding/logo_mark.png`,
                 // fond transparent, bleu/cyan). Il est conçu pour un fond clair
@@ -113,6 +145,8 @@ class OnboardingScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
+      ],
+    ),
+  );
   }
 }

@@ -7,6 +7,7 @@ import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/widgets/notification_bell.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/features/home/notification_check_banner.dart';
 
@@ -25,6 +26,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Voix : lit l'accueil (« Une ordonnance à faire préparer ? » + les services).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      VoiceService.instance.speak(
+        [
+          L10n.c('home.heroTitle'),
+          L10n.c('home.heroDesc'),
+          L10n.c('home.scanCta'),
+        ].join('. '),
+      );
+    });
     _load();
   }
 

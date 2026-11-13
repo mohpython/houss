@@ -20,6 +20,8 @@ class VoiceService extends ChangeNotifier {
   bool _ready = false;
   bool _enabled = true;
   bool _speaking = false;
+  /// Dernier texte lu (pour « réécouter » / la réactivation).
+  String _lastText = '';
   /// Langue réellement utilisée pour la synthèse (peut différer de la langue
   /// choisie si la voix n'est pas installée sur l'appareil).
   String _spokenLanguage = 'fr-FR';
@@ -113,6 +115,7 @@ class VoiceService extends ChangeNotifier {
   Future<void> speak(String text) async {
     if (!_enabled || text.trim().isEmpty) return;
     if (!_ready) await init();
+    _lastText = text;
     await _applyVoice(_lang);
     try {
       await _tts.stop();
@@ -125,6 +128,12 @@ class VoiceService extends ChangeNotifier {
       _speaking = false;
       notifyListeners();
     }
+  }
+
+  /// Relit le dernier message (bouton « réécouter » / réactivation).
+  Future<void> repeat() async {
+    if (_lastText.isEmpty) return;
+    await speak(_lastText);
   }
 
   /// Lit plusieurs messages l'un après l'autre.

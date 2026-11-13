@@ -6,8 +6,10 @@ import 'package:saha_sante/core/config/app_config.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/l10n/language_picker.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/voice_guide_toggle.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -43,6 +45,12 @@ class _LoginScreenState extends State<LoginScreen> {
           await _verifyOtp();
         }
       }
+    });
+    // La voix guide la connexion, dans la langue choisie.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      VoiceService.instance.speak(
+        '${L10n.c('loginTitle')}. ${L10n.c('loginSub')}',
+      );
     });
   }
 
@@ -179,6 +187,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
                       Row(
                         children: [
+                          const VoiceGuideToggle(),
+                          const SizedBox(width: 8),
                           if (context.canPop())
                             IconButton(
                               onPressed: () => context.pop(),

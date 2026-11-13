@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/l10n/language_picker.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/voice_guide_toggle.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Inscription : Google uniquement.
@@ -24,6 +26,16 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   bool _googleLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      VoiceService.instance.speak(
+        '${L10n.c('registerTitle')}. ${L10n.c('registerSub')}',
+      );
+    });
+  }
 
   /// Création de compte via le site web (Google) — même flux que la connexion.
   Future<void> _signUpWithGoogle() async {
@@ -68,6 +80,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 16),
                       Row(
                         children: [
+                          const VoiceGuideToggle(),
+                          const SizedBox(width: 8),
                           IconButton(
                             onPressed: () => context.pop(),
                             icon: const Icon(Icons.arrow_back),

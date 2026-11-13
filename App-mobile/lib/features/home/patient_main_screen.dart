@@ -11,6 +11,7 @@ import 'package:saha_sante/features/practitioner/practitioner_space_screen.dart'
 import 'package:saha_sante/features/profile/profile_screen.dart';
 import 'package:saha_sante/features/scan/scan_screen.dart';
 import 'package:saha_sante/features/tracking/tracking_screen.dart';
+import 'package:saha_sante/core/widgets/voice_guide_toggle.dart';
 
 /// Écran principal : menu du bas construit selon le rôle de l'utilisateur.
 ///
@@ -108,10 +109,25 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
         ];
 
         return Scaffold(
-          body: tabs.pages[_currentIndex],
-          // Commande via WhatsApp, bouton flottant façon site : visible pour
-          // tous les comptes, comme sur le site.
-          floatingActionButton: const WhatsAppFab(),
+          body: Stack(
+            children: [
+              tabs.pages[_currentIndex],
+              // Bouton pause/reprise vocale flottant (façon NIAGA), en haut
+              // à gauche : présent sur tous les écrans de l'application.
+              const Positioned(
+                top: 44,
+                left: 8,
+                child: VoiceGuideToggle(),
+              ),
+              // Commande via WhatsApp, bouton flottant façon site : visible
+              // pour tous les comptes, comme sur le site.
+              const Positioned(
+                bottom: 16,
+                right: 16,
+                child: WhatsAppFab(),
+              ),
+            ],
+          ),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: AppColors.surface,
