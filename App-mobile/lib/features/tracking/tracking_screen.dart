@@ -7,9 +7,10 @@ import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
-import 'package:saha_sante/core/widgets/notification_bell.dart';
+import 'package:saha_sante/core/widgets/saha_header.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/widgets/voice_button.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 import 'package:saha_sante/features/payments/orange_payment_screen.dart';
 
 /// Montant en FCFA, arrondi et séparé par milliers (« 4 000 FCFA »).
@@ -78,7 +79,11 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
   @override
   void initState() {
     super.initState();
-    _load();
+    // Voix : lit les étapes de la commande une fois les données chargées.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _load();
+      if (mounted) VoiceService.instance.speak(_voiceStepsText());
+    });
   }
 
   Future<void> _verifyAfterOrangeReturn() async {
@@ -446,7 +451,6 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
     L10n.bind(context);
     final reservation = _reservation;
     final raw = _raw ?? const <String, dynamic>{};
-    final canPop = Navigator.of(context).canPop();
     final paymentStatus = reservation?.paymentStatus ?? 'unpaid';
     final active = reservation != null &&
         reservation.status != ReservationStatus.cancelled &&
@@ -467,24 +471,12 @@ class _TrackingScreenState extends State<TrackingScreen> with WidgetsBindingObse
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      if (canPop)
-                        IconButton(
-                          onPressed: () => context.pop(),
-                          icon: const Icon(Icons.arrow_back),
-                        ),
-                      const NotificationBell(),
-                      Expanded(
-                        child: Text(
-                          L10n.t(context, 'trk.title'),
-                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      VoiceButton(
-                        text: _voiceStepsText(),
-                      ),
-                    ],
+                  SahaHeader(
+                    title: L10n.t(context, 'trk.title'),
+                    titleSize: 26,
+                    trailing: VoiceButton(
+                      text: _voiceStepsText(),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(

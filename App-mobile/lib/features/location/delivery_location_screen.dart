@@ -8,7 +8,9 @@ import 'package:saha_sante/core/services/delivery_location_store.dart';
 import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
+import 'package:saha_sante/core/widgets/saha_header.dart';
 import 'package:saha_sante/core/widgets/voice_button.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 
 /// Choix du lieu de livraison pour une ordonnance validée.
 ///
@@ -54,6 +56,12 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
   @override
   void initState() {
     super.initState();
+    // Voix : lit les instructions dès l'ouverture de l'écran.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => VoiceService.instance.speak(
+        '${L10n.c('delivery.title')}. ${L10n.c('delivery.hint')}',
+      ),
+    );
     // Pré-remplit avec le lieu choisi AVANT la photo : le patient peut le
     // modifier, il n'a plus à le ressaisir.
     final saved = DeliveryLocationStore.instance;
@@ -215,23 +223,12 @@ class _DeliveryLocationScreenState extends State<DeliveryLocationScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_back),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        L10n.t(context, 'delivery.title'),
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    VoiceButton(
-                      text: '${L10n.t(context, 'delivery.title')}. ${L10n.t(context, 'delivery.hint')}',
-                    ),
-                  ],
+                SahaHeader(
+                  title: L10n.t(context, 'delivery.title'),
+                  titleSize: 20,
+                  trailing: VoiceButton(
+                    text: '${L10n.t(context, 'delivery.title')}. ${L10n.t(context, 'delivery.hint')}',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(

@@ -10,6 +10,7 @@ import 'package:saha_sante/features/location/delivery_location_sheet.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/widgets/voice_button.dart';
+import 'package:saha_sante/core/services/voice_service.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 
 class ScanScreen extends StatefulWidget {
@@ -21,6 +22,22 @@ class ScanScreen extends StatefulWidget {
 
 class _ScanScreenState extends State<ScanScreen> {
   final _picker = ImagePicker();
+
+  /// Lit les instructions de l'écran à voix haute dans la langue choisie.
+  /// Appelé à l'ouverture de l'écran : le patient entend ce qu'il doit faire
+  /// sans avoir à toucher quoi que ce soit.
+  void _speakIntro() {
+    VoiceService.instance.speak(
+      '${L10n.c('scan.title')}. ${L10n.c('scan.subtitle')}',
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Voix : lit l'introduction après le premier cadre.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _speakIntro());
+  }
 
   File? _photo;
   ScanResult? _result;

@@ -5,7 +5,7 @@ import 'package:saha_sante/core/models/reservation.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
-import 'package:saha_sante/core/widgets/notification_bell.dart';
+import 'package:saha_sante/core/widgets/saha_header.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 
 /// Rappelle l'étape de paiement : sans elle, la pharmacie ne voit pas
@@ -86,20 +86,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_back),
-                    ),
-                    const NotificationBell(),
-                    const SizedBox(width: 8),
-                    Text(
-                      L10n.t(context, 'res.title'),
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
+                SahaHeader(title: L10n.t(context, 'res.title'), titleSize: 20),
                 const SizedBox(height: 8),
                 Text(
                   L10n.t(context, 'res.subtitle'),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../core/services/voice_service.dart';
 import '../../core/l10n/app_locale.dart';
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -38,6 +39,10 @@ class _OrangePaymentScreenState extends State<OrangePaymentScreen> {
   @override
   void initState() {
     super.initState();
+    // Voix : explique au patient ce qu'il doit faire.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => VoiceService.instance.speak(L10n.c('trk.payOnlineHint')),
+    );
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(

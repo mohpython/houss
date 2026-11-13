@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/api/api_client.dart';
 import 'package:saha_sante/core/models/practitioner.dart';
 import 'package:saha_sante/core/services/api_service.dart';
@@ -8,7 +7,7 @@ import 'package:saha_sante/core/services/location_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
-import 'package:saha_sante/core/widgets/notification_bell.dart';
+import 'package:saha_sante/core/widgets/saha_header.dart';
 
 /// Montant en FCFA, arrondi et séparé par milliers (« 10 000 FCFA »).
 String _frAmount(num amount) {
@@ -283,20 +282,7 @@ class _HealthScreenState extends State<HealthScreen> {
             child: ListView(
               children: [
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_back),
-                    ),
-                    const NotificationBell(),
-                    const SizedBox(width: 8),
-                    Text(
-                      L10n.t(context, 'he.title'),
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
+                SahaHeader(title: L10n.t(context, 'he.title'), titleSize: 20),
                 const SizedBox(height: 8),
                 Text(
                   L10n.t(context, 'he.subtitle'),
