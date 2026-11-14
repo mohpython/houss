@@ -12,6 +12,7 @@ import { readObject } from "@/server/storage.server";
 import { visionModel } from "@/server/ai.server";
 import { toDateOnly } from "@/server/serialize";
 import {
+  bestCatalogMatch,
   catalogHint,
   linkPrescriptionItemsToCatalog,
   loadCatalog,
@@ -88,6 +89,14 @@ Extraction rules (only when is_prescription=true):
 - Use EXACTLY the key names above. Extract every medicine listed.
 - Language may be French, English, or Arabic — keep values in the original language.
 - Output ONLY the JSON object, no markdown, no commentary.
+
+Medicines rules (CRITICAL — avoid inventing medicines):
+- List ONLY the medicines that are actually written on the prescription.
+- NEVER invent, guess, complete or add a medicine that is not visibly written on the document. Do not substitute a medicine from memory or from the catalogue for one that is absent.
+- If a medicine line is illegible, OMIT it from "medicines" entirely and list the line in "unreadable_zones" (e.g. "3e ligne de médicament").
+- Every value in "medicines" must come from the document. When in doubt, omit the medicine rather than guessing.
+- "name" must be the medicine as written (normalized). Put dosage / posology in "dosage" / "instructions" — never in "name".
+- A same medicine repeated on one prescription is ONE line: keep the highest quantity / dosage.
 
 Diagnostics rules (ALWAYS fill, they help a human reviewer):
 - "unreadable_zones": list every area you could not read with certainty (empty array if all is clear). Be concrete and localized.
@@ -202,13 +211,17 @@ export async function runPrescriptionVisionAi(
 
   // Catalog names help the model spell medicine names consistently run after run.
   let hint = "";
+  // Catalogue charge (ou fourni) : sert à l'indication comme à la sanitization.
+  let catalogList: CatalogMed[] | null = null;
   if (catalog === undefined) {
     try {
-      hint = catalogHint(await loadCatalog());
+      catalogList = await loadCatalog();
+      hint = catalogHint(catalogList);
     } catch {
       hint = "";
     }
   } else if (catalog) {
+    catalogList = catalog;
     hint = catalogHint(catalog);
   }
 
@@ -266,6 +279,26 @@ export async function runPrescriptionVisionAi(
   if (output.authenticity_score > 0 && output.authenticity_score <= 1) {
     output.authenticity_score *= 100;
   }
+
+  // Sanitize the medicine list before persisting: drop lines without a readable
+  // name and canonicalize each survivor against the partner-pharmacy catalog so
+  // a hallucinated / mis-spelled medicine never reaches the stock flow under a
+  // bogus name (the pharmacy stock then matches the REAL product).
+  if (output.medicines) {
+    const cleaned: PrescriptionAiOutput["medicines"] = [];
+    for (const m of output.medicines) {
+      const name = (m?.name ?? "").trim();
+      if (!name) continue; // ligne vide ou inventée sans nom lisible -> on ignore
+      const med = catalogList ? bestCatalogMatch(name, catalogList) : null;
+      if (med) {
+        const canonical = med.generic_name || med.normalized_name;
+        if (canonical && canonical.toLowerCase() !== name.toLowerCase()) m.name = canonical;
+      }
+      cleaned.push(m);
+    }
+    output.medicines = cleaned;
+  }
+
   return output;
 }
 

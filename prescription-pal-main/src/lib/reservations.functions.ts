@@ -142,7 +142,7 @@ export const getReservationCheckout = createServerFn({ method: "GET" })
           select: {
             id: true,
             unit_price: true,
-            prescription_items: { select: { medicine_name_raw: true, strength: true } },
+            prescription_items: { select: { medicine_name_raw: true, strength: true, quantity: true } },
           },
         },
       },

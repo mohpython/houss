@@ -215,6 +215,8 @@ export type CatalogMed = {
   id: string;
   normalized_name: string;
   generic_name?: string | null;
+  strength?: string | null;
+  form?: string | null;
 };
 
 export type InventoryLine = {
@@ -228,6 +230,11 @@ export type RxItemLike = {
   id: string;
   medicine_name_raw: string;
   normalized_medicine_id?: string | null;
+  strength?: string | null;
+  quantity?: string | null;
+  dosage?: string | null;
+  duration?: string | null;
+  instructions?: string | null;
 };
 
 function bestScore(item: NormalizedName, med: CatalogMed) {
@@ -277,10 +284,15 @@ export function bestInventoryMatch<L extends InventoryLine>(
 
 export type ItemAvailability = {
   itemId: string;
+  /** Nom à afficher : version canonique du catalogue quand la correspondance est confiante. */
   name: string;
   available: boolean;
   price: number | null;
   medicineId: string | null;
+  /** Quantité prescrite pour la ligne (0 quand le médicament n'est pas disponible). */
+  quantity: number;
+  /** Force / dosage lisible, issue du catalogue ou de l'ordonnance. */
+  strength: string | null;
 };
 
 /** Availability of every prescription line inside one pharmacy's inventory. */
@@ -291,12 +303,20 @@ export function matchItemsToInventory<L extends InventoryLine>(
   return items.map((it) => {
     const hit = bestInventoryMatch(it, inventory);
     const available = !!hit && (hit.line.stock_qty ?? 0) > 0;
+    const canonical = hit?.line.medicines
+      ? hit.line.medicines.generic_name || hit.line.medicines.normalized_name
+      : null;
     return {
       itemId: it.id,
-      name: it.medicine_name_raw,
+      // Nom canonique (catalogue) quand on a trouvé la ligne de stock : jamais
+      // le libellé brut du modèle IA, sinon l'ordonnance peut afficher un nom
+      // inventé / mal recopié alors que le médicament est bien en stock.
+      name: available ? canonical ?? it.medicine_name_raw : it.medicine_name_raw,
       available,
       price: available ? (hit!.line.price ?? null) : null,
       medicineId: hit?.line.medicines?.id ?? null,
+      quantity: available ? parseQuantity(it.quantity) : 0,
+      strength: available ? (hit!.line.medicines?.strength ?? it.strength ?? null) : null,
     };
   });
 }
@@ -324,11 +344,17 @@ export function bestCatalogMatch(name: string, catalog: CatalogMed[]): CatalogMe
 /** Loads the whole catalog (a few hundred rows). */
 export async function loadCatalog(): Promise<CatalogMed[]> {
   const data = await prisma.medicines.findMany({
-    select: { id: true, normalized_name: true, generic_name: true },
+    select: { id: true, normalized_name: true, generic_name: true, strength: true, form: true },
     orderBy: { normalized_name: "asc" },
     take: 2000,
   });
   return data as CatalogMed[];
+}
+
+/** Quantité prescrite pour une ligne (défaut 1 ; « 3 pl » → 3, « 2 cp » → 2). */
+export function parseQuantity(q?: string | null): number {
+  const n = parseFloat(`${q ?? ""}`.replace(/[^0-9.,]/g, "").replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 1;
 }
 
 /**

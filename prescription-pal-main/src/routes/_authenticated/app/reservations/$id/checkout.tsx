@@ -49,7 +49,11 @@ type Row = {
   reservation_items: Array<{
     id: string;
     unit_price: number | null;
-    prescription_items: { medicine_name_raw: string; strength: string | null } | null;
+    prescription_items: {
+      medicine_name_raw: string;
+      strength: string | null;
+      quantity: string | null;
+    } | null;
   }>;
 };
 
@@ -312,7 +316,11 @@ function Checkout() {
                 <span className="ml-2 text-muted-foreground">{i.prescription_items.strength}</span>
               )}
             </span>
-            <span className="shrink-0 text-sm tabular-nums">{formatAmount(i.unit_price)}</span>
+            <span className="shrink-0 text-right text-sm tabular-nums">
+              {i.prescription_items?.quantity
+                ? `${i.prescription_items.quantity} × ${formatAmount(i.unit_price ?? 0)}`
+                : formatAmount(i.unit_price)}
+            </span>
           </li>
         ))}
       </ul>

@@ -9,6 +9,7 @@ import {
   matchItemsToInventory,
   linkPrescriptionItemsToCatalog,
   type InventoryLine,
+  type ItemAvailability,
 } from "./medicine-match.server";
 
 /** Another partner pharmacy able to supply a medicine missing from the chosen one. */
@@ -138,7 +139,7 @@ export type PharmacyQuote = {
   itemsTotal: number;
   deliveryFee: number;
   totalAmount: number;
-  matched: { itemId: string; name: string; price: number | null }[];
+  matched: ItemAvailability[];
   missing: { itemId: string; name: string }[];
   /** Pour chaque manquant : jusqu'à 3 autres officines qui l'ont en stock. */
   missingItems: MissingItem[];
@@ -153,7 +154,7 @@ const MAX_QUOTES = 10;
 
 type ScoredPharmacy = {
   pharmacy: { id: string; name: string; lat: number | null; lng: number | null; address: string | null; phone: string | null };
-  matched: { itemId: string; name: string; price: number | null }[];
+  matched: ItemAvailability[];
   missing: { itemId: string; name: string }[];
   distanceKm: number;
 };
@@ -230,9 +231,7 @@ export async function quotePharmaciesCore(input: QuoteInput): Promise<QuoteResul
   const scored: ScoredPharmacy[] = pharmacies.map((p) => {
     const pInv = invLines.filter((i) => i.pharmacy_id === p.id);
     const avail = matchItemsToInventory(items!, pInv);
-    const matched = avail
-      .filter((a) => a.available)
-      .map((a) => ({ itemId: a.itemId, name: a.name, price: a.price }));
+    const matched: ItemAvailability[] = avail.filter((a) => a.available);
     const missing = avail
       .filter((a) => !a.available)
       .map((a) => ({ itemId: a.itemId, name: a.name }));
@@ -268,7 +267,13 @@ export async function quotePharmaciesCore(input: QuoteInput): Promise<QuoteResul
   const fee = fulfillment === "pickup" ? 0 : DELIVERY_FEE;
 
   const quotes: PharmacyQuote[] = ranked.map((s) => {
-    const itemsTotal = s.matched.reduce((sum, m) => sum + (m.price ?? 0), 0);
+    // Le total prend en compte la QUANTITÉ prescrite par ligne (ex. « 3 pl » → 3
+    // unités) et non un simple inventaire des lignes : une ordonnance de
+    // paracétamol 500 mg sur 3 plaquettes doit facturer 3 fois le prix unitaire.
+    const itemsTotal = s.matched.reduce(
+      (sum, m) => sum + (m.price ?? 0) * (m.quantity > 0 ? m.quantity : 1),
+      0,
+    );
     return {
       pharmacyId: s.pharmacy.id,
       name: s.pharmacy.name,
