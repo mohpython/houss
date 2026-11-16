@@ -3,19 +3,31 @@ import { Volume2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { isSpeaking, isVoiceEnabled, speak, stopSpeaking } from "@/lib/speech";
+import { isVoiceEnabled, speak, stopSpeaking } from "@/lib/speech";
+import { bambaraPhrase, type BambaraPhraseKey } from "@/lib/bambara-phrases";
+import {
+  getBambaraTtsState,
+  prefetchBambara,
+  speakBambara,
+  stopBambara,
+  subscribeBambaraTts,
+  type BambaraTtsState,
+} from "@/lib/tts";
 
 /**
- * Bouton « Écouter » : lit un texte à voix haute dans la langue choisie.
- * L'icône change quand la synthèse est en cours.
+ * Bouton « Écouter » : lit la phrase bambara via le TTS en ligne quand elle
+ * est disponible et configurée, sinon bascule sur la voix du navigateur.
  */
 export function SpeakButton({
   text,
+  phrase,
   className,
   label,
 }: {
-  /** Texte à lire (déjà traduit). */
+  /** Texte à lire (déjà traduit), utilisé en repli. */
   text: string;
+  /** Phrase bambara validée (voir `bambara-phrases.ts`). */
+  phrase?: BambaraPhraseKey;
   className?: string;
   /** Libellé affiché (par défaut : « Écouter »). */
   label?: string;
@@ -23,6 +35,8 @@ export function SpeakButton({
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState(true);
   const [speaking, setSpeaking] = useState(false);
+  const [ttsState, setTtsState] = useState<BambaraTtsState>(getBambaraTtsState);
+  const bambara = phrase ? bambaraPhrase(phrase) : undefined;
 
   useEffect(() => {
     setEnabled(isVoiceEnabled());
@@ -40,7 +54,16 @@ export function SpeakButton({
     };
   }, []);
 
+  useEffect(() => subscribeBambaraTts(setTtsState), []);
+
+  // Prépare l'audio dès l'affichage : au clic, la lecture démarre sans attente.
+  useEffect(() => {
+    if (enabled && bambara) void prefetchBambara(bambara);
+  }, [enabled, bambara]);
+
   if (!enabled) return null;
+
+  const busy = speaking || ttsState !== "idle";
 
   return (
     <Button
@@ -50,22 +73,23 @@ export function SpeakButton({
       aria-label={label ?? t("voice.listen", "Écouter")}
       title={label ?? t("voice.listen", "Écouter")}
       className={className}
-      onClick={(e) => {
+      onClick={async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (speaking) {
+        if (busy) {
+          stopBambara();
           stopSpeaking();
           setSpeaking(false);
           return;
         }
-        speak(text, i18n.resolvedLanguage ?? "fr");
+        if (bambara) {
+          const result = await speakBambara(bambara);
+          if (result !== "unavailable") return;
+        }
+        speak(text, i18n.resolvedLanguage ?? "bm");
       }}
     >
-      {speaking ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Volume2 className="h-4 w-4" />
-      )}
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
     </Button>
   );
 }

@@ -32,6 +32,13 @@ class SahaHeader extends StatelessWidget {
           icon: const Icon(Icons.home_outlined),
           tooltip: L10n.c('navHome'),
         ),
+        // Icône de recherche : accès direct à la recherche de médicament /
+        // commande « Sans ordonnance » depuis n'importe quel écran.
+        IconButton(
+          onPressed: () => context.push('/otc'),
+          icon: const Icon(Icons.search),
+          tooltip: L10n.c('ph.searchMedicine'),
+        ),
         if (canPop)
           IconButton(
             onPressed: () => context.pop(),

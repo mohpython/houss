@@ -1,15 +1,16 @@
 /**
  * Lecture vocale des instructions (Web Speech API).
  *
- * La voix suit la langue choisie par le patient (FR / EN / AR). Si le
+ * La voix suit la langue choisie par le patient (FR / EN / AR / BM). Si le
  * navigateur ne dispose pas de voix pour cette langue, on bascule sur une
- * langue de repli et l'interface le signale.
+ * langue de repli et l'interface le signale. La langue par défaut est le
+ * BAMBARA (bm).
  *
  * Le navigateur n'expose pas d'API de synthèse côté serveur : c'est le poste
  * du patient qui parle, ce qui convient (aucune donnée envoyée).
  */
 
-export type SpeechLang = "fr" | "en" | "ar";
+export type SpeechLang = "fr" | "en" | "ar" | "bm";
 
 /** Langue du site → langue de synthèse vocale. */
 const VOICES: Record<string, string> = {
@@ -20,6 +21,9 @@ const VOICES: Record<string, string> = {
 };
 
 const STORAGE_KEY = "saha_voice_enabled";
+
+/** Langue vocale par défaut (Bambara) quand l'appelant n'en spécifie pas. */
+const DEFAULT_LANG: SpeechLang = "bm";
 
 let enabled = true;
 let loaded = false;
@@ -57,8 +61,8 @@ export function setVoiceEnabled(value: boolean): void {
 }
 
 /** Langue de synthèse réellement disponible (peut différer de la langue du site). */
-export function spokenLanguage(lang: string): string {
-  const wanted = VOICES[lang] ?? "fr-FR";
+export function spokenLanguage(lang?: string): string {
+  const wanted = VOICES[lang ?? DEFAULT_LANG] ?? VOICES[DEFAULT_LANG];
   const s = synth();
   if (!s) return wanted;
   const voices = s.getVoices();
@@ -71,8 +75,8 @@ export function spokenLanguage(lang: string): string {
 }
 
 /** Vrai quand la voix demandée n'existe pas sur cet appareil. */
-export function usingVoiceFallback(lang: string): boolean {
-  const wanted = VOICES[lang] ?? "fr-FR";
+export function usingVoiceFallback(lang?: string): boolean {
+  const wanted = VOICES[lang ?? DEFAULT_LANG] ?? VOICES[DEFAULT_LANG];
   return spokenLanguage(lang) !== wanted;
 }
 
@@ -93,7 +97,7 @@ export function stopSpeaking(): void {
  * Lit un texte à voix haute dans la langue du site.
  * Retourne `false` si la synthèse n'est pas disponible sur ce navigateur.
  */
-export function speak(text: string, lang: string): boolean {
+export function speak(text: string, lang?: string): boolean {
   const s = synth();
   if (!s || !text.trim()) return false;
   if (!loadVoicePreference()) return false;
