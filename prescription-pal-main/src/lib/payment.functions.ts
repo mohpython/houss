@@ -25,10 +25,25 @@ export const declareMobileMoneyPayment = createServerFn({ method: "POST" })
 
     const res = await prisma.reservations.findUnique({
       where: { id: data.reservationId },
-      select: { id: true, patient_id: true, payment_status: true },
+      select: {
+        id: true,
+        patient_id: true,
+        payment_status: true,
+        prescriptions: { select: { status: true } },
+      },
     });
     if (!res || res.patient_id !== userId) throw new Error("Commande introuvable");
     if (res.payment_status === "paid") throw new Error("Cette commande est déjà payée");
+
+    // Sécurité métier : tant qu'aucun admin n'a validé l'ordonnance, le patient
+    // ne peut pas déclarer un paiement. La commande reste donc bloquée côté
+    // paiement tant qu'elle n'a pas été validée.
+    const rxStatus = res.prescriptions ? String(res.prescriptions.status) : null;
+    if (rxStatus !== "verified") {
+      throw new Error(
+        "Votre ordonnance est en cours de vérification par notre équipe : le paiement n'est pas encore disponible.",
+      );
+    }
 
     await updateReservationAs(userId, data.reservationId, {
       payment_status: "pending_verification",
@@ -121,11 +136,22 @@ export const startOrangePayment = createServerFn({ method: "POST" })
         payment_status: true,
         total_amount: true,
         pharmacies: { select: { name: true, orange_merchant_key: true } },
+        prescriptions: { select: { status: true } },
       },
     });
     if (!res || res.patient_id !== userId) throw new Error("Commande introuvable");
     if (res.payment_status === "paid") throw new Error("Cette commande est déjà payée");
     if (!res.total_amount || res.total_amount <= 0) throw new Error("Montant invalide");
+
+    // Sécurité métier : le paiement n'est possible que si l'ordonnance a été
+    // validée (admin). Tant qu'une vérification est en attente, on refuse : le
+    // bouton « Payer » doit rester inactif côté patient.
+    const rxStatus = res.prescriptions ? String(res.prescriptions.status) : null;
+    if (rxStatus !== "verified") {
+      throw new Error(
+        "Votre ordonnance est en cours de vérification par notre équipe : le paiement n'est pas encore disponible.",
+      );
+    }
 
     // Montant total = médicaments + livraison le cas échéant : tout va à la pharmacie.
     const baseUrl = process.env.APP_URL || "http://localhost:3000";

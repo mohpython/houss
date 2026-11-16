@@ -46,6 +46,7 @@ type Row = {
   patient_lat: number | null;
   patient_lng: number | null;
   pharmacies: { name: string; address: string | null } | null;
+  prescriptions: { status: string; review_status: string } | null;
   reservation_items: Array<{
     id: string;
     unit_price: number | null;
@@ -270,6 +271,13 @@ function Checkout() {
 
   const settled = row.payment_status !== "unpaid";
 
+  /**
+   * Sécurité métier (validation admin) : le paiement n'est possible que si
+   * l'ordonnance a été validée. Tant qu'une vérification est en attente, le
+   * bouton « Payer » reste inactif.
+   */
+  const prescriptionVerified = row.prescriptions?.status === "verified";
+
   return (
     <div className="mx-auto max-w-md px-6 py-8">
       <div className="flex items-center gap-2">
@@ -420,10 +428,18 @@ function Checkout() {
         </div>
       ) : (
         <div className="mt-6">
+          {!prescriptionVerified && (
+            <p className="mb-3 text-center text-xs text-foreground/60">
+              {t(
+                "pay.notVerified",
+                "Votre ordonnance est en cours de vérification : le paiement sera disponible dès que notre équipe aura validé votre ordonnance.",
+              )}
+            </p>
+          )}
           <Button
             className="w-full rounded-full"
             size="lg"
-            disabled={orangeBusy}
+            disabled={orangeBusy || !prescriptionVerified}
             onClick={() => payOnline(openOrangeWindow())}
           >
             {orangeBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

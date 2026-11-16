@@ -138,6 +138,7 @@ export const getReservationCheckout = createServerFn({ method: "GET" })
             orange_merchant_key: true,
           },
         },
+        prescriptions: { select: { status: true, review_status: true } },
         reservation_items: {
           select: {
             id: true,
