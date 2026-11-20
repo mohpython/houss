@@ -1,3 +1,5 @@
+import { env } from "@/server/env.server";
+
 const API_BASE = "https://api-checkout.cinetpay.com/v2";
 
 export interface CinetPayInitParams {
@@ -44,7 +46,7 @@ export async function initCinetPayPayment(params: CinetPayInitParams, baseUrl: s
     description: params.description,
     customer_name: params.customerName || "Client",
     customer_surname: params.customerSurname || "SAHA",
-    customer_email: params.customerEmail || "client@sahasantemali.com",
+    customer_email: params.customerEmail || `client@${env.appHost}`,
     customer_phone_number: params.customerPhoneNumber || "",
     notify_url: notifyUrl,
     return_url: returnUrl,

@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { extractPrescription } from "@/lib/pharmacy.functions";
 import { createPrescriptionFromUpload, setPrescriptionDate } from "@/lib/prescriptions.functions";
 import { quoteReservation, createReservation } from "@/lib/delivery.functions";
-import { formatAmount } from "@/lib/payment-config";
+import { ORDER_FEE, formatAmount } from "@/lib/payment-config";
 import { flagPrescriptionForReview } from "@/lib/review.functions";
 import { toast } from "sonner";
 import { Capacitor } from "@capacitor/core";
@@ -63,6 +63,13 @@ type CorrectionState = {
   reasons: string[];
 };
 
+/** Résumé de la lecture IA, affiché au-dessus des pharmacies. */
+type ExtractionSummary = {
+  confidence: number;
+  count: number;
+  dateStatus: ExtractionResult["dateStatus"];
+};
+
 /** Devis d'une pharmacie pour l'ordonnance (étape 2), sans rien créer. */
 type Quote = {
   pharmacyId: string;
@@ -75,6 +82,7 @@ type Quote = {
   isFull: boolean;
   itemsTotal: number;
   deliveryFee: number;
+  orderFee: number;
   totalAmount: number;
   matched: { itemId: string; name: string; price: number | null }[];
   missing: { itemId: string; name: string }[];
@@ -97,6 +105,8 @@ function Scan() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  /** Vrai tant que le sélecteur de fichiers du navigateur est ouvert. */
+  const pickerOpen = useRef(false);
   const geo = useRef<{ lat: number; lng: number } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>(0);
@@ -122,6 +132,8 @@ function Scan() {
   /** Pharmacie retenue : l'étape 3 choisit ensuite le lieu et le mode. */
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [creating, setCreating] = useState(false);
+  /** Lecture IA conservée pour l'afficher pendant le choix de la pharmacie. */
+  const [extraction, setExtraction] = useState<ExtractionSummary | null>(null);
   const extract = useServerFn(extractPrescription);
   const quoteFn = useServerFn(quoteReservation);
   const createFn = useServerFn(createReservation);
@@ -129,16 +141,42 @@ function Scan() {
   const createFromUpload = useServerFn(createPrescriptionFromUpload);
   const saveRxDate = useServerFn(setPrescriptionDate);
 
+  /**
+   * Le lieu se choisit UNE fois, au début, avant de scanner. On pré-remplit
+   * avec le dernier lieu connu (même lieu que la livraison) mais on le montre
+   * toujours : le patient confirme ou change, puis il ne réapparaîtra plus.
+   */
+  const locInit = useRef(false);
   useEffect(() => {
-    if (!("geolocation" in navigator)) return;
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        geo.current = { lat: p.coords.latitude, lng: p.coords.longitude };
-      },
-      () => undefined,
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+    if (locInit.current) return;
+    locInit.current = true;
+    try {
+      const raw = localStorage.getItem("saha:last-delivery-loc");
+      if (raw) setPromptLoc(JSON.parse(raw) as DeliveryLocation);
+    } catch {
+      /* stockage indisponible : on demande le lieu sans pré-remplissage */
+    }
+    setLocPromptOpen(true);
   }, []);
+
+  /**
+   * Le navigateur ne signale pas l'annulation du sélecteur de fichiers
+   * (aucun événement « change »). On la déduit du retour de la fenêtre : si
+   * aucun fichier n'est arrivé, on prévient l'utilisateur au lieu de le
+   * laisser devant un écran qui n'a pas bougé.
+   */
+  useEffect(() => {
+    const onFocus = () => {
+      if (!pickerOpen.current) return;
+      window.setTimeout(() => {
+        if (!pickerOpen.current) return;
+        pickerOpen.current = false;
+        toast(t("scan.captureCancelled"));
+      }, 800);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [t]);
 
   const getGeo = () =>
     new Promise<{ lat: number; lng: number } | null>((resolve) => {
@@ -154,9 +192,25 @@ function Scan() {
       );
     });
 
+  /**
+   * Ouvre le sélecteur de fichiers du navigateur.
+   *
+   * L'input doit être présent et rendu (`display:none` est ignoré par iOS
+   * Safari, qui n'ouvre alors pas le sélecteur et fait « sauter » la page) :
+   * il est donc masqué visuellement, pas retiré du flux.
+   */
+  const openPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
+    const el = ref.current;
+    if (!el) return;
+    if (pickerOpen.current) return; // le sélecteur est déjà ouvert
+    pickerOpen.current = true;
+    el.value = "";
+    el.click();
+  };
+
   const openCamera = async () => {
     if (!Capacitor.isNativePlatform()) {
-      cameraRef.current?.click();
+      openPicker(cameraRef);
       return;
     }
     try {
@@ -189,7 +243,7 @@ function Scan() {
   const startCapture = (kind: "camera" | "file") => {
     if (deliveryLoc) {
       if (kind === "camera") void openCamera();
-      else inputRef.current?.click();
+      else openPicker(inputRef);
       return;
     }
     // Pré-remplit avec le lieu du dernier scan, s'il existe.
@@ -215,7 +269,7 @@ function Scan() {
     const kind = pendingCapture;
     setPendingCapture(null);
     if (kind === "camera") void openCamera();
-    else if (kind === "file") inputRef.current?.click();
+    else if (kind === "file") openPicker(inputRef);
   };
 
   /** Lieu + mode sous forme d'entrée serveur (devis puis création). */
@@ -383,20 +437,22 @@ function Scan() {
 
       const res = (await extract({ data: { prescriptionId: rxId } })) as ExtractionResult;
       setPhase(2);
+      setExtraction({
+        confidence: res.confidence,
+        count: res.count,
+        dateStatus: res.dateStatus,
+      });
+
+      // Ordonnance périmée : aucune pharmacie ne peut la délivrer. Un message
+      // direct vaut mieux qu'une file de vérification sans issue.
+      if (res.dateStatus === "expired") {
+        setFailed(t("auto.expired"));
+        return;
+      }
 
       if (res.blocking) {
-        // Minor severity: let the patient self-correct before sending to admin
-        if (res.severity === "minor" && res.dateStatus === "missing" && res.count > 0) {
-          setCorrection({
-            rxId,
-            needsDate: true,
-            needsRetake: res.qualityNotes !== null && res.qualityNotes !== "",
-            reasons: res.reasons,
-          });
-          return;
-        }
-
-        // Critical or moderate: send straight to admin review
+        // Document non reconnu, aucun médicament lisible ou date future :
+        // un humain doit regarder avant toute commande.
         await flagForReview({
           data: {
             prescriptionId: rxId,
@@ -417,6 +473,41 @@ function Scan() {
         });
         setReview(res.reasons.join(" · "));
         return;
+      }
+
+      // Date absente mais médicaments lisibles : une seule saisie suffit,
+      // sans jeter l'extraction déjà faite.
+      if (res.dateStatus === "missing" && res.count > 0) {
+        setCorrection({
+          rxId,
+          needsDate: true,
+          needsRetake: res.qualityNotes !== null && res.qualityNotes !== "",
+          reasons: res.reasons,
+        });
+        return;
+      }
+
+      // Doutes non bloquants (confiance moyenne, incohérence mineure) :
+      // l'équipe vérifie en arrière-plan, le patient continue sa commande.
+      if (res.severity === "moderate") {
+        void flagForReview({
+          data: {
+            prescriptionId: rxId,
+            reason: res.reasons[0] ?? "Vérification recommandée",
+            reasons: res.reasons.map((r) => r.slice(0, 300)),
+            severity: res.severity,
+            details: {
+              confidence: res.confidence,
+              authenticityScore: res.authenticityScore,
+              dateStatus: res.dateStatus,
+              dateRaw: res.prescriptionDateRaw,
+              medicinesCount: res.count,
+              unreadableZones: res.unreadableZones,
+              inconsistencies: res.inconsistencies,
+              qualityNotes: res.qualityNotes,
+            },
+          },
+        }).catch(() => undefined);
       }
 
       await continueToStep1(rxId);
@@ -478,30 +569,65 @@ function Scan() {
     setQuotesError(null);
     setSelectedQuote(null);
     setCreating(false);
+    setExtraction(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
   };
 
+  /** Lieu retenu, résumé en une ligne (quartier ou position GPS + précision). */
+  const locationLabel = deliveryLoc
+    ? [
+        deliveryLoc.mode === "neighborhood" ? deliveryLoc.name : t("delivery.positionOk"),
+        deliveryLoc.detail?.trim(),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  /** Médicaments lus par l'IA (mêmes lignes pour toutes les pharmacies). */
+  const firstQuote = quotes?.[0];
+  const matchedNames = firstQuote?.matched.map((m) => m.name) ?? [];
+  const missingNames = firstQuote?.missing.map((m) => m.name) ?? [];
+  const medNames = Array.from(new Set([...matchedNames, ...missingNames]));
+
+  /** Couleur de la pastille de confiance IA. */
+  const confidenceTone =
+    extraction && extraction.confidence >= 85
+      ? "bg-success/15 text-success"
+      : extraction && extraction.confidence >= 60
+        ? "bg-warning/15 text-warning"
+        : "bg-destructive/15 text-destructive";
+
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-6 py-8">
+      {/* Masqués visuellement mais présents dans le flux : iOS Safari ignore
+          les inputs `display:none` et n'ouvre alors pas le sélecteur. */}
       <input
         ref={cameraRef}
+        id="scan-camera-input"
         type="file"
         accept="image/*"
         capture="environment"
-        className="hidden"
+        className="pointer-events-none fixed left-0 top-0 h-px w-px overflow-hidden opacity-0"
         onChange={(e) => {
+          pickerOpen.current = false;
           const f = e.target.files?.[0];
+          // Vide l'input : sans cela, rechoisir la même image ne déclencherait
+          // pas de nouvel événement « change » (rien ne se passerait).
+          e.target.value = "";
           if (f) void run(f);
         }}
       />
       <input
         ref={inputRef}
+        id="scan-file-input"
         type="file"
         accept="image/*,application/pdf"
-        className="hidden"
+        className="pointer-events-none fixed left-0 top-0 h-px w-px overflow-hidden opacity-0"
         onChange={(e) => {
+          pickerOpen.current = false;
           const f = e.target.files?.[0];
+          e.target.value = "";
           if (f) void run(f);
         }}
       />
@@ -522,12 +648,17 @@ function Scan() {
               <h2 className="font-display text-lg">{t("scan.locationTitle")}</h2>
               <SpeakButton
                 text={`${t("scan.locationTitle")}. ${t("scan.locationHint")}`}
+                phrase="scan.location"
                 className="ml-auto"
               />
             </div>
             <p className="mt-1 text-sm text-foreground/70">{t("scan.locationHint")}</p>
             <div className="mt-4">
-              <DeliveryLocationPicker value={promptLoc} onChange={setPromptLoc} />
+              <DeliveryLocationPicker
+                value={promptLoc}
+                onChange={setPromptLoc}
+                autoLocate={false}
+              />
             </div>
             <div className="mt-5 flex gap-2">
               <Button
@@ -545,10 +676,19 @@ function Scan() {
                 onClick={confirmLocationPrompt}
                 disabled={!promptLoc}
               >
-                <Camera className="mr-2 h-4 w-4" />
+                {pendingCapture ? (
+                  <Camera className="mr-2 h-4 w-4" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
                 {t("scan.locationContinue")}
               </Button>
             </div>
+            {!promptLoc && (
+              <p className="mt-2 text-center text-xs text-foreground/60">
+                {t("delivery.chooseFirst")}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -583,6 +723,7 @@ function Scan() {
             <SpeakButton
               className="h-12 w-12 rounded-full border border-border"
               text={`${t("scan.locationTitle")}. ${t("scan.locationHint")}`}
+              phrase="scan.location"
             />
           </div>
         </>
@@ -708,6 +849,35 @@ function Scan() {
                 </div>
                 <p className="mt-1 text-sm text-foreground/70">{t("pharmacies.hint")}</p>
               </div>
+              {extraction && extraction.count > 0 && (
+                <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <ScanLine className="h-4 w-4 shrink-0 text-primary" />
+                    <p className="text-sm font-medium">
+                      {t("pharmacies.aiRead", { count: extraction.count })}
+                    </p>
+                    <span
+                      className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${confidenceTone}`}
+                    >
+                      {t("pharmacies.aiConfidence", {
+                        confidence: Math.round(extraction.confidence),
+                      })}
+                    </span>
+                  </div>
+                  {medNames.length > 0 && (
+                    <details className="mt-2 text-xs text-foreground/70">
+                      <summary className="cursor-pointer select-none font-medium text-foreground/80">
+                        {t("pharmacies.seeMeds")}
+                      </summary>
+                      <ul className="mt-1 space-y-0.5">
+                        {medNames.map((name, i) => (
+                          <li key={`${name}-${i}`}>• {name}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
               {quotes.length === 0 && (
                 <p className="rounded-2xl border border-border p-4 text-center text-sm text-foreground/70">
                   {t("pharmacies.empty")}
@@ -723,6 +893,10 @@ function Scan() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold">{q.name}</p>
+                      <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        <ShieldCheck className="h-3 w-3" />
+                        {t("pharmacies.partner")}
+                      </p>
                       <p className="text-xs text-foreground/60">
                         {q.distanceKm} km
                         {q.address ? ` · ${q.address}` : ""}
@@ -818,17 +992,6 @@ function Scan() {
                 </span>
               </div>
 
-              <div>
-                <p className="text-sm text-foreground/70">{t("delivery.where")}</p>
-                <div className="mt-2">
-                  <DeliveryLocationPicker
-                    value={deliveryLoc}
-                    onChange={setDeliveryLoc}
-                    disabled={creating}
-                  />
-                </div>
-              </div>
-
               <p className="text-sm text-foreground/70">{t("pay.fulfillment")}</p>
               <div className="grid grid-cols-2 gap-2">
                 {(["delivery", "pickup"] as const).map((m) => (
@@ -853,6 +1016,26 @@ function Scan() {
                 <p className="text-center text-xs text-foreground/60">{t("pay.pickupHint")}</p>
               )}
 
+              {fulfillment === "delivery" ? (
+                <div className="flex items-center gap-2 rounded-2xl border border-border px-4 py-3">
+                  <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">{t("delivery.where")}</p>
+                    <p className="truncate text-sm font-medium">
+                      {locationLabel || t("delivery.chooseFirst")}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">{t("delivery.pickupTitle")}</p>
+                  <p className="truncate text-sm font-medium">{selectedQuote.name}</p>
+                  {selectedQuote.address && (
+                    <p className="truncate text-xs text-foreground/60">{selectedQuote.address}</p>
+                  )}
+                </div>
+              )}
+
               <dl className="space-y-1 rounded-2xl border border-border px-4 py-3 text-sm">
                 <div className="flex justify-between">
                   <dt className="text-foreground/60">{t("pay.items")}</dt>
@@ -864,12 +1047,19 @@ function Scan() {
                     {formatAmount(fulfillment === "pickup" ? 0 : selectedQuote.deliveryFee)}
                   </dd>
                 </div>
+                <div className="flex justify-between">
+                  <dt className="text-foreground/60">{t("pay.orderFee")}</dt>
+                  <dd className="tabular-nums">
+                    {formatAmount(selectedQuote.orderFee ?? ORDER_FEE)}
+                  </dd>
+                </div>
                 <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
                   <dt>{t("pay.total")}</dt>
                   <dd className="tabular-nums">
                     {formatAmount(
                       selectedQuote.itemsTotal +
-                        (fulfillment === "pickup" ? 0 : selectedQuote.deliveryFee),
+                        (fulfillment === "pickup" ? 0 : selectedQuote.deliveryFee) +
+                        (selectedQuote.orderFee ?? ORDER_FEE),
                     )}
                   </dd>
                 </div>

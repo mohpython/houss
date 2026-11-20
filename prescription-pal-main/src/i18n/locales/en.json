@@ -43,6 +43,7 @@
     "scan": "Pharmacy",
     "prescriptions": "Prescriptions",
     "reservations": "Reservations",
+    "commissions": "Commissions",
     "pharmacy": "Pharmacy",
     "courier": "Deliveries",
     "admin": "Admin",
@@ -193,7 +194,8 @@
     "previewAlt": "Scanned prescription preview",
     "locationTitle": "First, where to?",
     "locationHint": "Choose your delivery location before photographing the prescription.",
-    "locationContinue": "Continue"
+    "locationContinue": "Continue",
+    "captureCancelled": "No photo selected. Tap the camera icon again to retry."
   },
   "rxList": {
     "title": "My prescriptions",
@@ -383,7 +385,7 @@
     "stockLabel": "Stock",
     "priceLabel": "Price",
     "noItems": "No items.",
-    "twoBtn": "Two buttons are enough: view orders, or update stock.",
+    "twoBtn": "Three buttons are enough: orders, stock and commissions.",
     "pendingOne": "{{n}} new order to process",
     "pendingPlural": "{{n}} new orders to process"
   },
@@ -605,6 +607,7 @@
     "retry": "Retry",
     "geo": "Location required",
     "review": "Document sent to our team for review. You will be notified.",
+    "expired": "This prescription is over 3 months old and has expired. Ask your doctor for a new prescription, then take the photo again.",
     "correctionTitle": "Missing date",
     "correctionDateHint": "The AI couldn't read the date. Enter it manually to continue.",
     "datePlaceholder": "e.g. 15/03/2025",
@@ -660,6 +663,8 @@
     "available": "Available",
     "items": "Medicines",
     "delivery": "Delivery",
+    "orderFee": "Order fee",
+    "orderFeeAccept": "I accept the 100 FCFA order fee, included in the total to pay.",
     "total": "Total",
     "payWith": "Pay with",
     "orange": {
@@ -752,6 +757,8 @@
     "continueToPayment": "Continue to payment",
     "geoRequired": "Position required",
     "geoDenied": "Location denied. Allow it or pick a neighborhood.",
+    "geoHint": "Use your GPS position to find the closest pharmacy.",
+    "locateAction": "Use my position",
     "retryGeo": "Retry location",
     "searchNeighborhood": "Search a neighborhood…",
     "noNeighborhood": "No neighborhood found",
@@ -761,6 +768,7 @@
     "chooseFirst": "Choose a delivery location",
     "neighborhood": "Neighborhood",
     "quartierSelected": "Selected neighborhood",
+    "pickupTitle": "Pickup at the pharmacy",
     "change": "Change"
   },
   "prac": {
@@ -863,7 +871,7 @@
   "pharmacies": {
     "seePharmacies": "See pharmacies",
     "title": "Choose your pharmacy",
-    "hint": "Ranked by stock: full matches first. Choose the pharmacy you prefer.",
+    "hint": "Ranked by stock: full matches first, then the ones with the most medicines. All are SAHA partner pharmacies.",
     "full": "Full stock",
     "missing": "Missing:",
     "availableAt": "Also at",
@@ -872,7 +880,11 @@
     "retry": "Change area",
     "searching": "Looking for pharmacies…",
     "deliveryLater": "Delivery fees will be added after you choose how to receive your order.",
-    "empty": "No pharmacy has your medicines in stock."
+    "empty": "No pharmacy has your medicines in stock.",
+    "partner": "SAHA partner",
+    "aiRead": "AI read {{count}} medicine(s)",
+    "aiConfidence": "{{confidence}}% confidence",
+    "seeMeds": "See the extracted medicines"
   },
   "meta": {
     "landingTitle": "SAHA Santé — Scanned prescription, medicines delivered",
@@ -1266,5 +1278,33 @@
     "editNbh": "Add / edit neighborhoods",
     "templatesHelp": "Edit the automatic replies sent to customers. Words between braces (e.g. {pharmacy}) are replaced automatically.",
     "restore": "Restore default text"
+  },
+  "commission": {
+    "metaTitle": "Commissions — SAHA Santé",
+    "title": "Commissions",
+    "subtitle": "SAHA's share of medicines sold + order fee. The pharmacy collects everything directly; SAHA then claims its share.",
+    "rate": "Applied rate",
+    "outstanding": "Due to SAHA",
+    "collected": "Already settled",
+    "paidOrders": "Paid orders",
+    "commission": "SAHA commission",
+    "orderFee": "Order fee",
+    "due": "Due to SAHA",
+    "settled": "Settled",
+    "pending": "Due",
+    "ordersDue": "{{outstandingOrders}} order(s) to settle · {{collectedOrders}} settled",
+    "date": "Date",
+    "markSettled": "Mark as settled",
+    "confirmSettle": "Mark {{amount}} of commissions as settled for {{pharmacy}}?",
+    "settledToast": "{{amount}} of commissions marked as settled ({{n}} orders).",
+    "rateSaved": "Rate updated for {{pharmacy}}.",
+    "adminTitle": "Pharmacy commissions",
+    "adminSubtitle": "Share paid to SAHA per pharmacy. The rate is editable; it is fixed at each order.",
+    "payoutsHistory": "Settlement history",
+    "pharmacyColumn": "Pharmacies",
+    "reversement": "Settlement",
+    "ordersCount": "{{n}} orders",
+    "empty": "No commissions yet.",
+    "adminOnly": "Administrators only."
   }
 }

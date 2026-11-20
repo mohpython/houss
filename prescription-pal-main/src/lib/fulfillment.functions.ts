@@ -31,6 +31,7 @@ export const setFulfillmentMethod = createServerFn({ method: "POST" })
         courier_id: true,
         items_total: true,
         delivery_fee: true,
+        order_fee: true,
         payment_status: true,
         fulfillment_method: true,
       },
@@ -43,14 +44,16 @@ export const setFulfillmentMethod = createServerFn({ method: "POST" })
 
     const fee = data.method === "pickup" ? 0 : DELIVERY_FEE;
     const itemsTotal = Number(res.items_total ?? 0);
+    const orderFee = Number(res.order_fee ?? 0);
+    const total = itemsTotal + fee + orderFee;
 
     await updateReservationAs(userId, data.reservationId, {
       fulfillment_method: data.method,
       delivery_fee: fee,
-      total_amount: itemsTotal + fee,
+      total_amount: total,
     });
 
-    return { method: data.method, deliveryFee: fee, totalAmount: itemsTotal + fee };
+    return { method: data.method, deliveryFee: fee, orderFee, totalAmount: total };
   });
 
 type Stage = "pickup" | "receipt";

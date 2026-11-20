@@ -118,6 +118,7 @@ export const getReservationCheckout = createServerFn({ method: "GET" })
         courier_id: true,
         items_total: true,
         delivery_fee: true,
+        order_fee: true,
         total_amount: true,
         payment_status: true,
         fulfillment_method: true,

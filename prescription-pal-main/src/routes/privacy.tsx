@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Pill, ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
@@ -20,9 +21,9 @@ export const Route = createFileRoute("/privacy")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { property: "og:url", content: "https://sahasantemali.com/privacy" },
+      { property: "og:url", content: absoluteUrl("/privacy") },
     ],
-    links: [{ rel: "canonical", href: "https://sahasantemali.com/privacy" }],
+    links: [{ rel: "canonical", href: absoluteUrl("/privacy") }],
   }),
   component: PrivacyPage,
 });

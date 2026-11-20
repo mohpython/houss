@@ -7,7 +7,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ListSkeleton } from "@/components/ui/skeletons";
-import { Package, Clock, CheckCircle2, Truck, Store, Boxes, ChevronRight } from "lucide-react";
+import {
+  Package,
+  Clock,
+  CheckCircle2,
+  Truck,
+  Store,
+  Boxes,
+  ChevronRight,
+  HandCoins,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
@@ -18,8 +27,7 @@ export const Route = createFileRoute("/_authenticated/app/pharmacy/")({
       { title: i18n.t("pharm.metaTitle") },
       {
         name: "description",
-        content:
-          i18n.t("pharm.metaDesc"),
+        content: i18n.t("pharm.metaDesc"),
       },
       { property: "og:title", content: i18n.t("pharm.metaTitle") },
       {
@@ -94,9 +102,7 @@ function Layout() {
           <Store className="h-6 w-6 text-primary" aria-hidden="true" />
           <h1 className="text-2xl font-bold tracking-tight">{t("pharm.title")}</h1>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("pharm.twoBtn")}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("pharm.twoBtn")}</p>
       </header>
 
       {pharms === null && <ListSkeleton className="mt-6" rows={2} rowClassName="h-24" />}
@@ -135,7 +141,9 @@ function Layout() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning/5 p-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Clock className="h-4 w-4 text-warning" aria-hidden="true" />
-                      {t(s.pending > 1 ? "pharm.pendingPlural" : "pharm.pendingOne", { n: s.pending })}
+                      {t(s.pending > 1 ? "pharm.pendingPlural" : "pharm.pendingOne", {
+                        n: s.pending,
+                      })}
                     </div>
                     <Button asChild size="sm" className="min-h-11">
                       <Link
@@ -148,7 +156,7 @@ function Layout() {
                   </div>
                 )}
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   <BigAction
                     to="/app/pharmacy/$pharmacyId/reservations"
                     pharmacyId={p.id}
@@ -162,6 +170,13 @@ function Layout() {
                     icon={<Boxes className="h-5 w-5" />}
                     title={t("pharm.inventory")}
                     desc={t("pharm.invDesc")}
+                  />
+                  <BigAction
+                    to="/app/pharmacy/$pharmacyId/commissions"
+                    pharmacyId={p.id}
+                    icon={<HandCoins className="h-5 w-5" />}
+                    title={t("commission.title")}
+                    desc={t("commission.outstanding")}
                   />
                 </div>
 
@@ -197,9 +212,7 @@ function Layout() {
             )}
 
             {!approved && (
-              <p className="mt-3 text-sm text-muted-foreground">
-                {t("pharm.pendingVisibility")}
-              </p>
+              <p className="mt-3 text-sm text-muted-foreground">{t("pharm.pendingVisibility")}</p>
             )}
           </Card>
         );
@@ -219,7 +232,10 @@ function BigAction({
   title,
   desc,
 }: {
-  to: "/app/pharmacy/$pharmacyId/reservations" | "/app/pharmacy/$pharmacyId/inventory";
+  to:
+    | "/app/pharmacy/$pharmacyId/reservations"
+    | "/app/pharmacy/$pharmacyId/inventory"
+    | "/app/pharmacy/$pharmacyId/commissions";
   pharmacyId: string;
   icon: React.ReactNode;
   title: string;

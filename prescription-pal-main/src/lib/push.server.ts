@@ -5,6 +5,7 @@
  * Firebase service account (Project settings > Service accounts > Generate
  * new private key). Never expose it to the client.
  */
+import { env } from "@/server/env.server";
 
 type ServiceAccount = {
   project_id: string;
@@ -110,7 +111,7 @@ export async function sendToToken(
   // service worker qui gere lui-meme le clic).
   const absoluteLink = payload.link.startsWith("http")
     ? payload.link
-    : `${(process.env.APP_URL ?? "https://sahasantemali.com").replace(/\/+$/, "")}${payload.link}`;
+    : `${env.appUrl}${payload.link}`;
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`,
     {

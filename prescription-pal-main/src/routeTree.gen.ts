@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as FeedbackRouteImport } from './routes/feedback'
@@ -20,6 +21,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiRealtimeRouteImport } from './routes/api/realtime'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
 import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
+import { Route as ApiTtsBambaraRouteImport } from './routes/api/tts/bambara'
 import { Route as ApiStorageUploadRouteImport } from './routes/api/storage/upload'
 import { Route as ApiStorageSplatRouteImport } from './routes/api/storage/$'
 import { Route as AuthenticatedAppScanRouteImport } from './routes/_authenticated/app/scan'
@@ -47,6 +49,7 @@ import { Route as AuthenticatedAppAdminLogsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppAdminInventoryRouteImport } from './routes/_authenticated/app/admin/inventory'
 import { Route as AuthenticatedAppAdminFeedbackRouteImport } from './routes/_authenticated/app/admin/feedback'
 import { Route as AuthenticatedAppAdminCouriersRouteImport } from './routes/_authenticated/app/admin/couriers'
+import { Route as AuthenticatedAppAdminCommissionsRouteImport } from './routes/_authenticated/app/admin/commissions'
 import { Route as AuthenticatedAppAdminAppointmentsRouteImport } from './routes/_authenticated/app/admin/appointments'
 import { Route as AuthenticatedAppReservationsIdIndexRouteImport } from './routes/_authenticated/app/reservations/$id/index'
 import { Route as AuthenticatedAppPrescriptionsIdIndexRouteImport } from './routes/_authenticated/app/prescriptions/$id/index'
@@ -57,12 +60,18 @@ import { Route as AuthenticatedAppPrescriptionsIdPharmaciesRouteImport } from '.
 import { Route as AuthenticatedAppPraticienRdvIdRouteImport } from './routes/_authenticated/app/praticien/rdv/$id'
 import { Route as AuthenticatedAppPharmacyPharmacyIdReservationsRouteImport } from './routes/_authenticated/app/pharmacy/$pharmacyId/reservations'
 import { Route as AuthenticatedAppPharmacyPharmacyIdInventoryRouteImport } from './routes/_authenticated/app/pharmacy/$pharmacyId/inventory'
+import { Route as AuthenticatedAppPharmacyPharmacyIdCommissionsRouteImport } from './routes/_authenticated/app/pharmacy/$pharmacyId/commissions'
 import { Route as AuthenticatedAppPaymentsOrangeReturnRouteImport } from './routes/_authenticated/app/payments/orange/return'
 import { Route as AuthenticatedAppCourierDeliveriesIdRouteImport } from './routes/_authenticated/app/courier/deliveries/$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -112,6 +121,11 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
 const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
   id: '/api/v1/$',
   path: '/api/v1/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTtsBambaraRoute = ApiTtsBambaraRouteImport.update({
+  id: '/api/tts/bambara',
+  path: '/api/tts/bambara',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStorageUploadRoute = ApiStorageUploadRouteImport.update({
@@ -270,6 +284,12 @@ const AuthenticatedAppAdminCouriersRoute =
     path: '/app/admin/couriers',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAppAdminCommissionsRoute =
+  AuthenticatedAppAdminCommissionsRouteImport.update({
+    id: '/app/admin/commissions',
+    path: '/app/admin/commissions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAppAdminAppointmentsRoute =
   AuthenticatedAppAdminAppointmentsRouteImport.update({
     id: '/app/admin/appointments',
@@ -330,6 +350,12 @@ const AuthenticatedAppPharmacyPharmacyIdInventoryRoute =
     path: '/app/pharmacy/$pharmacyId/inventory',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAppPharmacyPharmacyIdCommissionsRoute =
+  AuthenticatedAppPharmacyPharmacyIdCommissionsRouteImport.update({
+    id: '/app/pharmacy/$pharmacyId/commissions',
+    path: '/app/pharmacy/$pharmacyId/commissions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAppPaymentsOrangeReturnRoute =
   AuthenticatedAppPaymentsOrangeReturnRouteImport.update({
     id: '/app/payments/orange/return',
@@ -350,15 +376,18 @@ export interface FileRoutesByFullPath {
   '/feedback': typeof FeedbackRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/app/otc': typeof AuthenticatedAppOtcRoute
   '/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
+  '/api/tts/bambara': typeof ApiTtsBambaraRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
+  '/app/admin/commissions': typeof AuthenticatedAppAdminCommissionsRoute
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
   '/app/admin/feedback': typeof AuthenticatedAppAdminFeedbackRoute
   '/app/admin/inventory': typeof AuthenticatedAppAdminInventoryRoute
@@ -384,6 +413,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/google/': typeof ApiAuthGoogleIndexRoute
   '/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
+  '/app/pharmacy/$pharmacyId/commissions': typeof AuthenticatedAppPharmacyPharmacyIdCommissionsRoute
   '/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
   '/app/praticien/rdv/$id': typeof AuthenticatedAppPraticienRdvIdRoute
@@ -401,15 +431,18 @@ export interface FileRoutesByTo {
   '/feedback': typeof FeedbackRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/app/otc': typeof AuthenticatedAppOtcRoute
   '/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
+  '/api/tts/bambara': typeof ApiTtsBambaraRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
+  '/app/admin/commissions': typeof AuthenticatedAppAdminCommissionsRoute
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
   '/app/admin/feedback': typeof AuthenticatedAppAdminFeedbackRoute
   '/app/admin/inventory': typeof AuthenticatedAppAdminInventoryRoute
@@ -435,6 +468,7 @@ export interface FileRoutesByTo {
   '/api/auth/google': typeof ApiAuthGoogleIndexRoute
   '/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
+  '/app/pharmacy/$pharmacyId/commissions': typeof AuthenticatedAppPharmacyPharmacyIdCommissionsRoute
   '/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
   '/app/praticien/rdv/$id': typeof AuthenticatedAppPraticienRdvIdRoute
@@ -454,15 +488,18 @@ export interface FileRoutesById {
   '/feedback': typeof FeedbackRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/_authenticated/app/otc': typeof AuthenticatedAppOtcRoute
   '/_authenticated/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
+  '/api/tts/bambara': typeof ApiTtsBambaraRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
+  '/_authenticated/app/admin/commissions': typeof AuthenticatedAppAdminCommissionsRoute
   '/_authenticated/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
   '/_authenticated/app/admin/feedback': typeof AuthenticatedAppAdminFeedbackRoute
   '/_authenticated/app/admin/inventory': typeof AuthenticatedAppAdminInventoryRoute
@@ -488,6 +525,7 @@ export interface FileRoutesById {
   '/api/auth/google/': typeof ApiAuthGoogleIndexRoute
   '/_authenticated/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/_authenticated/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
+  '/_authenticated/app/pharmacy/$pharmacyId/commissions': typeof AuthenticatedAppPharmacyPharmacyIdCommissionsRoute
   '/_authenticated/app/pharmacy/$pharmacyId/inventory': typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   '/_authenticated/app/pharmacy/$pharmacyId/reservations': typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
   '/_authenticated/app/praticien/rdv/$id': typeof AuthenticatedAppPraticienRdvIdRoute
@@ -507,15 +545,18 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/privacy'
     | '/reset-password'
+    | '/robots.txt'
     | '/sitemap.xml'
     | '/api/realtime'
     | '/app/otc'
     | '/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
+    | '/api/tts/bambara'
     | '/api/v1/$'
     | '/app/'
     | '/app/admin/appointments'
+    | '/app/admin/commissions'
     | '/app/admin/couriers'
     | '/app/admin/feedback'
     | '/app/admin/inventory'
@@ -541,6 +582,7 @@ export interface FileRouteTypes {
     | '/api/auth/google/'
     | '/app/courier/deliveries/$id'
     | '/app/payments/orange/return'
+    | '/app/pharmacy/$pharmacyId/commissions'
     | '/app/pharmacy/$pharmacyId/inventory'
     | '/app/pharmacy/$pharmacyId/reservations'
     | '/app/praticien/rdv/$id'
@@ -558,15 +600,18 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/privacy'
     | '/reset-password'
+    | '/robots.txt'
     | '/sitemap.xml'
     | '/api/realtime'
     | '/app/otc'
     | '/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
+    | '/api/tts/bambara'
     | '/api/v1/$'
     | '/app'
     | '/app/admin/appointments'
+    | '/app/admin/commissions'
     | '/app/admin/couriers'
     | '/app/admin/feedback'
     | '/app/admin/inventory'
@@ -592,6 +637,7 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/app/courier/deliveries/$id'
     | '/app/payments/orange/return'
+    | '/app/pharmacy/$pharmacyId/commissions'
     | '/app/pharmacy/$pharmacyId/inventory'
     | '/app/pharmacy/$pharmacyId/reservations'
     | '/app/praticien/rdv/$id'
@@ -610,15 +656,18 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/privacy'
     | '/reset-password'
+    | '/robots.txt'
     | '/sitemap.xml'
     | '/api/realtime'
     | '/_authenticated/app/otc'
     | '/_authenticated/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
+    | '/api/tts/bambara'
     | '/api/v1/$'
     | '/_authenticated/app/'
     | '/_authenticated/app/admin/appointments'
+    | '/_authenticated/app/admin/commissions'
     | '/_authenticated/app/admin/couriers'
     | '/_authenticated/app/admin/feedback'
     | '/_authenticated/app/admin/inventory'
@@ -644,6 +693,7 @@ export interface FileRouteTypes {
     | '/api/auth/google/'
     | '/_authenticated/app/courier/deliveries/$id'
     | '/_authenticated/app/payments/orange/return'
+    | '/_authenticated/app/pharmacy/$pharmacyId/commissions'
     | '/_authenticated/app/pharmacy/$pharmacyId/inventory'
     | '/_authenticated/app/pharmacy/$pharmacyId/reservations'
     | '/_authenticated/app/praticien/rdv/$id'
@@ -663,10 +713,12 @@ export interface RootRouteChildren {
   FeedbackRoute: typeof FeedbackRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiRealtimeRoute: typeof ApiRealtimeRoute
   ApiStorageSplatRoute: typeof ApiStorageSplatRoute
   ApiStorageUploadRoute: typeof ApiStorageUploadRoute
+  ApiTtsBambaraRoute: typeof ApiTtsBambaraRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
   ApiAuthGoogleCallbackRoute: typeof ApiAuthGoogleCallbackRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
@@ -681,6 +733,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -751,6 +810,13 @@ declare module '@tanstack/react-router' {
       path: '/api/v1/$'
       fullPath: '/api/v1/$'
       preLoaderRoute: typeof ApiV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tts/bambara': {
+      id: '/api/tts/bambara'
+      path: '/api/tts/bambara'
+      fullPath: '/api/tts/bambara'
+      preLoaderRoute: typeof ApiTtsBambaraRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/storage/upload': {
@@ -942,6 +1008,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAdminCouriersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/app/admin/commissions': {
+      id: '/_authenticated/app/admin/commissions'
+      path: '/app/admin/commissions'
+      fullPath: '/app/admin/commissions'
+      preLoaderRoute: typeof AuthenticatedAppAdminCommissionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/app/admin/appointments': {
       id: '/_authenticated/app/admin/appointments'
       path: '/app/admin/appointments'
@@ -1012,6 +1085,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppPharmacyPharmacyIdInventoryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/app/pharmacy/$pharmacyId/commissions': {
+      id: '/_authenticated/app/pharmacy/$pharmacyId/commissions'
+      path: '/app/pharmacy/$pharmacyId/commissions'
+      fullPath: '/app/pharmacy/$pharmacyId/commissions'
+      preLoaderRoute: typeof AuthenticatedAppPharmacyPharmacyIdCommissionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/app/payments/orange/return': {
       id: '/_authenticated/app/payments/orange/return'
       path: '/app/payments/orange/return'
@@ -1034,6 +1114,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAppScanRoute: typeof AuthenticatedAppScanRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppAdminAppointmentsRoute: typeof AuthenticatedAppAdminAppointmentsRoute
+  AuthenticatedAppAdminCommissionsRoute: typeof AuthenticatedAppAdminCommissionsRoute
   AuthenticatedAppAdminCouriersRoute: typeof AuthenticatedAppAdminCouriersRoute
   AuthenticatedAppAdminFeedbackRoute: typeof AuthenticatedAppAdminFeedbackRoute
   AuthenticatedAppAdminInventoryRoute: typeof AuthenticatedAppAdminInventoryRoute
@@ -1056,6 +1137,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAppReservationsIndexRoute: typeof AuthenticatedAppReservationsIndexRoute
   AuthenticatedAppCourierDeliveriesIdRoute: typeof AuthenticatedAppCourierDeliveriesIdRoute
   AuthenticatedAppPaymentsOrangeReturnRoute: typeof AuthenticatedAppPaymentsOrangeReturnRoute
+  AuthenticatedAppPharmacyPharmacyIdCommissionsRoute: typeof AuthenticatedAppPharmacyPharmacyIdCommissionsRoute
   AuthenticatedAppPharmacyPharmacyIdInventoryRoute: typeof AuthenticatedAppPharmacyPharmacyIdInventoryRoute
   AuthenticatedAppPharmacyPharmacyIdReservationsRoute: typeof AuthenticatedAppPharmacyPharmacyIdReservationsRoute
   AuthenticatedAppPraticienRdvIdRoute: typeof AuthenticatedAppPraticienRdvIdRoute
@@ -1072,6 +1154,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppAdminAppointmentsRoute:
     AuthenticatedAppAdminAppointmentsRoute,
+  AuthenticatedAppAdminCommissionsRoute: AuthenticatedAppAdminCommissionsRoute,
   AuthenticatedAppAdminCouriersRoute: AuthenticatedAppAdminCouriersRoute,
   AuthenticatedAppAdminFeedbackRoute: AuthenticatedAppAdminFeedbackRoute,
   AuthenticatedAppAdminInventoryRoute: AuthenticatedAppAdminInventoryRoute,
@@ -1103,6 +1186,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAppCourierDeliveriesIdRoute,
   AuthenticatedAppPaymentsOrangeReturnRoute:
     AuthenticatedAppPaymentsOrangeReturnRoute,
+  AuthenticatedAppPharmacyPharmacyIdCommissionsRoute:
+    AuthenticatedAppPharmacyPharmacyIdCommissionsRoute,
   AuthenticatedAppPharmacyPharmacyIdInventoryRoute:
     AuthenticatedAppPharmacyPharmacyIdInventoryRoute,
   AuthenticatedAppPharmacyPharmacyIdReservationsRoute:
@@ -1132,10 +1217,12 @@ const rootRouteChildren: RootRouteChildren = {
   FeedbackRoute: FeedbackRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiRealtimeRoute: ApiRealtimeRoute,
   ApiStorageSplatRoute: ApiStorageSplatRoute,
   ApiStorageUploadRoute: ApiStorageUploadRoute,
+  ApiTtsBambaraRoute: ApiTtsBambaraRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,
   ApiAuthGoogleCallbackRoute: ApiAuthGoogleCallbackRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,

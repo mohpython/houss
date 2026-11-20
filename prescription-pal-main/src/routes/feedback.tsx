@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FeedbackForm } from "@/components/FeedbackForm";
 import { checkFeedbackEligibility, submitPhoneFeedback } from "@/lib/feedback.functions";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const Route = createFileRoute("/feedback")({
   head: () => ({
@@ -27,9 +28,9 @@ export const Route = createFileRoute("/feedback")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { property: "og:url", content: "https://sahasantemali.com/feedback" },
+      { property: "og:url", content: absoluteUrl("/feedback") },
     ],
-    links: [{ rel: "canonical", href: "https://sahasantemali.com/feedback" }],
+    links: [{ rel: "canonical", href: absoluteUrl("/feedback") }],
   }),
   component: FeedbackPage,
 });

@@ -43,6 +43,7 @@
     "scan": "Pharmacie",
     "prescriptions": "Ordonnances",
     "reservations": "Réservations",
+    "commissions": "Commissions",
     "pharmacy": "Pharmacie",
     "courier": "Courses",
     "admin": "Admin",
@@ -193,7 +194,8 @@
     "previewAlt": "Aperçu de l'ordonnance scannée",
     "locationTitle": "D'abord, où s'il vous plaît ?",
     "locationHint": "Choisissez votre lieu de livraison avant de photographier l'ordonnance.",
-    "locationContinue": "Continuer"
+    "locationContinue": "Continuer",
+    "captureCancelled": "Aucune photo sélectionnée. Touchez à nouveau l'icône caméra pour réessayer."
   },
   "rxList": {
     "title": "Mes ordonnances",
@@ -383,7 +385,7 @@
     "stockLabel": "Stock",
     "priceLabel": "Prix",
     "noItems": "Aucun article.",
-    "twoBtn": "Deux boutons suffisent : voir les commandes, ou mettre à jour le stock.",
+    "twoBtn": "Trois boutons suffisent : les commandes, le stock et les commissions.",
     "pendingOne": "{{n}} nouvelle commande à traiter",
     "pendingPlural": "{{n}} nouvelles commandes à traiter"
   },
@@ -605,6 +607,7 @@
     "retry": "Réessayer",
     "geo": "Position requise",
     "review": "Document envoyé à notre équipe pour vérification. Vous serez notifié.",
+    "expired": "Cette ordonnance a plus de 3 mois : elle est expirée. Demandez une nouvelle ordonnance à votre médecin, puis reprenez la photo.",
     "correctionTitle": "Date manquante",
     "correctionDateHint": "L'IA n'a pas pu lire la date. Saisissez-la manuellement pour continuer.",
     "datePlaceholder": "Ex : 15/03/2025",
@@ -660,6 +663,8 @@
     "available": "Disponible",
     "items": "Médicaments",
     "delivery": "Livraison",
+    "orderFee": "Frais de commande",
+    "orderFeeAccept": "J'accepte les frais de commande de 100 FCFA, inclus dans le total à payer.",
     "total": "Total",
     "payWith": "Payer avec",
     "orange": {
@@ -752,6 +757,8 @@
     "continueToPayment": "Continuer vers le paiement",
     "geoRequired": "Position requise",
     "geoDenied": "Localisation refusée. Autorisez-la ou choisissez un quartier.",
+    "geoHint": "Utilisez votre position GPS pour trouver la pharmacie la plus proche.",
+    "locateAction": "Utiliser ma position",
     "retryGeo": "Réessayer la localisation",
     "searchNeighborhood": "Rechercher un quartier…",
     "noNeighborhood": "Aucun quartier trouvé",
@@ -761,6 +768,7 @@
     "chooseFirst": "Choisissez un lieu de livraison",
     "neighborhood": "Quartier",
     "quartierSelected": "Quartier sélectionné",
+    "pickupTitle": "Retrait en pharmacie",
     "change": "Changer"
   },
   "prac": {
@@ -863,7 +871,7 @@
   "pharmacies": {
     "seePharmacies": "Voir les pharmacies",
     "title": "Choisissez votre pharmacie",
-    "hint": "Classées par stock : celles qui ont tout en premier. Choisissez librement votre pharmacie.",
+    "hint": "Classées par stock : celles qui ont tout en premier, puis celles qui en ont le plus. Toutes sont des pharmacies partenaires SAHA.",
     "full": "Tout en stock",
     "missing": "Manquant :",
     "availableAt": "Aussi chez",
@@ -872,7 +880,11 @@
     "retry": "Changer de secteur",
     "searching": "Recherche des pharmacies…",
     "deliveryLater": "Les frais de livraison seront ajoutés après le choix du mode.",
-    "empty": "Aucune pharmacie n'a vos médicaments en stock."
+    "empty": "Aucune pharmacie n'a vos médicaments en stock.",
+    "partner": "Partenaire SAHA",
+    "aiRead": "L'IA a lu {{count}} médicament(s)",
+    "aiConfidence": "{{confidence}} % de confiance",
+    "seeMeds": "Voir les médicaments lus"
   },
   "meta": {
     "landingTitle": "SAHA Santé — Ordonnance scannée, médicaments livrés",
@@ -1266,5 +1278,33 @@
     "editNbh": "Ajouter / modifier les quartiers",
     "templatesHelp": "Modifiez les réponses automatiques envoyées aux clients. Les mots entre accolades (ex. {pharmacy}) sont remplacés automatiquement.",
     "restore": "Rétablir le texte par défaut"
+  },
+  "commission": {
+    "metaTitle": "Commissions — SAHA Santé",
+    "title": "Commissions",
+    "subtitle": "Part de SAHA sur les médicaments vendus + frais de commande. La pharmacie encaisse tout directement ; SAHA réclame ensuite sa part.",
+    "rate": "Taux appliqué",
+    "outstanding": "À régler à SAHA",
+    "collected": "Déjà réglé",
+    "paidOrders": "Commandes payées",
+    "commission": "Commission SAHA",
+    "orderFee": "Frais de commande",
+    "due": "Dû à SAHA",
+    "settled": "Réglé",
+    "pending": "À régler",
+    "ordersDue": "{{outstandingOrders}} commande(s) à régler · {{collectedOrders}} réglée(s)",
+    "date": "Date",
+    "markSettled": "Marquer comme réglé",
+    "confirmSettle": "Marquer {{amount}} de commissions comme réglées pour {{pharmacy}} ?",
+    "settledToast": "{{amount}} de commissions marquées comme réglées ({{n}} commandes).",
+    "rateSaved": "Taux mis à jour pour {{pharmacy}}.",
+    "adminTitle": "Commissions des pharmacies",
+    "adminSubtitle": "Part reversée à SAHA par pharmacie. Le taux est modifiable ; il est figé à chaque commande.",
+    "payoutsHistory": "Historique des reversements",
+    "pharmacyColumn": "Pharmacies",
+    "reversement": "Reversement",
+    "ordersCount": "{{n}} commandes",
+    "empty": "Aucune commission pour l'instant.",
+    "adminOnly": "Réservé aux administrateurs."
   }
 }

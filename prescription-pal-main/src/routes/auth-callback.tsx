@@ -33,7 +33,12 @@ export const Route = createFileRoute("/auth-callback")({
 });
 
 const REDIRECT_KEY = "saha_post_login_path";
-const DEEP_LINK = "sahasantemali://auth";
+/**
+ * Schéma du deep link Android. Il doit correspondre au `intent-filter` de
+ * l'application installée : la valeur par défaut est donc conservée, et
+ * `VITE_DEEP_LINK` permet de la surcharger pour un build de test.
+ */
+const DEEP_LINK = import.meta.env.VITE_DEEP_LINK || "sahasantemali://auth";
 
 function safePath(value: string | null): string {
   if (!value) return "/app";

@@ -970,14 +970,15 @@ async function setFulfillment(ctx: Ctx) {
   const { DELIVERY_FEE } = await import("@/lib/routing-core.server");
   const current = await prisma.reservations.findUnique({
     where: { id: ctx.params[0] },
-    select: { items_total: true },
+    select: { items_total: true, order_fee: true },
   });
   if (!current) throw new ApiError(404, "Commande introuvable");
   const fee = data.method === "pickup" ? 0 : DELIVERY_FEE;
+  const orderFee = Number(current.order_fee ?? 0);
   const row = await updateReservationAs(userId, ctx.params[0], {
     fulfillment_method: data.method,
     delivery_fee: fee,
-    total_amount: current.items_total + fee,
+    total_amount: current.items_total + fee + orderFee,
   });
   return json({ reservation: toPlain(row) });
 }

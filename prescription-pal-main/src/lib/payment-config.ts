@@ -20,6 +20,17 @@ export const CURRENCY = "FCFA";
  */
 export const DELIVERY_FEE = 1000;
 
+/**
+ * Frais de commande en FCFA, prélevés sur chaque commande (retrait ou
+ * livraison). La pharmacie les accepte via la case à cocher « Frais de
+ * commande » au moment du paiement — le bouton « Payer » reste inactif
+ * tant que le patient n'a pas coché la case.
+ *
+ * Même raisonnement que DELIVERY_FEE : la constante vit ici car le client
+ * en a besoin pour le total affiché avant confirmation serveur.
+ */
+export const ORDER_FEE = 100;
+
 export function formatAmount(value: number | null | undefined) {
   return `${Math.round(value ?? 0).toLocaleString("fr-FR")} ${CURRENCY}`;
 }

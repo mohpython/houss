@@ -10,6 +10,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db.server";
 import { createAccount } from "@/server/auth.server";
 import { saveObject } from "@/server/storage.server";
+import { env } from "@/server/env.server";
 import { extractPrescriptionCore } from "./rx-core.server";
 import { autoRouteCore, resolveDeliveryTarget } from "./routing-core.server";
 import { sendText, sendButtons, sendLocationRequest, downloadMedia } from "./whatsapp.server";
@@ -38,7 +39,7 @@ const COPY = new Proxy({} as Record<BotLang, ReturnType<typeof mergeCopy>>, {
   get: (_t, lang: string) => mergeCopy(botLang(lang), templateCache?.rows[lang] ?? {}),
 });
 
-const APP_URL = "https://sahasantemali.com";
+const APP_URL = env.appUrl;
 
 const BTN = {
   sendRx: "saha_send_rx",

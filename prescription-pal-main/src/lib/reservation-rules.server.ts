@@ -151,10 +151,11 @@ export async function assertReservationUpdate(
         throw new ForbiddenError("Le mode de retrait ne peut plus être modifié après le paiement.");
       }
       const fee = Number(next.delivery_fee);
+      const orderFee = Number(next.order_fee ?? 0);
       if (
         (fee !== 0 && fee !== 1000) ||
         (next.fulfillment_method === "pickup" && fee !== 0) ||
-        Number(next.total_amount) !== Number(next.items_total) + fee
+        Number(next.total_amount) !== Number(next.items_total) + fee + orderFee
       ) {
         throw new ForbiddenError("Montant de commande invalide.");
       }

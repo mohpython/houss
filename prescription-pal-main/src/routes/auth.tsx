@@ -21,6 +21,7 @@ import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 import { Camera, Sparkles, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
+import { absoluteUrl } from "@/lib/site-url";
 
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
@@ -42,11 +43,11 @@ export const Route = createFileRoute("/auth")({
         content: i18n.t("meta.authDesc"),
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://sahasantemali.com/auth" },
+      { property: "og:url", content: absoluteUrl("/auth") },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
-    links: [{ rel: "canonical", href: "https://sahasantemali.com/auth" }],
+    links: [{ rel: "canonical", href: absoluteUrl("/auth") }],
   }),
   component: AuthPage,
 });

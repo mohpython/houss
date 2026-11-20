@@ -215,6 +215,7 @@ function TrackPage() {
         </h1>
         <SpeakButton
           className="ml-auto"
+          phrase={isPickup ? "track.pickup" : "track.delivery"}
           text={[
             isPickup ? t("track.pickupTitle") : t("track.title"),
             t("track.pickupCode"),

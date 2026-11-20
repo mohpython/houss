@@ -159,6 +159,7 @@ function Reservations() {
         <h2 className="text-lg font-semibold">{t("pharm.incoming")}</h2>
         <SpeakButton
           className="ml-auto"
+          phrase="pharmacy.incoming"
           text={`${t("pharm.incoming")}. ${t("pharm.markReady")}. ${t("pharm.pickupCode")}.`}
         />
       </div>

@@ -4,7 +4,7 @@ import { getReservationCheckout } from "@/lib/reservations.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { startOrangePayment, getOrangePaymentStatus } from "@/lib/payment.functions";
 import { setFulfillmentMethod } from "@/lib/fulfillment.functions";
-import { DELIVERY_FEE, formatAmount } from "@/lib/payment-config";
+import { DELIVERY_FEE, ORDER_FEE, formatAmount } from "@/lib/payment-config";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bike, Check, Loader2, MapPin, Store } from "lucide-react";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { MissingItemsPanel, type MissingEntry } from "@/components/MissingItemsPanel";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SpeakButton } from "@/components/speak-button";
 
 export const Route = createFileRoute("/_authenticated/app/reservations/$id/checkout")({
@@ -33,6 +34,7 @@ type Row = {
   id: string;
   items_total: number | null;
   delivery_fee: number | null;
+  order_fee: number | null;
   total_amount: number | null;
   payment_status: string;
   orange_enabled: boolean;
@@ -71,6 +73,8 @@ function Checkout() {
   const [orangeBusy, setOrangeBusy] = useState(false);
   /** Le paiement est en cours sur la page Orange Money (onglet séparé). */
   const [waitingOrange, setWaitingOrange] = useState(false);
+  /** Frais de commande acceptés : condition de paiement. */
+  const [orderFeeOk, setOrderFeeOk] = useState(false);
   const startOrange = useServerFn(startOrangePayment);
   const checkOrange = useServerFn(getOrangePaymentStatus);
   const setMethodFn = useServerFn(setFulfillmentMethod);
@@ -220,7 +224,14 @@ function Checkout() {
     // attendre le serveur.
     const fee = m === "pickup" ? 0 : DELIVERY_FEE;
     const seq = ++fulfillmentSeq.current;
-    setRow({ ...before, fulfillment_method: m, delivery_fee: fee, total_amount: itemsOf(before) + fee });
+    const orderFee = Number(before.order_fee ?? ORDER_FEE);
+    setRow({
+      ...before,
+      fulfillment_method: m,
+      delivery_fee: fee,
+      order_fee: orderFee,
+      total_amount: itemsOf(before) + fee + orderFee,
+    });
 
     let failed = false;
     const task = (async () => {
@@ -284,6 +295,7 @@ function Checkout() {
         <h1 className="text-lg font-semibold">{t("pay.title")}</h1>
         <SpeakButton
           text={`${t("pay.title")}. ${t("pay.total")} ${formatAmount(row.total_amount)}. ${t("pay.fulfillment")}`}
+          phrase="checkout.payment"
           className="ml-auto"
         />
       </div>
@@ -389,6 +401,10 @@ function Checkout() {
           <dt className="text-foreground/60">{t("pay.delivery")}</dt>
           <dd className="tabular-nums">{formatAmount(row.delivery_fee)}</dd>
         </div>
+        <div className="flex justify-between">
+          <dt className="text-foreground/60">{t("pay.orderFee")}</dt>
+          <dd className="tabular-nums">{formatAmount(row.order_fee ?? ORDER_FEE)}</dd>
+        </div>
         <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
           <dt>{t("pay.total")}</dt>
           <dd className="tabular-nums">{formatAmount(row.total_amount)}</dd>
@@ -428,18 +444,31 @@ function Checkout() {
         </div>
       ) : (
         <div className="mt-6">
-          {!prescriptionVerified && (
+          {!prescriptionVerified ? (
             <p className="mb-3 text-center text-xs text-foreground/60">
               {t(
                 "pay.notVerified",
                 "Votre ordonnance est en cours de vérification : le paiement sera disponible dès que notre équipe aura validé votre ordonnance.",
               )}
             </p>
+          ) : (
+            <label
+              htmlFor="order-fee-consent"
+              className="mb-3 flex cursor-pointer select-none items-start gap-3 rounded-2xl border border-border px-4 py-3 text-left text-sm text-foreground/80"
+            >
+              <Checkbox
+                id="order-fee-consent"
+                checked={orderFeeOk}
+                onCheckedChange={(v) => setOrderFeeOk(v === true)}
+                className="mt-0.5"
+              />
+              <span>{t("pay.orderFeeAccept")}</span>
+            </label>
           )}
           <Button
             className="w-full rounded-full"
             size="lg"
-            disabled={orangeBusy || !prescriptionVerified}
+            disabled={orangeBusy || !prescriptionVerified || !orderFeeOk}
             onClick={() => payOnline(openOrangeWindow())}
           >
             {orangeBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

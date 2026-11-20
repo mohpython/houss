@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
-const BASE_URL = "https://sahasantemali.com";
-
 interface SitemapEntry {
   path: string;
   changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
@@ -13,6 +11,11 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
+        // La base vient de la configuration serveur (APP_URL) : le sitemap
+        // pointe sur le domaine réellement servi, pas sur une valeur figée.
+        const { env } = await import("@/server/env.server");
+        const BASE_URL = env.appUrl;
+
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
           { path: "/feedback", changefreq: "monthly", priority: "0.5" },

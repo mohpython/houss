@@ -41,7 +41,7 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
 }
 
 /** Flat delivery fee, in FCFA. Source unique : `payment-config.ts`. */
-import { DELIVERY_FEE } from "./payment-config";
+import { DELIVERY_FEE, ORDER_FEE } from "./payment-config";
 export { DELIVERY_FEE };
 
 export type AutoRouteInput = {
@@ -113,6 +113,7 @@ export type AutoRouteResult = {
   distanceKm: number;
   itemsTotal: number;
   deliveryFee: number;
+  orderFee: number;
   totalAmount: number;
   missingItems: MissingItem[];
 };
@@ -138,6 +139,7 @@ export type PharmacyQuote = {
   isFull: boolean;
   itemsTotal: number;
   deliveryFee: number;
+  orderFee: number;
   totalAmount: number;
   matched: ItemAvailability[];
   missing: { itemId: string; name: string }[];
@@ -153,7 +155,14 @@ export type QuoteResult = {
 const MAX_QUOTES = 10;
 
 type ScoredPharmacy = {
-  pharmacy: { id: string; name: string; lat: number | null; lng: number | null; address: string | null; phone: string | null };
+  pharmacy: {
+    id: string;
+    name: string;
+    lat: number | null;
+    lng: number | null;
+    address: string | null;
+    phone: string | null;
+  };
   matched: ItemAvailability[];
   missing: { itemId: string; name: string }[];
   distanceKm: number;
@@ -246,9 +255,7 @@ export async function quotePharmaciesCore(input: QuoteInput): Promise<QuoteResul
   // Priorité : 100% en premier (plus proche d'abord), sinon le plus fourni.
   const fullMatches = scored
     .filter((s) => s.missing.length === 0)
-    .sort(
-      (a, b) => a.distanceKm - b.distanceKm || a.pharmacy.id.localeCompare(b.pharmacy.id),
-    );
+    .sort((a, b) => a.distanceKm - b.distanceKm || a.pharmacy.id.localeCompare(b.pharmacy.id));
   const partialMatches = scored
     .filter((s) => s.missing.length > 0 && s.matched.length > 0)
     .sort(
@@ -287,7 +294,8 @@ export async function quotePharmaciesCore(input: QuoteInput): Promise<QuoteResul
       isFull: s.missing.length === 0,
       itemsTotal,
       deliveryFee: fee,
-      totalAmount: itemsTotal + fee,
+      orderFee: ORDER_FEE,
+      totalAmount: itemsTotal + fee + ORDER_FEE,
       matched: s.matched,
       missing: s.missing,
       missingItems: alternativesFor(s, scored),
@@ -341,14 +349,21 @@ export async function createReservationCore(
   const { quotes } = await quotePharmaciesCore(input);
   const best = quotes.find((q) => q.pharmacyId === input.pharmacyId);
   if (!best || best.matched.length === 0) {
-    throw new Error(
-      "Cette pharmacie n'a plus vos médicaments en stock. Relancez la recherche.",
-    );
+    throw new Error("Cette pharmacie n'a plus vos médicaments en stock. Relancez la recherche.");
   }
 
   const fulfillment: FulfillmentMethod = input.fulfillmentMethod ?? "delivery";
   const deliveryFee = fulfillment === "pickup" ? 0 : DELIVERY_FEE;
-  const totalAmount = best.itemsTotal + deliveryFee;
+  const totalAmount = best.itemsTotal + deliveryFee + ORDER_FEE;
+
+  // Taux de commission de la pharmacie au moment de la commande (5% par
+  // défaut) : on conserve sa valeur historique même si le taux change après.
+  const pharmacy = await prisma.pharmacies.findUnique({
+    where: { id: best.pharmacyId },
+    select: { commission_rate: true },
+  });
+  const commissionRate = Number(pharmacy?.commission_rate ?? 0.05) || 0.05;
+  const commissionAmount = Math.round(best.itemsTotal * commissionRate);
 
   let res: { id: string };
   try {
@@ -371,6 +386,9 @@ export async function createReservationCore(
         source: input.source ?? "app",
         items_total: best.itemsTotal,
         delivery_fee: deliveryFee,
+        order_fee: ORDER_FEE,
+        commission_rate: commissionRate,
+        commission_amount: commissionAmount,
         total_amount: totalAmount,
         payment_status: "unpaid",
       },
@@ -418,6 +436,7 @@ export async function createReservationCore(
     distanceKm: best.distanceKm,
     itemsTotal: best.itemsTotal,
     deliveryFee,
+    orderFee: ORDER_FEE,
     totalAmount,
     missingItems: best.missingItems,
   };

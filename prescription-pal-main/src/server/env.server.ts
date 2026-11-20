@@ -25,6 +25,21 @@ export const env = {
   get appUrl() {
     return str("APP_URL", "http://localhost:3000").replace(/\/+$/, "");
   },
+  /**
+   * Hôte public du site, utilisé pour les adresses e-mail et le préfixe des
+   * codes OTP. Sur un poste local (`localhost`) on retombe sur « saha » : plus
+   * aucune trace du domaine de production dans les messages envoyés.
+   */
+  get appHost() {
+    let host = "";
+    try {
+      host = new URL(this.appUrl).host;
+    } catch {
+      host = "";
+    }
+    if (!host || host.startsWith("localhost") || host.startsWith("127.")) return "saha";
+    return host;
+  },
   /** Secret servant à signer les URL de fichiers et l'état OAuth. */
   get appSecret() {
     const s = str("APP_SECRET");
@@ -56,6 +71,27 @@ export const env = {
   },
   get aiModelText() {
     return str("AI_MODEL_TEXT", "google/gemini-2.5-flash");
+  },
+
+  // --- Synthèse vocale bambara (Svara TTS) ---
+  /**
+   * Clé API Svara. Vide = voix bambara désactivée : l'interface retombe
+   * silencieusement sur la voix française du navigateur.
+   */
+  get svaraApiKey() {
+    return str("SVARA_API_KEY");
+  },
+  get svaraBaseUrl() {
+    return str("SVARA_BASE_URL", "https://api.kenpathlabs.com/v1").replace(/\/+$/, "");
+  },
+  get svaraModel() {
+    return str("SVARA_TTS_MODEL", "svara-tts-turbo");
+  },
+  get svaraVoice() {
+    return str("SVARA_VOICE", "sv_4ah79xne");
+  },
+  get bambaraTtsConfigured() {
+    return Boolean(this.svaraApiKey);
   },
 
   // --- Authentification ---
@@ -121,7 +157,7 @@ export const env = {
     return str("SMTP_PASS");
   },
   get smtpFrom() {
-    return str("SMTP_FROM", "SAHA Santé <no-reply@sahasantemali.com>");
+    return str("SMTP_FROM", `SAHA Santé <no-reply@${this.appHost}>`);
   },
   get smtpConfigured() {
     return Boolean(this.smtpHost);

@@ -10,7 +10,7 @@ import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { env } from "./env.server";
 
-export const BUCKETS = ["prescriptions"] as const;
+export const BUCKETS = ["prescriptions", "tts"] as const;
 export type Bucket = (typeof BUCKETS)[number];
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -22,6 +22,7 @@ const MIME_BY_EXT: Record<string, string> = {
   heif: "image/heif",
   gif: "image/gif",
   pdf: "application/pdf",
+  mp3: "audio/mpeg",
 };
 
 export function mimeFromKey(key: string): string {

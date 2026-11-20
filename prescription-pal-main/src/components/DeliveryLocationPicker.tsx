@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
 import { Locate, MapPin, Search, Check, Loader2, X } from "lucide-react";
@@ -18,6 +18,14 @@ type Props = {
   withDetail?: boolean;
   disabled?: boolean;
   className?: string;
+  /**
+   * Déclencher la géolocalisation dès l'affichage (par défaut).
+   *
+   * Mis à `false` dans la fenêtre « où livrer ? » : la demande de permission
+   * du navigateur interromp alors la capture d'écran au moment du clic sur la
+   * photo, ce qui donne l'impression que l'application plante.
+   */
+  autoLocate?: boolean;
 };
 
 export function getBrowserPosition(): Promise<{ lat: number; lng: number } | null> {
@@ -35,30 +43,51 @@ export function getBrowserPosition(): Promise<{ lat: number; lng: number } | nul
  * Lets the patient choose where to deliver: their current GPS position, or a
  * neighborhood (quartier) from the admin-managed list.
  */
-export function DeliveryLocationPicker({ value, onChange, withDetail = true, disabled, className }: Props) {
+export function DeliveryLocationPicker({
+  value,
+  onChange,
+  withDetail = true,
+  disabled,
+  className,
+  autoLocate = true,
+}: Props) {
   const { t } = useTranslation();
   const fetchNb = useServerFn(listNeighborhoods);
   const [mode, setMode] = useState<"gps" | "neighborhood">(value?.mode ?? "gps");
   const [nbs, setNbs] = useState<Neighborhood[] | null>(null);
   const [query, setQuery] = useState(value?.mode === "neighborhood" ? value.name : "");
   const [geoBusy, setGeoBusy] = useState(false);
-  const [geoErr, setGeoErr] = useState(false);
+  /** La géolocalisation a-t-elle déjà été tentée ? (sinon : simple demande) */
+  const [geoTried, setGeoTried] = useState(false);
   const [detail, setDetail] = useState(value?.detail ?? "");
+  /** Évite de mettre à jour l'état après le démontage (fermeture de la modale). */
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     fetchNb({ data: {} })
-      .then(setNbs)
-      .catch(() => setNbs([]));
+      .then((rows) => {
+        if (alive.current) setNbs(rows);
+      })
+      .catch(() => {
+        if (alive.current) setNbs([]);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const locate = async () => {
     setGeoBusy(true);
-    setGeoErr(false);
     const pos = await getBrowserPosition();
+    if (!alive.current) return;
     setGeoBusy(false);
+    setGeoTried(true);
     if (!pos) {
-      setGeoErr(true);
       onChange(null);
       return;
     }
@@ -66,6 +95,7 @@ export function DeliveryLocationPicker({ value, onChange, withDetail = true, dis
   };
 
   useEffect(() => {
+    if (!autoLocate) return;
     if (mode === "gps" && (!value || value.mode !== "gps")) void locate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
@@ -133,11 +163,18 @@ export function DeliveryLocationPicker({ value, onChange, withDetail = true, dis
             <span className="flex items-center gap-2 text-success">
               <Check className="h-4 w-4" /> {t("delivery.positionOk")}
             </span>
-          ) : (
+          ) : geoTried ? (
             <div className="space-y-2">
-              <p className="text-destructive">{geoErr ? t("delivery.geoDenied") : t("delivery.geoRequired")}</p>
+              <p className="text-destructive">{t("delivery.geoDenied")}</p>
               <button type="button" onClick={locate} className="text-primary underline-offset-2 hover:underline">
                 {t("delivery.retryGeo")}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-foreground/70">{t("delivery.geoHint")}</p>
+              <button type="button" onClick={locate} className="text-primary underline-offset-2 hover:underline">
+                {t("delivery.locateAction")}
               </button>
             </div>
           )}

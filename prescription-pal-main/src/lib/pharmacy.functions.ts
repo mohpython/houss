@@ -435,6 +435,7 @@ export const createReservation = createServerFn({ method: "POST" })
 
     // Price each requested item from the pharmacy's own inventory.
     const { DELIVERY_FEE, resolveDeliveryTarget } = await import("./routing-core.server");
+    const { ORDER_FEE } = await import("./payment-config");
     const target =
       data.neighborhoodId || (data.patientLat != null && data.patientLng != null)
         ? await resolveDeliveryTarget({
@@ -462,6 +463,13 @@ export const createReservation = createServerFn({ method: "POST" })
       select: INVENTORY_SELECT,
     });
 
+    // Taux de commission de la pharmacie figé au moment de la commande.
+    const pharmacyRef = await prisma.pharmacies.findUnique({
+      where: { id: data.pharmacyId },
+      select: { commission_rate: true },
+    });
+    const commissionRate = Number(pharmacyRef?.commission_rate ?? 0.05) || 0.05;
+
     const availability = matchItemsToInventory(chosen, inv as unknown as InventoryLine[]);
     const prices = new Map<string, number | null>(availability.map((a) => [a.itemId, a.price]));
     const itemsTotal = [...prices.values()].reduce<number>((s, p) => s + (p ?? 0), 0);
@@ -482,7 +490,10 @@ export const createReservation = createServerFn({ method: "POST" })
           delivery_mode: target?.deliveryMode ?? "gps",
           items_total: itemsTotal,
           delivery_fee: DELIVERY_FEE,
-          total_amount: itemsTotal + DELIVERY_FEE,
+          order_fee: ORDER_FEE,
+          commission_rate: commissionRate,
+          commission_amount: Math.round(itemsTotal * commissionRate),
+          total_amount: itemsTotal + DELIVERY_FEE + ORDER_FEE,
           payment_status: "unpaid",
         },
         select: { id: true },

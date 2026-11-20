@@ -6,6 +6,7 @@ import { AuroraBackground } from "@/components/AuroraBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
+import { absoluteUrl } from "@/lib/site-url";
 
 
 export const Route = createFileRoute("/")({
@@ -24,10 +25,10 @@ export const Route = createFileRoute("/")({
           i18n.t("meta.landingDesc"),
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://sahasantemali.com/" },
+      { property: "og:url", content: absoluteUrl("/") },
       { name: "twitter:card", content: "summary_large_image" },
     ],
-    links: [{ rel: "canonical", href: "https://sahasantemali.com/" }],
+    links: [{ rel: "canonical", href: absoluteUrl("/") }],
     scripts: [
       {
         type: "application/ld+json",
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/")({
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: "SAHA Santé",
-          url: "https://sahasantemali.com/",
+          url: absoluteUrl("/"),
         }),
       },
       {
@@ -44,8 +45,8 @@ export const Route = createFileRoute("/")({
           "@context": "https://schema.org",
           "@type": "Organization",
           name: "SAHA Santé",
-          url: "https://sahasantemali.com/",
-          logo: "https://sahasantemali.com/favicon.png",
+          url: absoluteUrl("/"),
+          logo: absoluteUrl("/favicon.png"),
           description:
             i18n.t("meta.landingOrgDesc"),
         }),

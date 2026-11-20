@@ -209,6 +209,9 @@ model pharmacies {
   // Orange Money WebPay — merchant_key propre à chaque pharmacie
   // (le client_id/client_secret sont ceux de l'app SAHA, commun à toutes)
   orange_merchant_key String?
+  // Commission SAHA prélevée sur les médicaments de chaque commande
+  // (part de la pharmacie). Modifiable par l'admin, par pharmacie.
+  commission_rate  Float   @default(0.05)
   created_at      DateTime        @default(now()) @db.Timestamptz(6)
   updated_at      DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
 
@@ -217,6 +220,7 @@ model pharmacies {
   inventory      inventory[]
   reservations   reservations[]
   feedback       feedback[]
+  platform_commission_payouts platform_commission_payouts[]
 
   @@index([status])
 }
@@ -386,6 +390,12 @@ model reservations {
   // Paiement
   items_total              Float              @default(0)
   delivery_fee             Float              @default(0)
+  order_fee                Float              @default(0)
+  // Commission SAHA sur les médicaments (commission_rate figé au moment de
+  // la commande, commission_amount = round(items_total × commission_rate))
+  commission_rate          Float              @default(0.05)
+  commission_amount        Float              @default(0)
+  platform_payout_id       String?            @db.Uuid
   total_amount             Float              @default(0)
   payment_status           String             @default("unpaid") // 'unpaid' | 'pending_verification' | 'paid' | 'failed'
   payment_method           String?
@@ -413,6 +423,7 @@ model reservations {
   pharmacies        pharmacies          @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade)
   couriers          couriers?           @relation(fields: [courier_id], references: [id], onDelete: SetNull)
   neighborhoods     neighborhoods?      @relation(fields: [neighborhood_id], references: [id], onDelete: SetNull)
+  platform_payout   platform_commission_payouts? @relation(fields: [platform_payout_id], references: [id], onDelete: SetNull)
   reservation_items reservation_items[]
   courier_positions courier_positions[]
   feedback          feedback[]
@@ -421,6 +432,24 @@ model reservations {
   @@index([pharmacy_id])
   @@index([courier_id])
   @@index([created_at(sort: Desc)])
+  @@index([platform_payout_id])
+}
+
+/// Reversements facturés aux pharmacies par SAHA : commission sur les
+/// médicaments des commandes payées + frais de commande.
+model platform_commission_payouts {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pharmacy_id   String   @db.Uuid
+  amount        Float    @default(0)
+  orders_count  Int      @default(0)
+  created_by    String?  @db.Uuid
+  note          String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  pharmacies    pharmacies    @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade)
+  reservations  reservations[]
+
+  @@index([pharmacy_id, created_at(sort: Desc)])
 }
 
 model reservation_items {

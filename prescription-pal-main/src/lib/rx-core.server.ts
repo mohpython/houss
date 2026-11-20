@@ -181,9 +181,14 @@ export function classifySeverity(res: {
         ? "minor"
         : "minor";
 
-  // Critical and moderate always block (go to admin). Minor blocks too but
-  // the patient gets a chance to self-correct first.
-  const blocking = critical || moderate || minor;
+  // Seuls les cas réellement infaisables arrêtent le parcours : document qui
+  // n'est pas une ordonnance, aucun médicament lisible, date future, ou
+  // ordonnance périmée (légalement non délivrable). Les doutes « modérés »
+  // (confiance moyenne, note de qualité, zone illisible) ne bloquent plus :
+  // ils sont signalés à l'équipe en arrière-plan pendant que le patient
+  // continue. Une ordonnance manuscrite a presque toujours une zone
+  // hésitante ; bloquer pour cela rendait le scan inutilisable.
+  const blocking = critical || res.dateStatus === "expired";
 
   return { severity, blocking, reasons };
 }
@@ -253,23 +258,35 @@ export async function runPrescriptionVisionAi(
     });
   }
 
-  const { output } = await generateText({
-    model: visionModel(),
-    system: SYSTEM_PROMPT,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messages: [{ role: "user", content: userContent as any }],
-    output: Output.object({ schema: ExtractionSchema }),
-    // Sortie bornée : sans plafond, le fournisseur réserve la fenêtre maximale
-    // du modèle (65536 tokens) et OpenRouter refuse la requête dès que le solde
-    // ne couvre pas cette réservation (« This request requires more credits »).
-    // 2048 suffit largement pour la liste de médicaments et passe même avec un
-    // solde OpenRouter réduit.
-    maxOutputTokens: 2048,
-    // Les 429 (quota Google saturé en rafale de tests) sont transitoires :
-    // on insiste avec backoff exponentiel au lieu d'échouer après 3 essais
-    // rapprochés (« Failed after 3 attempt ... Too many Request »).
-    maxRetries: 4,
-  });
+  const readOnce = () =>
+    generateText({
+      model: visionModel(),
+      system: SYSTEM_PROMPT,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      messages: [{ role: "user", content: userContent as any }],
+      output: Output.object({ schema: ExtractionSchema }),
+      // Sortie bornée : sans plafond, le fournisseur réserve la fenêtre maximale
+      // du modèle (65536 tokens) et OpenRouter refuse la requête dès que le solde
+      // ne couvre pas cette réservation (« This request requires more credits »).
+      // 2048 suffit largement pour la liste de médicaments et passe même avec un
+      // solde OpenRouter réduit.
+      maxOutputTokens: 2048,
+      // Les 429 (quota Google saturé en rafale de tests) sont transitoires :
+      // on insiste avec backoff exponentiel au lieu d'échouer après 3 essais
+      // rapprochés (« Failed after 3 attempt ... Too many Request »).
+      maxRetries: 4,
+    });
+
+  let output: PrescriptionAiOutput;
+  try {
+    output = (await readOnce()).output;
+  } catch (err) {
+    // Le JSON du modèle arrive parfois tronqué ou mal formé (photo floue,
+    // sortie coupée). Une seconde lecture suffit presque toujours : sans cela,
+    // le patient devait reprendre sa photo pour une simple erreur de format.
+    if (!NoObjectGeneratedError.isInstance(err)) throw err;
+    output = (await readOnce()).output;
+  }
 
   // Le modèle renvoie parfois des fractions (0-1) au lieu de pourcentages
   // (0-100) : on normalise pour ne pas fausser le verdict ("Confiance IA

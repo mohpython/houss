@@ -13,8 +13,9 @@
 import { botLang, statusLabel, COPY } from "./whatsapp-copy";
 import { sendText, whatsappConfigured } from "./whatsapp.server";
 import { basePrisma } from "@/server/prisma-base.server";
+import { env } from "@/server/env.server";
 
-const APP_URL = "https://sahasantemali.com";
+const APP_URL = env.appUrl;
 
 export type WaStatusKind =
   | "accepted"
