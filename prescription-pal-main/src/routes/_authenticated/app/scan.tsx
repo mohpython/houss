@@ -54,6 +54,7 @@ type ExtractionResult = {
   severity: "critical" | "moderate" | "minor";
   blocking: boolean;
   reasons: string[];
+  medicines: { name: string; strength: string | null; quantity: string | null }[];
 };
 
 type CorrectionState = {
@@ -68,6 +69,7 @@ type ExtractionSummary = {
   confidence: number;
   count: number;
   dateStatus: ExtractionResult["dateStatus"];
+  meds: ExtractionResult["medicines"];
 };
 
 /** Devis d'une pharmacie pour l'ordonnance (étape 2), sans rien créer. */
@@ -436,11 +438,12 @@ function Scan() {
       rxId = inserted.id;
 
       const res = (await extract({ data: { prescriptionId: rxId } })) as ExtractionResult;
-      setPhase(2);
+      setPhase(1);
       setExtraction({
         confidence: res.confidence,
         count: res.count,
         dateStatus: res.dateStatus,
+        meds: res.medicines ?? [],
       });
 
       // Ordonnance périmée : aucune pharmacie ne peut la délivrer. Un message
@@ -510,7 +513,10 @@ function Scan() {
         }).catch(() => undefined);
       }
 
-      await continueToStep1(rxId);
+      // Le patient valide lui-meme la lecture avant de quitter cet ecran :
+      // les pharmacies n'apparaissent qu'apres son clic explicite.
+      setPendingRx(rxId);
+      setPhase(1);
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("scan.error");
       if (rxId) {
@@ -796,6 +802,35 @@ function Scan() {
 
           {pendingRx && !correction && !review && !failed && !quotes && !quoting && !quotesError && (
             <div className="mt-6 space-y-4">
+              {extraction && extraction.meds.length > 0 && (
+                <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3 text-left">
+                  <div className="flex items-center gap-2">
+                    <ScanLine className="h-4 w-4 shrink-0 text-primary" />
+                    <p className="text-sm font-medium">
+                      {t("pharmacies.aiRead", { count: extraction.count })}
+                    </p>
+                    <span
+                      className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${confidenceTone}`}
+                    >
+                      {t("pharmacies.aiConfidence", {
+                        confidence: Math.round(extraction.confidence),
+                      })}
+                    </span>
+                  </div>
+                  <ul className="mt-2 space-y-1">
+                    {extraction.meds.map((m, i) => (
+                      <li key={`${m.name}-${i}`} className="flex items-baseline justify-between gap-2 text-sm">
+                        <span className="min-w-0 truncate">
+                          {m.name}
+                          {m.strength ? <span className="text-foreground/60"> · {m.strength}</span> : null}
+                        </span>
+                        {m.quantity ? <span className="shrink-0 text-foreground/60">{m.quantity}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-foreground/60">{t("scan.checkMedsHint", "Vérifiez les médicaments ci-dessus avant de commander : corrigez si l'IA s'est trompée.")}</p>
+                </div>
+              )}
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2">
                   <MapPin className="h-5 w-5 text-accent" />

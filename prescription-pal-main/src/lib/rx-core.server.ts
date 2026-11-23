@@ -137,6 +137,8 @@ export type ExtractResult = {
   severity: ReviewSeverity;
   blocking: boolean;
   reasons: string[];
+  /** Médicaments retenus après nettoyage : le patient les vérifie avant de continuer. */
+  medicines: { name: string; strength: string | null; quantity: string | null }[];
 };
 
 /**
@@ -561,6 +563,11 @@ export async function extractPrescriptionCore(
       unreadableZones: output.unreadable_zones ?? [],
       inconsistencies: output.inconsistencies ?? [],
       qualityNotes: output.quality_notes ?? null,
+      medicines: output.medicines.map((m) => ({
+        name: m.name,
+        strength: m.strength,
+        quantity: m.quantity,
+      })),
     };
 
     const { severity, blocking, reasons } = classifySeverity(baseResult);
