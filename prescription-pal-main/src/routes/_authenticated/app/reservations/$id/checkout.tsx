@@ -206,19 +206,16 @@ function Checkout() {
   };
 
   /**
-   * Choix du mode de remise. Le mode est enregistre puis le paiement Orange
-   * s'ouvre immediatement : le patient ne doit plus cliquer une seconde fois
-   * sur « Payer » apres avoir choisi la livraison ou le retrait.
+   * Choix du mode de remise. Le mode est enregistre, mais le paiement n'est
+   * PAS déclenché automatiquement : le patient garde la main et clique
+   * lui-même sur « Payer » quand il est prêt.
    */
   const chooseFulfillment = async (m: "delivery" | "pickup") => {
     const before = row;
     if (!before || payingRef.current) return;
 
-    // Le mode est deja celui choisi : on va directement au paiement.
-    if (before.fulfillment_method === m) {
-      await payOnline(openOrangeWindow());
-      return;
-    }
+    // Le mode est deja celui choisi : rien a enregistrer.
+    if (before.fulfillment_method === m) return;
 
     // Application immediate : le bouton se selectionne dans la meme image, sans
     // attendre le serveur.
@@ -233,7 +230,6 @@ function Checkout() {
       total_amount: itemsOf(before) + fee + orderFee,
     });
 
-    let failed = false;
     const task = (async () => {
       try {
         const res = await setMethodFn({ data: { reservationId: id, method: m } });
@@ -247,17 +243,12 @@ function Checkout() {
         }
       } catch (err) {
         if (seq !== fulfillmentSeq.current) return;
-        failed = true;
         setRow(before);
         toast.error(err instanceof Error ? err.message : t("pay.error"));
       }
     })();
     pendingFulfillment.current = task;
     await task;
-
-    // Ne jamais ouvrir le paiement avec un mode different de celui choisi.
-    if (failed || seq !== fulfillmentSeq.current) return;
-    await payOnline(openOrangeWindow());
   };
 
   const load = async () => {
