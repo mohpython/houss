@@ -390,6 +390,17 @@ export const editExtraction = createServerFn({ method: "POST" })
     });
     if (!rx) throw new Error("Ordonnance introuvable");
 
+    // Libellés lus par l'IA avant correction : la différence devient une
+    // correction mémorisée pour les prochaines ordonnances (apprentissage).
+    const previousNames = new Map<string, string>();
+    if (data.items?.length) {
+      const existing = await prisma.prescription_items.findMany({
+        where: { prescription_id: rx.id, id: { in: data.items.map((i) => i.id) } },
+        select: { id: true, medicine_name_raw: true },
+      });
+      for (const it of existing) previousNames.set(it.id, it.medicine_name_raw);
+    }
+
     const patch = {
       review_status: "corrected",
       status: "verified" as const,
@@ -415,6 +426,17 @@ export const editExtraction = createServerFn({ method: "POST" })
           await prisma.prescription_items.updateMany({
             where: { id: item.id },
             data: itemPatch,
+          });
+        }
+        const oldName = previousNames.get(item.id);
+        const newName = item.medicineNameRaw?.trim();
+        if (oldName && newName && oldName.trim() !== newName) {
+          const { recordMedicineCorrection } = await import("./rx-learning.server");
+          await recordMedicineCorrection({
+            raw: oldName,
+            corrected: newName,
+            source: "admin",
+            userId: context.userId,
           });
         }
       }

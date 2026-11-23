@@ -321,6 +321,28 @@ model prescription_items {
 }
 
 // ============================================================================
+// APPRENTISSAGE DE L'EXTRACTION (corrections humaines réutilisées par l'IA)
+// ============================================================================
+
+model ai_medicine_corrections {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /** Libellé lu par l'IA, normalisé (minuscules, sans accents). */
+  raw_name       String
+  /** Nom exact validé par un humain. */
+  corrected_name String
+  /** admin | patient | pharmacy */
+  source         String   @default("admin")
+  /** Nombre de fois où cette correction a été confirmée. */
+  hits           Int      @default(1)
+  created_by     String?  @db.Uuid
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([raw_name, corrected_name])
+  @@index([raw_name])
+}
+
+// ============================================================================
 // COMMANDES / LIVRAISON
 // ============================================================================
 

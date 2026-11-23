@@ -16,8 +16,15 @@ import {
   catalogHint,
   linkPrescriptionItemsToCatalog,
   loadCatalog,
+  parseQuantity,
   type CatalogMed,
 } from "./medicine-match.server";
+import {
+  applyLearnedCorrections,
+  correctionsPromptHint,
+  loadLearnedCorrections,
+  type LearnedCorrection,
+} from "./rx-learning.server";
 
 export const ExtractionSchema = z.object({
   is_prescription: z.boolean(),
@@ -196,6 +203,22 @@ export function classifySeverity(res: {
 export type PrescriptionAiOutput = z.infer<typeof ExtractionSchema>;
 
 /**
+ * Clé de fusion des doublons d'une même ordonnance. Contrairement à la clé
+ * d'apprentissage, elle CONSERVE les mots de forme (crème, collyre, sirop) :
+ * deux formes différentes du même principe actif ne doivent jamais fusionner.
+ */
+function sameMedicineKey(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9%µ/x]+/g, " ")
+    .replace(/(\d)\s*x\s*(\d)/g, "$1x$2")
+    .replace(/(\d+)\s*(mg|g|ml|mcg|ui|%|cc)\b/g, "$1$2")
+    .trim();
+}
+
+/**
  * Cœur pur de l'extraction : octets du fichier → sortie JSON de l'IA.
  *
  * Aucun effet de bord — ni base, ni journal, ni fichier. C'est ce qui permet au
@@ -216,12 +239,20 @@ export async function runPrescriptionVisionAi(
 
   // Catalog names help the model spell medicine names consistently run after run.
   let hint = "";
+  // Corrections déjà validées par l'équipe : servent au prompt et à la
+  // correction déterministe après lecture (apprentissage par corrections).
+  let learned: LearnedCorrection[] = [];
   // Catalogue charge (ou fourni) : sert à l'indication comme à la sanitization.
   let catalogList: CatalogMed[] | null = null;
   if (catalog === undefined) {
     try {
-      catalogList = await loadCatalog();
-      hint = catalogHint(catalogList);
+      const [cat, corrections] = await Promise.all([
+        loadCatalog(),
+        loadLearnedCorrections(),
+      ]);
+      catalogList = cat;
+      learned = corrections;
+      hint = catalogHint(cat);
     } catch {
       hint = "";
     }
@@ -229,6 +260,10 @@ export async function runPrescriptionVisionAi(
     catalogList = catalog;
     hint = catalogHint(catalog);
   }
+
+  // Les corrections validées sont ajoutées au prompt : le modèle écrit
+  // directement le nom exact au lieu de répéter une ancienne erreur.
+  const learnedHint = correctionsPromptHint(learned);
 
   const userContent: Array<Record<string, unknown>> = [
     {
@@ -261,7 +296,7 @@ export async function runPrescriptionVisionAi(
   const readOnce = () =>
     generateText({
       model: visionModel(),
-      system: SYSTEM_PROMPT,
+      system: SYSTEM_PROMPT + learnedHint,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messages: [{ role: "user", content: userContent as any }],
       output: Output.object({ schema: ExtractionSchema }),
@@ -302,6 +337,11 @@ export async function runPrescriptionVisionAi(
   // a hallucinated / mis-spelled medicine never reaches the stock flow under a
   // bogus name (the pharmacy stock then matches the REAL product).
   if (output.medicines) {
+    // Corrections validées par l'équipe : on les réapplique de façon
+    // déterministe, même si le modèle n'a pas suivi l'indication du prompt.
+    if (learned.length > 0) {
+      output.medicines = applyLearnedCorrections(output.medicines, learned);
+    }
     const cleaned: PrescriptionAiOutput["medicines"] = [];
     for (const m of output.medicines) {
       const name = (m?.name ?? "").trim();
@@ -313,7 +353,32 @@ export async function runPrescriptionVisionAi(
       }
       cleaned.push(m);
     }
-    output.medicines = cleaned;
+    // Fusionne les doublons : le modèle répète parfois une ligne (même
+    // médicament écrit deux fois). On garde la quantité la plus forte et on
+    // complète les champs manquants au lieu d'afficher deux fois le produit.
+    const merged = new Map<string, PrescriptionAiOutput["medicines"][number]>();
+    for (const m of cleaned) {
+      const key = sameMedicineKey(m.name);
+      if (!key || !m.name.trim()) continue;
+      const prev = merged.get(key);
+      if (!prev) {
+        merged.set(key, m);
+        continue;
+      }
+      const prevQty = parseQuantity(prev.quantity);
+      const curQty = parseQuantity(m.quantity);
+      const keep = curQty > prevQty ? m : prev;
+      const other = keep === m ? prev : m;
+      merged.set(key, {
+        name: keep.name,
+        strength: keep.strength ?? other.strength,
+        quantity: keep.quantity ?? other.quantity,
+        dosage: keep.dosage ?? other.dosage,
+        duration: keep.duration ?? other.duration,
+        instructions: keep.instructions ?? other.instructions,
+      });
+    }
+    output.medicines = [...merged.values()];
   }
 
   return output;

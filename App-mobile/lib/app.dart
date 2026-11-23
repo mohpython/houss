@@ -71,6 +71,10 @@ class SahaSanteApp extends StatelessWidget {
         return MaterialApp.router(
           title: AppConfig.appName,
           debugShowCheckedModeBanner: false,
+          // Restauration d'état : si Android recycle l'application pendant
+          // l'ouverture de la galerie / de l'appareil photo, l'écran en cours
+          // est reconstruit au retour au lieu de repartir de l'accueil.
+          restorationScopeId: 'saha-app',
           // Un seul theme, deja resolu : `darkTheme`/`themeMode` baraient en double
           // (le theme sombre de Material remplacerait les couleurs resolues,
           // et les ecrans qui lisent AppColors seraient desynchronises).

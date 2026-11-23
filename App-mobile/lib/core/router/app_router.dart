@@ -76,6 +76,9 @@ class AppRouter {
   static GoRouter get router => _instance ??= GoRouter(
         navigatorKey: _rootNavigatorKey,
         initialLocation: '/',
+        // Restauration d'état : après un recyclage de l'activité Android
+        // (galerie photo, mémoire faible), on revient sur le même écran.
+        restorationScopeId: 'saha-router',
         // La session (redirections / connexion) ET la langue (reconstruction
         // de l'écran affiché) déclenchent une reconstruction des routes.
         refreshListenable: Listenable.merge([AuthService.instance, AppLocale.instance]),

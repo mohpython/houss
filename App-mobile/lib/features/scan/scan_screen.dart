@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -37,6 +38,9 @@ class _ScanScreenState extends State<ScanScreen> {
     super.initState();
     // Voix : lit l'introduction après le premier cadre.
     WidgetsBinding.instance.addPostFrameCallback((_) => _speakIntro());
+    // Photo choisie avant qu'Android ne recycle l'application (galerie ouverte,
+    // mémoire faible) : on la récupère au lieu de repartir de zéro.
+    unawaited(_recoverLostPick());
   }
 
   File? _photo;
@@ -76,7 +80,31 @@ class _ScanScreenState extends State<ScanScreen> {
       return;
     }
     if (picked == null) return;
+    await _handlePicked(picked);
+  }
 
+  /// Récupère la photo choisie quand Android a tué l'application pendant que
+  /// la galerie était ouverte (mémoire faible, autre app au premier plan...).
+  /// Sans cela, l'app se relançait sur l'accueil et le patient croyait qu'elle
+  /// « sortait » toute seule de la partie scan.
+  Future<void> _recoverLostPick() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final lost = await _picker.retrieveLostData();
+      final file = lost.file;
+      if (file == null || !mounted) return;
+      if (!DeliveryLocationStore.instance.hasLocation) {
+        final ok = await showDeliveryLocationSheet(context);
+        if (ok != true || !mounted) return;
+      }
+      await _handlePicked(file);
+    } catch (_) {
+      // Rien à récupérer : on reste simplement sur l'écran de scan.
+    }
+  }
+
+  /// Téléverse l'ordonnance choisie puis affiche la lecture de l'IA.
+  Future<void> _handlePicked(XFile picked) async {
     final file = File(picked.path);
     if (!mounted) return;
     setState(() {
@@ -104,32 +132,16 @@ class _ScanScreenState extends State<ScanScreen> {
       // Sans medicament identifie, il n'y a rien a commander : on laisse le
       // patient reprendre une photo.
       if (result.error == null && result.prescription.medicines.isNotEmpty) {
+        // Ordonnance douteuse : on la transmet a l'equipe et on reste sur le
+        // resultat (le patient est notifie quand elle est tranchee).
         if (result.needsReview) {
           await _flagForReview(result);
-        } else if (mounted) {
-          final store = DeliveryLocationStore.instance;
-          if (store.hasLocation) {
-            // Lieu deja choisi avant le scan : on enchaine directement vers
-            // les pharmacies, sans re-demander le lieu.
-            final params = <String, String>{
-              'fulfillment': store.fulfillment,
-              if (store.detail.isNotEmpty) 'address': store.detail,
-            };
-            if (store.mode == 'gps') {
-              params['mode'] = 'gps';
-              params['lat'] = '${store.lat}';
-              params['lng'] = '${store.lng}';
-            } else {
-              params['mode'] = 'neighborhood';
-              params['neighborhoodId'] = store.neighborhoodId!;
-            }
-            context.push(
-              '/pharmacies/${result.prescription.id}?${Uri(queryParameters: params).query}',
-            );
-          } else {
-            context.push('/localisation/${result.prescription.id}');
-          }
         }
+        // Lecture normale : on RESTE sur l'ecran de resultat. Le patient voit
+        // les medicaments lus puis appuie lui-meme sur « Choisir la
+        // livraison ». Avant, l'app sautait directement a la liste des
+        // pharmacies des qu'un lieu etait memorise, ce qui donnait l'impression
+        // qu'elle « sortait » du scan toute seule.
       }
     } on ApiException catch (e) {
       if (!mounted) return;

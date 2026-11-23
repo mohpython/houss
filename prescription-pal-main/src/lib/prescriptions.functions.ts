@@ -213,6 +213,15 @@ export const updatePrescriptionItem = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { prisma } = await import("@/server/db.server");
+    // Libellé lu par l'IA avant la correction du patient : sert à mémoriser
+    // l'apprentissage (le patient connaît le nom exact de son médicament).
+    const previous =
+      "medicine_name_raw" in data.patch
+        ? await prisma.prescription_items.findFirst({
+            where: { id: data.itemId, prescriptions: { patient_id: context.userId } },
+            select: { medicine_name_raw: true },
+          })
+        : null;
     // A renamed medicine must be re-linked to the catalog on the next search.
     const dbPatch =
       "medicine_name_raw" in data.patch
@@ -222,6 +231,21 @@ export const updatePrescriptionItem = createServerFn({ method: "POST" })
       where: { id: data.itemId, prescriptions: { patient_id: context.userId } },
       data: dbPatch,
     });
+    const newName = data.patch.medicine_name_raw?.trim();
+    if (
+      res.count > 0 &&
+      previous &&
+      newName &&
+      previous.medicine_name_raw.trim() !== newName
+    ) {
+      const { recordMedicineCorrection } = await import("@/lib/rx-learning.server");
+      await recordMedicineCorrection({
+        raw: previous.medicine_name_raw,
+        corrected: newName,
+        source: "patient",
+        userId: context.userId,
+      });
+    }
     return { ok: res.count > 0 };
   });
 
