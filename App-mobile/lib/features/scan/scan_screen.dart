@@ -47,6 +47,9 @@ class _ScanScreenState extends State<ScanScreen> {
   ScanResult? _result;
   bool _uploading = false;
   bool _sending = false;
+  /// Vrai pendant le traitement de la photo (rattrapage Android ou upload).
+  /// Protège contre les doubles lancements pendant l'envoi IA.
+  bool _handling = false;
   /// Vrai quand l'ordonnance affichee a ete transmise a l'equipe : le bouton
   /// de suite disparait, car commander sans relecture serait un contournement
   /// de la verification.
@@ -105,8 +108,13 @@ class _ScanScreenState extends State<ScanScreen> {
 
   /// Téléverse l'ordonnance choisie puis affiche la lecture de l'IA.
   Future<void> _handlePicked(XFile picked) async {
+    if (_handling || _uploading || _sending) return;
+    _handling = true;
     final file = File(picked.path);
-    if (!mounted) return;
+    if (!mounted) {
+      _handling = false;
+      return;
+    }
     setState(() {
       _photo = file;
       _result = null;
@@ -151,6 +159,9 @@ class _ScanScreenState extends State<ScanScreen> {
       if (!mounted) return;
       setState(() => _uploading = false);
       _showError(L10n.c('scan.uploadFailed'));
+    } finally {
+      _handling = false;
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
