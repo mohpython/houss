@@ -832,14 +832,18 @@ function Scan() {
                   <p className="mt-2 text-xs text-foreground/60">{t("scan.checkMedsHint", "Vérifiez les médicaments ci-dessus avant de commander : corrigez si l'IA s'est trompée.")}</p>
                 </div>
               )}
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <MapPin className="h-5 w-5 text-accent" />
-                  <h3 className="font-display text-lg">{t("delivery.positionTitle")}</h3>
-                </div>
-                <p className="mt-1 text-sm text-foreground/70">{t("delivery.positionHint")}</p>
-              </div>
-              <DeliveryLocationPicker value={deliveryLoc} onChange={setDeliveryLoc} />
+              {!deliveryLoc && (
+                <>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <MapPin className="h-5 w-5 text-accent" />
+                      <h3 className="font-display text-lg">{t("delivery.positionTitle")}</h3>
+                    </div>
+                    <p className="mt-1 text-sm text-foreground/70">{t("delivery.positionHint")}</p>
+                  </div>
+                  <DeliveryLocationPicker value={deliveryLoc} onChange={setDeliveryLoc} />
+                </>
+              )}
               <Button
                 onClick={() => deliveryLoc && pendingRx && loadQuotes(pendingRx, deliveryLoc)}
                 disabled={!deliveryLoc}
