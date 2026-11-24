@@ -446,9 +446,10 @@ function Scan() {
         meds: res.medicines ?? [],
       });
 
-      // Ordonnance périmée : aucune pharmacie ne peut la délivrer. Un message
-      // direct vaut mieux qu'une file de vérification sans issue.
-      if (res.dateStatus === "expired") {
+      // Une date périmée ne doit pas empêcher l'extraction des médicaments :
+      // on laisse la date pour le moment et on se focalise sur les médicaments
+      // présents sur l'ordonnance. Sans médicament lisible, on bloque.
+      if (res.dateStatus === "expired" && res.count === 0) {
         setFailed(t("auto.expired"));
         return;
       }

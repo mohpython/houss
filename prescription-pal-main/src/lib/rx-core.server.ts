@@ -169,7 +169,6 @@ export function classifySeverity(res: {
   if (res.qualityNotes) reasons.push(`Qualité image : ${res.qualityNotes}`);
 
   const critical = res.count === 0 || res.dateStatus === "future" || res.authenticityScore < 50;
-
   const moderate =
     !critical &&
     (res.dateStatus === "expired" ||
@@ -190,14 +189,17 @@ export function classifySeverity(res: {
         ? "minor"
         : "minor";
 
-  // Seuls les cas réellement infaisables arrêtent le parcours : document qui
+  // Seuls les cas réellement infaisibles arrêtent le parcours : document qui
   // n'est pas une ordonnance, aucun médicament lisible, date future, ou
   // ordonnance périmée (légalement non délivrable). Les doutes « modérés »
   // (confiance moyenne, note de qualité, zone illisible) ne bloquent plus :
   // ils sont signalés à l'équipe en arrière-plan pendant que le patient
   // continue. Une ordonnance manuscrite a presque toujours une zone
   // hésitante ; bloquer pour cela rendait le scan inutilisable.
-  const blocking = critical || res.dateStatus === "expired";
+  // Une date périmée n'arrête PAS le parcours tant que des médicaments ont été
+  // extraits : on laisse la date pour le moment et on continue sur les
+  // médicaments présents.
+  const blocking = critical || (res.dateStatus === "expired" && res.count === 0);
 
   return { severity, blocking, reasons };
 }
