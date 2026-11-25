@@ -167,7 +167,7 @@ function Home() {
                 Bamako, Mali
               </span>
               <Link
-                to="/app/otc"
+                to="/app/pharmacies"
                 aria-label={t("home.partnerSearch")}
                 title={t("home.partnerSearch")}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-emerald-100/80 backdrop-blur-xl transition hover:border-emerald-300/40 hover:text-white"

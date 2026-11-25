@@ -894,7 +894,7 @@ class _ServicesGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
-      childAspectRatio: 0.80,
+      childAspectRatio: 0.74,
       children: items,
     );
   }
@@ -919,7 +919,7 @@ class _ServiceData extends StatelessWidget {
       onTap: onTap ?? () => context.push(route!),
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
         decoration: BoxDecoration(
           color: _C.cardSoft,
           borderRadius: BorderRadius.circular(18),
@@ -928,8 +928,8 @@ class _ServiceData extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(asset, width: 40, height: 40),
-            const SizedBox(height: 7),
+            Image.asset(asset, width: 36, height: 36),
+            const SizedBox(height: 6),
             Text(
               label,
               textAlign: TextAlign.center,
