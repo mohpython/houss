@@ -29,7 +29,9 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
 
   /// Espace professionnel du compte connecté (priorité : admin > pharmacie >
   /// livreur > praticien).
-  static ({Widget page, String labelKey, IconData icon})? _spaceFor(Set<String> roles) {
+  static ({Widget page, String labelKey, IconData icon})? _spaceFor(
+    Set<String> roles,
+  ) {
     if (roles.contains('admin')) {
       return (
         page: const AdminSpaceScreen(),
@@ -96,14 +98,18 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
     return ListenableBuilder(
       listenable: AuthService.instance,
       builder: (context, _) {
-        final roles = (AuthService.instance.user?.roles ?? const <String>[]).toSet();
+        final roles = (AuthService.instance.user?.roles ?? const <String>[])
+            .toSet();
         final tabs = _tabsFor(roles);
-        if (_currentIndex >= tabs.pages.length) _currentIndex = tabs.pages.length - 1;
+        if (_currentIndex >= tabs.pages.length) {
+          _currentIndex = tabs.pages.length - 1;
+        }
         final labels = [
           L10n.t(context, 'navHome'),
           L10n.t(context, 'navScan'),
           L10n.t(context, 'navTrack'),
-          if (tabs.spaceLabelKey.isNotEmpty) L10n.t(context, tabs.spaceLabelKey),
+          if (tabs.spaceLabelKey.isNotEmpty)
+            L10n.t(context, tabs.spaceLabelKey),
           L10n.t(context, 'navProfile'),
         ];
 
@@ -112,21 +118,18 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
             children: [
               tabs.pages[_currentIndex],
               // Bouton pause/reprise vocale flottant (façon NIAGA). Sur
-              // l'accueil, il passe en bas à gauche pour ne pas chevaucher le
-              // nouveau logo ; ailleurs il reste en haut à gauche.
+              // l'accueil et le scan, il passe en bas à gauche pour ne pas
+              // chevaucher le logo / la recherche ; ailleurs il reste en haut
+              // à gauche.
               Positioned(
-                top: _currentIndex == 0 ? null : 44,
-                bottom: _currentIndex == 0 ? 16 : null,
+                top: (_currentIndex == 0 || _currentIndex == 1) ? null : 44,
+                bottom: (_currentIndex == 0 || _currentIndex == 1) ? 16 : null,
                 left: 8,
                 child: const VoiceGuideToggle(),
               ),
               // Commande via WhatsApp, bouton flottant façon site : visible
               // pour tous les comptes, comme sur le site.
-              const Positioned(
-                bottom: 16,
-                right: 16,
-                child: WhatsAppFab(),
-              ),
+              const Positioned(bottom: 16, right: 16, child: WhatsAppFab()),
             ],
           ),
           // Barre flottante « verre » alignée sur la maquette 3D : fond vert
@@ -172,12 +175,12 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: selected
-                                ? const Color(0x2634E3A4)
+                                ? const Color(0x3334E3A4)
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: selected
-                                  ? const Color(0x5534E3A4)
+                                  ? const Color(0x7734E3A4)
                                   : Colors.transparent,
                             ),
                           ),
@@ -185,20 +188,13 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (asset != null)
-                                Opacity(
-                                  opacity: selected ? 1 : 0.7,
-                                  child: Image.asset(
-                                    asset,
-                                    width: 25,
-                                    height: 25,
-                                  ),
-                                )
+                                Image.asset(asset, width: 26, height: 26)
                               else
                                 Icon(
                                   tabs.icons[index],
                                   color: selected
                                       ? const Color(0xFF34E3A4)
-                                      : const Color(0xFF8FB8A8),
+                                      : const Color(0xFFD7EFE4),
                                   size: 24,
                                 ),
                               const SizedBox(height: 4),
@@ -210,7 +206,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
                                   fontSize: 10,
                                   color: selected
                                       ? const Color(0xFF34E3A4)
-                                      : const Color(0xFF8FB8A8),
+                                      : const Color(0xFFD7EFE4),
                                   fontWeight: selected
                                       ? FontWeight.w700
                                       : FontWeight.w500,

@@ -222,7 +222,13 @@
     "locationTitle": "First, where to?",
     "locationHint": "Choose your delivery location before photographing the prescription.",
     "locationContinue": "Continue",
-    "captureCancelled": "No photo selected. Tap the camera icon again to retry."
+    "captureCancelled": "No photo selected. Tap the camera icon again to retry.",
+    "badge": "Scan",
+    "heroHighlight": "prescription",
+    "takePhoto": "Take a photo",
+    "fromGallery": "Choose from gallery",
+    "tipTitle": "Tip for a good analysis",
+    "tipBody": "Make sure the prescription is clear, complete and well lit."
   },
   "rxList": {
     "title": "My prescriptions",

@@ -29,7 +29,8 @@ class AppLocale extends ChangeNotifier {
 
   SahaLang _current = SahaLang.fr;
   SahaLang get current => _current;
-  Locale get locale => Locale(_current.code, _current == SahaLang.fr ? 'FR' : '');
+  Locale get locale =>
+      Locale(_current.code, _current == SahaLang.fr ? 'FR' : '');
   bool get isRtl => _current == SahaLang.ar;
 
   Future<void> load() async {
@@ -76,7 +77,11 @@ class L10n {
   }
 
   /// Traduit la clé en remplaçant les marqueurs `{name}`.
-  static String tArgs(BuildContext context, String key, Map<String, String> args) {
+  static String tArgs(
+    BuildContext context,
+    String key,
+    Map<String, String> args,
+  ) {
     var s = t(context, key);
     args.forEach((k, v) => s = s.replaceAll('{$k}', v));
     return s;
@@ -108,7 +113,8 @@ class L10n {
       'whatsapp.fabAria': 'Ouvrir la conversation WhatsApp SAHA Santé',
       'whatsapp.prefill': 'Bonjour, je souhaite envoyer une ordonnance.',
       'whatsapp.notInstalledTitle': "WhatsApp n'est pas installé",
-      'whatsapp.notInstalledBody': "Pour discuter avec SAHA Santé sur WhatsApp, installez l'application ou appelez-nous au {number}.",
+      'whatsapp.notInstalledBody':
+          "Pour discuter avec SAHA Santé sur WhatsApp, installez l'application ou appelez-nous au {number}.",
       'whatsapp.installAction': 'Installer WhatsApp',
       'whatsapp.callAction': 'Appeler',
       'phm.open24': 'Ouvert 24h/24',
@@ -131,13 +137,15 @@ class L10n {
       'otc.addAtLeast': 'Ajoutez au moins un médicament',
       'otc.orderFailed': 'Commande impossible pour le moment. Réessayez.',
       'otc.title': 'Sans ordonnance',
-      'otc.subtitle': 'Commandez des médicaments sans ordonnance auprès d\'une pharmacie proche.',
+      'otc.subtitle':
+          'Commandez des médicaments sans ordonnance auprès d\'une pharmacie proche.',
       'otc.noSuggestion': 'Aucune suggestion pour cette recherche.',
       'otc.nameHint': 'Nom du médicament',
       'otc.findPharmacy': 'Trouver une pharmacie',
       'nt.loadFailed': 'Impossible de charger les notifications.',
       'nt.unread': 'Nouveau',
-      'nt.empty': 'Aucune notification pour le moment.\n\nLes nouvelles commandes, validations et messages apparaîtront ici.',
+      'nt.empty':
+          'Aucune notification pour le moment.\n\nLes nouvelles commandes, validations et messages apparaîtront ici.',
       'nt.allUpToDate': 'Tout est à jour.',
       'nt.unreadOne': '{count} non lue',
       'nt.unreadMany': '{count} non lues',
@@ -151,8 +159,10 @@ class L10n {
       'cr.offline': 'Hors ligne',
       'cr.profileStatus': 'Profil : {status}',
       'cr.inProgress': 'En cours',
-      'cr.noProfile': 'Aucun profil livreur actif sur ce compte.\n\nInscrivez-vous comme livreur sur le site web pour recevoir des courses.',
-      'cr.noDeliveries': 'Aucune livraison en cours.\n\nRestez en ligne : les courses assignées par les pharmacies apparaîtront ici.',
+      'cr.noProfile':
+          'Aucun profil livreur actif sur ce compte.\n\nInscrivez-vous comme livreur sur le site web pour recevoir des courses.',
+      'cr.noDeliveries':
+          'Aucune livraison en cours.\n\nRestez en ligne : les courses assignées par les pharmacies apparaîtront ici.',
       'pr.loadFailed': 'Impossible de charger vos rendez-vous.',
       'pr.rejectTitle': 'Refuser le rendez-vous',
       'pr.rejectReasonHint': 'Motif du refus (facultatif)',
@@ -165,8 +175,10 @@ class L10n {
       'pr.today': 'Aujourd’hui',
       'pr.upcoming': 'À venir',
       'pr.done': 'Terminés',
-      'pr.noProfile': 'Aucun profil praticien lié à ce compte.\n\nContactez l’administration pour relié votre profil.',
-      'pr.noAppointments': 'Aucun rendez-vous pour le moment.\n\nLes demandes des patients apparaîtront ici.',
+      'pr.noProfile':
+          'Aucun profil praticien lié à ce compte.\n\nContactez l’administration pour relié votre profil.',
+      'pr.noAppointments':
+          'Aucun rendez-vous pour le moment.\n\nLes demandes des patients apparaîtront ici.',
       'ph.loadFailed': 'Impossible de charger votre espace pharmacie.',
       'ph.noRxAttached': 'Aucune ordonnance jointe.',
       'ph.pickup': 'Retrait',
@@ -180,12 +192,14 @@ class L10n {
       'ph.markReady': 'Marquer prête',
       'ph.assignCourier': 'Assigner un livreur',
       'ph.awaitPickup': 'En attente du retrait par le client.',
-      'ph.noOrders': 'Aucune commande pour le moment.\n\nLes commandes réglées par le patient apparaîtront ici.',
+      'ph.noOrders':
+          'Aucune commande pour le moment.\n\nLes commandes réglées par le patient apparaîtront ici.',
       'ph.searchMedicine': 'Rechercher un médicament…',
       'ph.outOfStock': 'Rupture',
       'ph.lowStock': 'Bas · {qty}',
       'ph.inStock': '{qty} en stock',
-      'ph.noStock': 'Aucun médicament en stock.\nAppuyez sur « Ajouter » pour remplir votre inventaire.',
+      'ph.noStock':
+          'Aucun médicament en stock.\nAppuyez sur « Ajouter » pour remplir votre inventaire.',
       'ph.noSearchResult': 'Aucun résultat pour « {q} ».',
       'ph.stockQty': 'Quantité en stock',
       'ph.priceHint': 'Prix (FCFA)',
@@ -206,9 +220,11 @@ class L10n {
       'ph.stockTab': 'Stock',
       'otc.orderSent': 'Commande envoyée à {name}',
       'he.title': 'Consultation',
-      'he.subtitle': 'Décrivez vos symptômes pour être orienté vers le bon praticien.',
+      'he.subtitle':
+          'Décrivez vos symptômes pour être orienté vers le bon praticien.',
       'he.symptoms': 'Symptômes',
-      'he.symptomsHint': 'J\'ai de la fièvre et des maux de tête depuis 2 jours...',
+      'he.symptomsHint':
+          'J\'ai de la fièvre et des maux de tête depuis 2 jours...',
       'he.homeOnly': 'Visite à domicile uniquement',
       'he.analyze': 'Analyser mes symptômes',
       'he.specialties': 'Spécialités',
@@ -265,13 +281,16 @@ class L10n {
       'adm.pendingAppts': 'RDV en attente',
       'adm.accounts': 'Comptes',
       'adm.latestPharmacies': 'Dernières pharmacies',
-      'adm.missingLocation': '⚠ Emplacement manquant — à localiser sur la carte',
+      'adm.missingLocation':
+          '⚠ Emplacement manquant — à localiser sur la carte',
       'adm.approve': 'Approuver',
       'adm.reject': 'Rejeter',
       'adm.createAccount': 'Créer le compte pharmacie',
       'adm.enterManagerEmail': 'Saisissez l’email du gérant à attribuer.',
-      'adm.noAccountForEmail': 'Aucun compte pour cet email — pharmacie réservée jusqu’à la création de son compte.',
-      'adm.ownerAssigned': 'Gérant attribué : ce compte a maintenant accès à l’espace pharmacie.',
+      'adm.noAccountForEmail':
+          'Aucun compte pour cet email — pharmacie réservée jusqu’à la création de son compte.',
+      'adm.ownerAssigned':
+          'Gérant attribué : ce compte a maintenant accès à l’espace pharmacie.',
       'adm.removeManagerTitle': 'Retirer le gérant ?',
       'adm.loseAccessEmail': '« {email} » perdra l’accès à cette pharmacie.',
       'adm.loseAccess': 'Ce compte perdra l’accès à cette pharmacie.',
@@ -286,10 +305,12 @@ class L10n {
       'adm.accountCreated': 'Compte pharmacie créé',
       'adm.accountLinked': 'Compte rattaché',
       'adm.sendCredentials': 'Transmettez ces identifiants à la pharmacie :',
-      'adm.accountExisted': 'Ce compte existait déjà et vient d’être rattaché :',
+      'adm.accountExisted':
+          'Ce compte existait déjà et vient d’être rattaché :',
       'adm.identifier': 'Identifiant',
       'adm.password': 'Mot de passe',
-      'adm.loginHint': 'La pharmacie se connectera avec ces identifiants (espace Pharmacien).',
+      'adm.loginHint':
+          'La pharmacie se connectera avec ces identifiants (espace Pharmacien).',
       'adm.gotIt': 'J’ai noté',
       'adm.registered': 'Enregistrée',
       'adm.alreadyRegistered': 'Déjà enregistrée',
@@ -299,7 +320,8 @@ class L10n {
       'adm.refresh': 'Actualiser',
       'adm.nearbyPartners': 'Partenaires à proximité ({count})',
       'adm.otherNearby': 'Autres pharmacies autour — Google Maps ({count})',
-      'adm.noPharmacyInRadius': 'Aucune pharmacie dans un rayon de {radius} km. Élargissez le rayon.',
+      'adm.noPharmacyInRadius':
+          'Aucune pharmacie dans un rayon de {radius} km. Élargissez le rayon.',
       'adm.online': 'En ligne',
       'adm.noCouriers': 'Aucun livreur inscrit.',
       'adm.lastLogin': 'Dernière connexion : {date}',
@@ -309,7 +331,8 @@ class L10n {
       'adm.editPractitioner': 'Modifier le praticien',
       'adm.noPractitioners': 'Aucun praticien enregistré.',
       'adm.noSpecialties': 'Aucune spécialité disponible : vérifiez la base.',
-      'adm.pendingPractitioners': '{count} praticien(s) en attente de validation.',
+      'adm.pendingPractitioners':
+          '{count} praticien(s) en attente de validation.',
       'adm.fullName': 'Nom complet',
       'adm.typeLabel': 'Type',
       'adm.specialty': 'Spécialité',
@@ -386,7 +409,8 @@ class L10n {
       'adm.tabOverview': 'Vue',
       'rev.title': 'Ordonnances à vérifier',
       'rev.subtitle': 'Documents douteux envoyés par l\'IA.',
-      'rev.entrySubtitle': 'Documents signalés par l\'IA : valider, refuser ou corriger.',
+      'rev.entrySubtitle':
+          'Documents signalés par l\'IA : valider, refuser ou corriger.',
       'rev.countPending': '{count} en attente — les cas critiques en premier.',
       'rev.nonePending': 'Aucune ordonnance en attente de vérification.',
       'rev.loadFailed': 'Impossible de charger la file de vérification.',
@@ -425,12 +449,16 @@ class L10n {
       'trk.allOrders': 'Toutes mes commandes',
       'trk.loadFailed': 'Impossible de charger le suivi de la commande.',
       'trk.modeFailed': 'Impossible de changer le mode de remise. Réessayez.',
-      'trk.errPhone': 'Saisissez le numéro de téléphone utilisé pour le paiement',
-      'trk.errRef': 'Saisissez la référence de la transaction (4 caractères minimum)',
-      'trk.payDeclared': 'Paiement déclaré, en attente de confirmation par la pharmacie',
+      'trk.errPhone':
+          'Saisissez le numéro de téléphone utilisé pour le paiement',
+      'trk.errRef':
+          'Saisissez la référence de la transaction (4 caractères minimum)',
+      'trk.payDeclared':
+          'Paiement déclaré, en attente de confirmation par la pharmacie',
       'trk.payDeclareFailed': 'La déclaration de paiement a échoué. Réessayez.',
       'trk.cancelTitle': 'Annuler la commande ?',
-      'trk.cancelBody': 'La pharmacie sera prévenue et la commande ne sera pas préparée.',
+      'trk.cancelBody':
+          'La pharmacie sera prévenue et la commande ne sera pas préparée.',
       'trk.cancelKeep': 'Non, garder',
       'trk.cancelConfirm': 'Annuler la commande',
       'trk.cancelled': 'Commande annulée',
@@ -443,8 +471,10 @@ class L10n {
       'trk.step.delivered': 'Livrée',
       'trk.payPending': 'En attente de confirmation',
       'trk.payDeclaredTitle': 'Paiement déclaré',
-      'trk.payRegistered': 'Votre paiement {method} a bien été enregistré. La pharmacie doit maintenant confirmer qu\'elle l\'a reçu avant de préparer la commande.',
-      'trk.payRefusedMsg': 'La pharmacie n\'a pas retrouvé votre paiement. Contactez-la pour régulariser.',
+      'trk.payRegistered':
+          'Votre paiement {method} a bien été enregistré. La pharmacie doit maintenant confirmer qu\'elle l\'a reçu avant de préparer la commande.',
+      'trk.payRefusedMsg':
+          'La pharmacie n\'a pas retrouvé votre paiement. Contactez-la pour régulariser.',
       'trk.pickup': 'Retrait en pharmacie',
       'trk.delivery': 'Livraison à domicile',
       'trk.itemsPlusFee': 'Médicaments {items} + livraison {fee}',
@@ -460,25 +490,39 @@ class L10n {
       'trk.freePickup': 'Offerte (retrait)',
       'trk.totalToPay': 'Total à payer',
       'trk.mobileMoney': 'Paiement mobile money',
-      'trk.payFirst': 'La pharmacie ne prépare la commande qu\'une fois le paiement déclaré.',
+      'trk.payFirst':
+          'La pharmacie ne prépare la commande qu\'une fois le paiement déclaré.',
       'trk.merchantNumber': 'Numéro marchand',
       'trk.yourPhone': 'Votre numéro de téléphone',
       'trk.transactionRef': 'Référence de la transaction',
       'trk.payWith': 'Payer · {amount}',
       'trk.payOnline': 'Payer en ligne (Orange Money)',
-      'trk.payOnlineHint': 'Vous serez redirigé vers Orange Money. Le montant total (médicaments + livraison) est versé directement à la pharmacie.',
+      'trk.payOnlineHint':
+          'Vous serez redirigé vers Orange Money. Le montant total (médicaments + livraison) est versé directement à la pharmacie.',
       'trk.orManual': 'ou payez manuellement',
-      'trk.orangeUnavailable': 'Le paiement en ligne n\'est pas encore disponible pour cette pharmacie.',
-      'trk.payOpenFailed': 'Impossible d\'ouvrir la page de paiement Orange Money.',
-      'trk.payNotConfirmed': 'Paiement non confirmé ou annulé. Aucun débit effectué, vous pouvez réessayer.',
+      'trk.orangeUnavailable':
+          'Le paiement en ligne n\'est pas encore disponible pour cette pharmacie.',
+      'trk.payOpenFailed':
+          'Impossible d\'ouvrir la page de paiement Orange Money.',
+      'trk.payNotConfirmed':
+          'Paiement non confirmé ou annulé. Aucun débit effectué, vous pouvez réessayer.',
       'trk.payClose': 'Fermer la page de paiement',
-      'trk.payAutoClose': 'Terminez le paiement : cette page se fermera toute seule et vous reviendrez sur le suivi de votre commande.',
+      'trk.payAutoClose':
+          'Terminez le paiement : cette page se fermera toute seule et vous reviendrez sur le suivi de votre commande.',
       'scan.title': 'Scanner votre ordonnance',
-      'scan.cameraDenied': 'Impossible d\'ouvrir l\'appareil photo. Vérifiez les autorisations.',
-      'scan.galleryDenied': 'Impossible d\'ouvrir la galerie. Vérifiez les autorisations.',
+      'scan.badge': 'Scanner',
+      'scan.heroHighlight': 'ordonnance',
+      'scan.tipTitle': 'Conseil pour une bonne analyse',
+      'scan.tipBody':
+          'Assurez-vous que l\'ordonnance est bien lisible, complète et bien éclairée.',
+      'scan.cameraDenied':
+          'Impossible d\'ouvrir l\'appareil photo. Vérifiez les autorisations.',
+      'scan.galleryDenied':
+          'Impossible d\'ouvrir la galerie. Vérifiez les autorisations.',
       'scan.uploadFailed': 'Envoi de l\'ordonnance impossible. Réessayez.',
       'scan.reviewFailed': 'Transmission à l\'équipe impossible. Réessayez.',
-      'scan.subtitle': 'Prenez une photo nette de l\'ordonnance. Notre IA identifiera les médicaments demandés.',
+      'scan.subtitle':
+          'Prenez une photo nette de l\'ordonnance. Notre IA identifiera les médicaments demandés.',
       'scan.takePhoto': 'Prendre une photo',
       'scan.fromGallery': 'Choisir depuis la galerie',
       'scan.yourRx': 'Votre ordonnance',
@@ -486,11 +530,13 @@ class L10n {
       'scan.reading': 'Lecture de l\'ordonnance en cours…',
       'scan.readFailed': 'Lecture impossible',
       'scan.noMedicine': 'Aucun médicament identifié',
-      'scan.noMedicineHint': 'Reprenez une photo plus nette, ou commandez sans ordonnance.',
+      'scan.noMedicineHint':
+          'Reprenez une photo plus nette, ou commandez sans ordonnance.',
       'scan.medicinesFound': 'Médicaments identifiés',
       'scan.pharmacistReview': 'Vérification par un pharmacien',
       'scan.transmitted': 'Ordonnance transmise à notre équipe',
-      'scan.transmittedMsg': 'Vous recevrez une notification dès que la vérification sera terminée. Elle vous enverra vers le choix du lieu de livraison pour continuer votre commande.',
+      'scan.transmittedMsg':
+          'Vous recevrez une notification dès que la vérification sera terminée. Elle vous enverra vers le choix du lieu de livraison pour continuer votre commande.',
       'scan.chooseDelivery': 'Choisir la livraison',
       'scan.retakePhoto': 'Reprendre une photo',
       'scan.aiUnreadable': 'Lecture IA impossible',
@@ -505,7 +551,8 @@ class L10n {
       'rx.inReview': 'En vérification',
       'rx.fallbackTitle': 'Ordonnance',
       'rx.loadFailed': 'Impossible de charger vos ordonnances.',
-      'rx.checking': 'Votre ordonnance est en cours de vérification. Vous serez notifié dès qu\'elle sera validée.',
+      'rx.checking':
+          'Votre ordonnance est en cours de vérification. Vous serez notifié dès qu\'elle sera validée.',
       'api.noConnection': 'Pas de connexion internet. Vérifiez votre réseau.',
       'api.serverDown': 'Le serveur ne répond pas. Réessayez dans un instant.',
       'api.unexpected': 'Réponse inattendue du serveur.',
@@ -589,8 +636,10 @@ class L10n {
       'voice.title': 'Lecture vocale des instructions',
       'voice.enable': 'Lire les instructions à voix haute',
       'voice.test': 'Tester la voix',
-      'voice.testText': 'Votre ordonnance est prête. Choisissez votre pharmacie.',
-      'voice.fallback': 'Voix {lang} non disponible sur cet appareil : lecture en français.',
+      'voice.testText':
+          'Votre ordonnance est prête. Choisissez votre pharmacie.',
+      'voice.fallback':
+          'Voix {lang} non disponible sur cet appareil : lecture en français.',
       'voice.off': 'Lecture vocale désactivée',
       'loginTitle': 'Se connecter',
       'loginSub': 'Accédez à votre espace pour scanner, suivre et commander.',
@@ -616,12 +665,15 @@ class L10n {
       'errFillLogin': 'Saisissez votre email et votre mot de passe',
       'errPassMin': 'Le mot de passe doit contenir au moins 6 caractères',
       'errGoogleToken': 'Impossible d’obtenir le jeton Google.',
-      'errGoogle': 'Connexion Google impossible pour le moment. Réessayez dans quelques instants.',
+      'errGoogle':
+          'Connexion Google impossible pour le moment. Réessayez dans quelques instants.',
       'errFillPhone': 'Saisissez votre numéro de téléphone',
-      'errSmsNotEnabled': 'La connexion par SMS n’est pas disponible pour le moment.',
+      'errSmsNotEnabled':
+          'La connexion par SMS n’est pas disponible pour le moment.',
       'errFillCode': 'Saisissez les 6 chiffres du code',
       'registerTitle': 'Créer un compte',
-      'registerSub': 'Créez votre compte avec Google : c\'est Google qui vérifie votre adresse e-mail, donc aucun faux compte ne peut se connecter.',
+      'registerSub':
+          'Créez votre compte avec Google : c\'est Google qui vérifie votre adresse e-mail, donc aucun faux compte ne peut se connecter.',
       'fullNameLabel': 'Nom complet',
       'fullNameHint': 'Votre nom',
       'createMyAccount': 'Créer mon compte',
@@ -653,7 +705,8 @@ class L10n {
       'home.noPharmacy': 'Aucune pharmacie trouvée pour le moment.',
       'home.aiInstant': 'IA Instantanée',
       'home.heroTitle': 'Une ordonnance à faire préparer ?',
-      'home.heroDesc': 'Prenez une photo. L\'IA identifie vos médicaments et trouve l\'officine de garde.',
+      'home.heroDesc':
+          'Prenez une photo. L\'IA identifie vos médicaments et trouve l\'officine de garde.',
       'home.scanCta': 'Scanner mon ordonnance',
       'home.tagline': 'Assistant IA + livraison',
       'home.pharmacies': 'Pharmacies',
@@ -669,14 +722,16 @@ class L10n {
       'notifications': 'Notifications',
       'signOut': 'Se déconnecter',
       'delivery.title': 'Où livrer vos médicaments ?',
-      'delivery.hint': 'Choisissez votre position actuelle ou un autre quartier. La pharmacie sera choisie près du lieu de livraison.',
+      'delivery.hint':
+          'Choisissez votre position actuelle ou un autre quartier. La pharmacie sera choisie près du lieu de livraison.',
       'delivery.myPosition': 'Ma position',
       'delivery.otherNeighborhood': 'Autre quartier',
       'delivery.locating': 'Localisation en cours…',
       'delivery.positionOk': 'Position trouvée',
-      'delivery.geoDenied': 'Position indisponible. Vérifiez le GPS ou choisissez un quartier.',
+      'delivery.geoDenied':
+          'Position indisponible. Vérifiez le GPS ou choisissez un quartier.',
       'delivery.retryGeo': 'Réessayer',
-    'delivery.continue': 'Continuer',
+      'delivery.continue': 'Continuer',
       'delivery.searchNeighborhood': 'Rechercher un quartier…',
       'delivery.noNeighborhood': 'Aucun quartier trouvé',
       'delivery.change': 'Changer',
@@ -691,7 +746,8 @@ class L10n {
       'delivery.pickupSelf': 'Je récupère en pharmacie',
       'delivery.seePharmacies': 'Voir les pharmacies',
       'pharmacy.title': 'Choisissez votre pharmacie',
-      'pharmacy.hint': 'Classées par stock : celles qui ont tout en premier, avec les prix.',
+      'pharmacy.hint':
+          'Classées par stock : celles qui ont tout en premier, avec les prix.',
       'pharmacy.full': 'Tout en stock',
       'pharmacy.missing': 'Manquant :',
       'pharmacy.availableAt': 'Aussi chez',
@@ -706,7 +762,8 @@ class L10n {
       'whatsapp.fabAria': 'Open the SAHA Santé WhatsApp chat',
       'whatsapp.prefill': 'Hello, I would like to send a prescription.',
       'whatsapp.notInstalledTitle': 'WhatsApp is not installed',
-      'whatsapp.notInstalledBody': 'To chat with SAHA Santé on WhatsApp, install the app or call us at {number}.',
+      'whatsapp.notInstalledBody':
+          'To chat with SAHA Santé on WhatsApp, install the app or call us at {number}.',
       'whatsapp.installAction': 'Install WhatsApp',
       'whatsapp.callAction': 'Call',
       'phm.open24': 'Open 24/7',
@@ -729,13 +786,15 @@ class L10n {
       'otc.addAtLeast': 'Add at least one medicine',
       'otc.orderFailed': 'Order failed. Try again.',
       'otc.title': 'No prescription needed',
-      'otc.subtitle': 'Order medicines without a prescription from a nearby pharmacy.',
+      'otc.subtitle':
+          'Order medicines without a prescription from a nearby pharmacy.',
       'otc.noSuggestion': 'No suggestion for this search.',
       'otc.nameHint': 'Medicine name',
       'otc.findPharmacy': 'Find a pharmacy',
       'nt.loadFailed': 'Could not load notifications.',
       'nt.unread': 'New',
-      'nt.empty': 'No notifications yet.\n\nNew orders, approvals and messages will appear here.',
+      'nt.empty':
+          'No notifications yet.\n\nNew orders, approvals and messages will appear here.',
       'nt.allUpToDate': 'Everything is up to date.',
       'nt.unreadOne': '{count} unread',
       'nt.unreadMany': '{count} unread',
@@ -749,8 +808,10 @@ class L10n {
       'cr.offline': 'Offline',
       'cr.profileStatus': 'Profile: {status}',
       'cr.inProgress': 'In progress',
-      'cr.noProfile': 'No active courier profile on this account.\n\nSign up as a courier on the website to receive deliveries.',
-      'cr.noDeliveries': 'No delivery in progress.\n\nStay online: deliveries assigned by pharmacies will appear here.',
+      'cr.noProfile':
+          'No active courier profile on this account.\n\nSign up as a courier on the website to receive deliveries.',
+      'cr.noDeliveries':
+          'No delivery in progress.\n\nStay online: deliveries assigned by pharmacies will appear here.',
       'pr.loadFailed': 'Could not load your appointments.',
       'pr.rejectTitle': 'Reject the appointment',
       'pr.rejectReasonHint': 'Reason for rejection (optional)',
@@ -763,8 +824,10 @@ class L10n {
       'pr.today': 'Today',
       'pr.upcoming': 'Upcoming',
       'pr.done': 'Completed',
-      'pr.noProfile': 'No practitioner profile linked to this account.\n\nContact administration to link your profile.',
-      'pr.noAppointments': 'No appointments yet.\n\nPatient requests will appear here.',
+      'pr.noProfile':
+          'No practitioner profile linked to this account.\n\nContact administration to link your profile.',
+      'pr.noAppointments':
+          'No appointments yet.\n\nPatient requests will appear here.',
       'ph.loadFailed': 'Could not load your pharmacy space.',
       'ph.noRxAttached': 'No prescription attached.',
       'ph.pickup': 'Pickup',
@@ -778,7 +841,8 @@ class L10n {
       'ph.markReady': 'Mark ready',
       'ph.assignCourier': 'Assign a courier',
       'ph.awaitPickup': 'Waiting for the customer to pick it up.',
-      'ph.noOrders': 'No orders yet.\n\nOrders paid by the patient will appear here.',
+      'ph.noOrders':
+          'No orders yet.\n\nOrders paid by the patient will appear here.',
       'ph.searchMedicine': 'Search for a medicine…',
       'ph.outOfStock': 'Out of stock',
       'ph.lowStock': 'Low · {qty}',
@@ -804,7 +868,8 @@ class L10n {
       'ph.stockTab': 'Stock',
       'otc.orderSent': 'Order sent to {name}',
       'he.title': 'Consultation',
-      'he.subtitle': 'Describe your symptoms to be directed to the right practitioner.',
+      'he.subtitle':
+          'Describe your symptoms to be directed to the right practitioner.',
       'he.symptoms': 'Symptoms',
       'he.symptomsHint': 'I have had a fever and a headache for 2 days...',
       'he.homeOnly': 'Home visits only',
@@ -868,8 +933,10 @@ class L10n {
       'adm.reject': 'Reject',
       'adm.createAccount': 'Create the pharmacy account',
       'adm.enterManagerEmail': 'Enter the manager email to assign.',
-      'adm.noAccountForEmail': 'No account for this email — pharmacy reserved until its account is created.',
-      'adm.ownerAssigned': 'Manager assigned: this account now has access to the pharmacy space.',
+      'adm.noAccountForEmail':
+          'No account for this email — pharmacy reserved until its account is created.',
+      'adm.ownerAssigned':
+          'Manager assigned: this account now has access to the pharmacy space.',
       'adm.removeManagerTitle': 'Remove the manager?',
       'adm.loseAccessEmail': '“{email}” will lose access to this pharmacy.',
       'adm.loseAccess': 'This account will lose access to this pharmacy.',
@@ -884,10 +951,12 @@ class L10n {
       'adm.accountCreated': 'Pharmacy account created',
       'adm.accountLinked': 'Linked account',
       'adm.sendCredentials': 'Send these credentials to the pharmacy:',
-      'adm.accountExisted': 'This account already existed and has just been linked:',
+      'adm.accountExisted':
+          'This account already existed and has just been linked:',
       'adm.identifier': 'Login',
       'adm.password': 'Password',
-      'adm.loginHint': 'The pharmacy will log in with these credentials (Pharmacist space).',
+      'adm.loginHint':
+          'The pharmacy will log in with these credentials (Pharmacist space).',
       'adm.gotIt': 'Got it',
       'adm.registered': 'Registered',
       'adm.alreadyRegistered': 'Already registered',
@@ -897,7 +966,8 @@ class L10n {
       'adm.refresh': 'Refresh',
       'adm.nearbyPartners': 'Nearby partners ({count})',
       'adm.otherNearby': 'Other pharmacies around — Google Maps ({count})',
-      'adm.noPharmacyInRadius': 'No pharmacy within {radius} km. Widen the radius.',
+      'adm.noPharmacyInRadius':
+          'No pharmacy within {radius} km. Widen the radius.',
       'adm.online': 'Online',
       'adm.noCouriers': 'No registered courier.',
       'adm.lastLogin': 'Last login: {date}',
@@ -984,7 +1054,8 @@ class L10n {
       'adm.tabOverview': 'Overview',
       'rev.title': 'Prescriptions to review',
       'rev.subtitle': 'Flagged documents sent by the AI.',
-      'rev.entrySubtitle': 'Documents flagged by the AI: approve, reject or fix.',
+      'rev.entrySubtitle':
+          'Documents flagged by the AI: approve, reject or fix.',
       'rev.countPending': '{count} pending — critical cases first.',
       'rev.nonePending': 'No prescription waiting for review.',
       'rev.loadFailed': 'Could not load the review queue.',
@@ -1025,10 +1096,12 @@ class L10n {
       'trk.modeFailed': 'Could not change the pickup mode. Try again.',
       'trk.errPhone': 'Enter the phone number used for the payment',
       'trk.errRef': 'Enter the transaction reference (4 characters minimum)',
-      'trk.payDeclared': 'Payment declared, waiting for the pharmacy\'s confirmation',
+      'trk.payDeclared':
+          'Payment declared, waiting for the pharmacy\'s confirmation',
       'trk.payDeclareFailed': 'Declaring the payment failed. Try again.',
       'trk.cancelTitle': 'Cancel the order?',
-      'trk.cancelBody': 'The pharmacy will be notified and the order will not be prepared.',
+      'trk.cancelBody':
+          'The pharmacy will be notified and the order will not be prepared.',
       'trk.cancelKeep': 'No, keep it',
       'trk.cancelConfirm': 'Cancel the order',
       'trk.cancelled': 'Order cancelled',
@@ -1041,8 +1114,10 @@ class L10n {
       'trk.step.delivered': 'Delivered',
       'trk.payPending': 'Waiting for confirmation',
       'trk.payDeclaredTitle': 'Payment declared',
-      'trk.payRegistered': 'Your {method} payment has been recorded. The pharmacy must now confirm it received it before preparing the order.',
-      'trk.payRefusedMsg': 'The pharmacy could not find your payment. Contact them to sort it out.',
+      'trk.payRegistered':
+          'Your {method} payment has been recorded. The pharmacy must now confirm it received it before preparing the order.',
+      'trk.payRefusedMsg':
+          'The pharmacy could not find your payment. Contact them to sort it out.',
       'trk.pickup': 'Pickup at the pharmacy',
       'trk.delivery': 'Home delivery',
       'trk.itemsPlusFee': 'Medicines {items} + delivery {fee}',
@@ -1058,25 +1133,36 @@ class L10n {
       'trk.freePickup': 'Free (pickup)',
       'trk.totalToPay': 'Total to pay',
       'trk.mobileMoney': 'Mobile money payment',
-      'trk.payFirst': 'The pharmacy only prepares the order once the payment is declared.',
+      'trk.payFirst':
+          'The pharmacy only prepares the order once the payment is declared.',
       'trk.merchantNumber': 'Merchant number',
       'trk.yourPhone': 'Your phone number',
       'trk.transactionRef': 'Transaction reference',
       'trk.payWith': 'Pay · {amount}',
       'trk.payOnline': 'Pay online (Orange Money)',
-      'trk.payOnlineHint': 'You will be redirected to Orange Money. The full amount (medicines + delivery) goes directly to the pharmacy.',
+      'trk.payOnlineHint':
+          'You will be redirected to Orange Money. The full amount (medicines + delivery) goes directly to the pharmacy.',
       'trk.orManual': 'or pay manually',
-      'trk.orangeUnavailable': 'Online payment is not yet available for this pharmacy.',
+      'trk.orangeUnavailable':
+          'Online payment is not yet available for this pharmacy.',
       'trk.payOpenFailed': 'Could not open the Orange Money payment page.',
-      'trk.payNotConfirmed': 'Payment was cancelled or not confirmed. You can try again.',
+      'trk.payNotConfirmed':
+          'Payment was cancelled or not confirmed. You can try again.',
       'trk.payClose': 'Close the payment page',
-      'trk.payAutoClose': 'Complete the payment: this page will close by itself and you will go back to your order tracking.',
+      'trk.payAutoClose':
+          'Complete the payment: this page will close by itself and you will go back to your order tracking.',
       'scan.title': 'Scan your prescription',
+      'scan.badge': 'Scan',
+      'scan.heroHighlight': 'prescription',
+      'scan.tipTitle': 'Tip for a good analysis',
+      'scan.tipBody':
+          'Make sure the prescription is clear, complete and well lit.',
       'scan.cameraDenied': 'Could not open the camera. Check permissions.',
       'scan.galleryDenied': 'Could not open the gallery. Check permissions.',
       'scan.uploadFailed': 'Sending the prescription failed. Try again.',
       'scan.reviewFailed': 'Sending to the team failed. Try again.',
-      'scan.subtitle': 'Take a clear photo of the prescription. Our AI will identify the medicines.',
+      'scan.subtitle':
+          'Take a clear photo of the prescription. Our AI will identify the medicines.',
       'scan.takePhoto': 'Take a photo',
       'scan.fromGallery': 'Choose from gallery',
       'scan.yourRx': 'Your prescription',
@@ -1084,11 +1170,13 @@ class L10n {
       'scan.reading': 'Reading the prescription…',
       'scan.readFailed': 'Reading failed',
       'scan.noMedicine': 'No medicine identified',
-      'scan.noMedicineHint': 'Retake a sharper photo, or order without a prescription.',
+      'scan.noMedicineHint':
+          'Retake a sharper photo, or order without a prescription.',
       'scan.medicinesFound': 'Medicines identified',
       'scan.pharmacistReview': 'Verification by a pharmacist',
       'scan.transmitted': 'Prescription sent to our team',
-      'scan.transmittedMsg': 'You will receive a notification once the review is done. It will take you to the delivery location step to continue your order.',
+      'scan.transmittedMsg':
+          'You will receive a notification once the review is done. It will take you to the delivery location step to continue your order.',
       'scan.chooseDelivery': 'Choose delivery',
       'scan.retakePhoto': 'Retake photo',
       'scan.aiUnreadable': 'AI reading failed',
@@ -1103,7 +1191,8 @@ class L10n {
       'rx.inReview': 'Under review',
       'rx.fallbackTitle': 'Prescription',
       'rx.loadFailed': 'Could not load your prescriptions.',
-      'rx.checking': 'Your prescription is being reviewed. You will be notified once it is approved.',
+      'rx.checking':
+          'Your prescription is being reviewed. You will be notified once it is approved.',
       'api.noConnection': 'No internet connection. Check your network.',
       'api.serverDown': 'The server is not responding. Try again in a moment.',
       'api.unexpected': 'Unexpected server response.',
@@ -1188,7 +1277,8 @@ class L10n {
       'voice.enable': 'Read instructions aloud',
       'voice.test': 'Test the voice',
       'voice.testText': 'Your prescription is ready. Choose your pharmacy.',
-      'voice.fallback': '{lang} voice not available on this device: reading in French.',
+      'voice.fallback':
+          '{lang} voice not available on this device: reading in French.',
       'voice.off': 'Spoken instructions are off',
       'loginTitle': 'Log in',
       'loginSub': 'Access your space to scan, track and order.',
@@ -1214,12 +1304,14 @@ class L10n {
       'errFillLogin': 'Enter your email and password',
       'errPassMin': 'Password must be at least 6 characters',
       'errGoogleToken': 'Unable to get the Google token.',
-      'errGoogle': 'Google login is unavailable right now. Please try again in a few moments.',
+      'errGoogle':
+          'Google login is unavailable right now. Please try again in a few moments.',
       'errFillPhone': 'Enter your phone number',
       'errSmsNotEnabled': 'SMS login is not available right now.',
       'errFillCode': 'Enter the 6-digit code',
       'registerTitle': 'Create an account',
-      'registerSub': 'Create your account with Google: Google verifies your email address, so no fake account can sign in.',
+      'registerSub':
+          'Create your account with Google: Google verifies your email address, so no fake account can sign in.',
       'fullNameLabel': 'Full name',
       'fullNameHint': 'Your name',
       'createMyAccount': 'Create my account',
@@ -1251,7 +1343,8 @@ class L10n {
       'home.noPharmacy': 'No pharmacy found at the moment.',
       'home.aiInstant': 'Instant AI',
       'home.heroTitle': 'Need a prescription prepared?',
-      'home.heroDesc': 'Take a photo. Our AI identifies your medicines and finds the pharmacy on duty.',
+      'home.heroDesc':
+          'Take a photo. Our AI identifies your medicines and finds the pharmacy on duty.',
       'home.scanCta': 'Scan my prescription',
       'home.tagline': 'AI assistant + delivery',
       'home.pharmacies': 'Pharmacies',
@@ -1267,14 +1360,16 @@ class L10n {
       'notifications': 'Notifications',
       'signOut': 'Sign out',
       'delivery.title': 'Where should we deliver your medicines?',
-      'delivery.hint': 'Choose your current position or another neighborhood. The pharmacy will be chosen near the delivery location.',
+      'delivery.hint':
+          'Choose your current position or another neighborhood. The pharmacy will be chosen near the delivery location.',
       'delivery.myPosition': 'My position',
       'delivery.otherNeighborhood': 'Other neighborhood',
       'delivery.locating': 'Locating…',
       'delivery.positionOk': 'Position found',
-      'delivery.geoDenied': 'Position unavailable. Check GPS or choose a neighborhood.',
+      'delivery.geoDenied':
+          'Position unavailable. Check GPS or choose a neighborhood.',
       'delivery.retryGeo': 'Retry',
-    'delivery.continue': 'Continue',
+      'delivery.continue': 'Continue',
       'delivery.searchNeighborhood': 'Search a neighborhood…',
       'delivery.noNeighborhood': 'No neighborhood found',
       'delivery.change': 'Change',
@@ -1304,7 +1399,8 @@ class L10n {
       'whatsapp.fabAria': 'افتح محادثة واتساب SAHA Santé',
       'whatsapp.prefill': 'مرحباً، أريد إرسال وصفة طبية.',
       'whatsapp.notInstalledTitle': 'واتساب غير مثبت',
-      'whatsapp.notInstalledBody': 'للتواصل مع SAHA Santé على واتساب، ثبّت التطبيق أو اتصل بنا على {number}.',
+      'whatsapp.notInstalledBody':
+          'للتواصل مع SAHA Santé على واتساب، ثبّت التطبيق أو اتصل بنا على {number}.',
       'whatsapp.installAction': 'تثبيت واتساب',
       'whatsapp.callAction': 'اتصال',
       'phm.open24': 'مفتوح 24/7',
@@ -1333,7 +1429,8 @@ class L10n {
       'otc.findPharmacy': 'ابحث عن صيدلية',
       'nt.loadFailed': 'تعذّر تحميل الإشعارات.',
       'nt.unread': 'جديد',
-      'nt.empty': 'لا توجد إشعارات حالياً.\n\nستظهر هنا الطلبات والموافقات والرسائل الجديدة.',
+      'nt.empty':
+          'لا توجد إشعارات حالياً.\n\nستظهر هنا الطلبات والموافقات والرسائل الجديدة.',
       'nt.allUpToDate': 'كل شيء محدّث.',
       'nt.unreadOne': '{count} غير مقروءة',
       'nt.unreadMany': '{count} غير مقروءة',
@@ -1347,8 +1444,10 @@ class L10n {
       'cr.offline': 'غير متصل',
       'cr.profileStatus': 'الملف: {status}',
       'cr.inProgress': 'قيد التنفيذ',
-      'cr.noProfile': 'لا يوجد ملف ساعٍ نشط على هذا الحساب.\n\nسجّل كساعٍ على الموقع لتستلم التوصيلات.',
-      'cr.noDeliveries': 'لا توجد توصيلات جارية.\n\nابقَ متصلاً: ستظهر هنا التوصيلات المسندة من الصيدليات.',
+      'cr.noProfile':
+          'لا يوجد ملف ساعٍ نشط على هذا الحساب.\n\nسجّل كساعٍ على الموقع لتستلم التوصيلات.',
+      'cr.noDeliveries':
+          'لا توجد توصيلات جارية.\n\nابقَ متصلاً: ستظهر هنا التوصيلات المسندة من الصيدليات.',
       'pr.loadFailed': 'تعذّر تحميل مواعيدك.',
       'pr.rejectTitle': 'رفض الموعد',
       'pr.rejectReasonHint': 'سبب الرفض (اختياري)',
@@ -1361,7 +1460,8 @@ class L10n {
       'pr.today': 'اليوم',
       'pr.upcoming': 'قادمة',
       'pr.done': 'منتهية',
-      'pr.noProfile': 'لا يوجد ملف ممارس مرتبط بهذا الحساب.\n\nاتصل بالإدارة لربط ملفك.',
+      'pr.noProfile':
+          'لا يوجد ملف ممارس مرتبط بهذا الحساب.\n\nاتصل بالإدارة لربط ملفك.',
       'pr.noAppointments': 'لا توجد مواعيد حالياً.\n\nستظهر هنا طلبات المرضى.',
       'ph.loadFailed': 'تعذّر تحميل فضاء الصيدلية.',
       'ph.noRxAttached': 'لا توجد وصفة مرفقة.',
@@ -1376,7 +1476,8 @@ class L10n {
       'ph.markReady': 'علّم كجاهزة',
       'ph.assignCourier': 'إسناد ساعٍ',
       'ph.awaitPickup': 'في انتظار استلام العميل.',
-      'ph.noOrders': 'لا توجد طلبات حالياً.\n\nستظهر هنا الطلبات التي يدفعها المريض.',
+      'ph.noOrders':
+          'لا توجد طلبات حالياً.\n\nستظهر هنا الطلبات التي يدفعها المريض.',
       'ph.searchMedicine': 'ابحث عن دواء…',
       'ph.outOfStock': 'نفد',
       'ph.lowStock': 'منخفض · {qty}',
@@ -1466,8 +1567,10 @@ class L10n {
       'adm.reject': 'رفض',
       'adm.createAccount': 'إنشاء حساب الصيدلية',
       'adm.enterManagerEmail': 'أدخل بريد المدير المراد إسناده.',
-      'adm.noAccountForEmail': 'لا يوجد حساب لهذا البريد — الصيدلية محجوزة حتى إنشاء حسابها.',
-      'adm.ownerAssigned': 'تم إسناد المدير: هذا الحساب يملك الآن وصولاً إلى فضاء الصيدلية.',
+      'adm.noAccountForEmail':
+          'لا يوجد حساب لهذا البريد — الصيدلية محجوزة حتى إنشاء حسابها.',
+      'adm.ownerAssigned':
+          'تم إسناد المدير: هذا الحساب يملك الآن وصولاً إلى فضاء الصيدلية.',
       'adm.removeManagerTitle': 'إزالة المدير؟',
       'adm.loseAccessEmail': '«{email}» سيفقد الوصول إلى هذه الصيدلية.',
       'adm.loseAccess': 'سيفقد هذا الحساب الوصول إلى هذه الصيدلية.',
@@ -1582,7 +1685,8 @@ class L10n {
       'adm.tabOverview': 'نظرة',
       'rev.title': 'وصفات للمراجعة',
       'rev.subtitle': 'وثائق مشبوهة أرسلها الذكاء الاصطناعي.',
-      'rev.entrySubtitle': 'وثائق رصدتها الذكاء الاصطناعي: اعتماد أو رفض أو تصحيح.',
+      'rev.entrySubtitle':
+          'وثائق رصدتها الذكاء الاصطناعي: اعتماد أو رفض أو تصحيح.',
       'rev.countPending': '{count} في الانتظار — الحالات الحرجة أولاً.',
       'rev.nonePending': 'لا توجد وصفات بانتظار المراجعة.',
       'rev.loadFailed': 'تعذّر تحميل قائمة المراجعة.',
@@ -1639,7 +1743,8 @@ class L10n {
       'trk.step.delivered': 'تم التوصيل',
       'trk.payPending': 'في انتظار التأكيد',
       'trk.payDeclaredTitle': 'تم الإبلاغ عن الدفع',
-      'trk.payRegistered': 'تم تسجيل دفعك عبر {method}. على الصيدلية تأكيد استلامها قبل تحضير الطلب.',
+      'trk.payRegistered':
+          'تم تسجيل دفعك عبر {method}. على الصيدلية تأكيد استلامها قبل تحضير الطلب.',
       'trk.payRefusedMsg': 'لم تجد الصيدلية دفعك. اتصل بها لتسوية الأمر.',
       'trk.pickup': 'استلام من الصيدلية',
       'trk.delivery': 'توصيل إلى المنزل',
@@ -1662,19 +1767,27 @@ class L10n {
       'trk.transactionRef': 'مرجع العملية',
       'trk.payWith': 'ادفع · {amount}',
       'trk.payOnline': 'الدفع عبر الإنترنت (Orange Money)',
-      'trk.payOnlineHint': 'ستتم إعادة توجيهك إلى Orange Money. يُحوّل المبلغ الإجمالي (الأدوية + التوصيل) مباشرة إلى الصيدلية.',
+      'trk.payOnlineHint':
+          'ستتم إعادة توجيهك إلى Orange Money. يُحوّل المبلغ الإجمالي (الأدوية + التوصيل) مباشرة إلى الصيدلية.',
       'trk.orManual': 'أو ادفع يدوياً',
       'trk.orangeUnavailable': 'الدفع عبر الإنترنت غير متاح بعد لهذه الصيدلية.',
       'trk.payOpenFailed': 'تعذّر فتح صفحة الدفع Orange Money.',
-      'trk.payNotConfirmed': 'لم يتم تأكيد الدفع أو تم إلغاؤه. يمكنك المحاولة مرة أخرى.',
+      'trk.payNotConfirmed':
+          'لم يتم تأكيد الدفع أو تم إلغاؤه. يمكنك المحاولة مرة أخرى.',
       'trk.payClose': 'إغلاق صفحة الدفع',
-      'trk.payAutoClose': 'أكمل الدفع: ستُغلق هذه الصفحة تلقائياً وستعود إلى متابعة الطلب.',
+      'trk.payAutoClose':
+          'أكمل الدفع: ستُغلق هذه الصفحة تلقائياً وستعود إلى متابعة الطلب.',
       'scan.title': 'امسح وصفتك الطبية',
+      'scan.badge': 'مسح',
+      'scan.heroHighlight': 'وصفتك',
+      'scan.tipTitle': 'نصيحة لتحليل جيد',
+      'scan.tipBody': 'تأكد من أن الوصفة واضحة وكاملة ومضاءة جيدًا.',
       'scan.cameraDenied': 'تعذّر فتح الكاميرا. تحقق من الأذونات.',
       'scan.galleryDenied': 'تعذّر فتح المعرض. تحقق من الأذونات.',
       'scan.uploadFailed': 'تعذّر إرسال الوصفة. حاول مجدداً.',
       'scan.reviewFailed': 'تعذّر الإرسال إلى الفريق. حاول مجدداً.',
-      'scan.subtitle': 'التقط صورة واضحة للوصفة. سيحدد الذكاء الاصطناعي الأدوية المطلوبة.',
+      'scan.subtitle':
+          'التقط صورة واضحة للوصفة. سيحدد الذكاء الاصطناعي الأدوية المطلوبة.',
       'scan.takePhoto': 'التقط صورة',
       'scan.fromGallery': 'اختر من المعرض',
       'scan.yourRx': 'وصفتك',
@@ -1686,7 +1799,8 @@ class L10n {
       'scan.medicinesFound': 'الأدوية المحددة',
       'scan.pharmacistReview': 'التحقق من الصيدلي',
       'scan.transmitted': 'تم إرسال الوصفة إلى فريقنا',
-      'scan.transmittedMsg': 'ستتلقى إشعاراً فور انتهاء التحقق، وسيقودك إلى اختيار مكان التوصيل لإكمال طلبك.',
+      'scan.transmittedMsg':
+          'ستتلقى إشعاراً فور انتهاء التحقق، وسيقودك إلى اختيار مكان التوصيل لإكمال طلبك.',
       'scan.chooseDelivery': 'اختر التوصيل',
       'scan.retakePhoto': 'أعد التصوير',
       'scan.aiUnreadable': 'تعذّرت قراءة الذكاء الاصطناعي',
@@ -1785,7 +1899,8 @@ class L10n {
       'voice.enable': 'قراءة التعليمات بصوت عالٍ',
       'voice.test': 'تجربة الصوت',
       'voice.testText': 'وصفتك جاهزة. اختر الصيدلية.',
-      'voice.fallback': 'صوت {lang} غير متوفر على هذا الجهاز: القراءة بالفرنسية.',
+      'voice.fallback':
+          'صوت {lang} غير متوفر على هذا الجهاز: القراءة بالفرنسية.',
       'voice.off': 'القراءة الصوتية متوقفة',
       'loginTitle': 'تسجيل الدخول',
       'loginSub': 'ادخل إلى مساحتك للمسح والمتابعة والطلب.',
@@ -1816,7 +1931,8 @@ class L10n {
       'errSmsNotEnabled': 'تسجيل الدخول بالرسائل غير متاح الآن.',
       'errFillCode': 'أدخل الأرقام الستة للرمز',
       'registerTitle': 'إنشاء حساب',
-      'registerSub': 'أنشئ حسابك عبر Google: يتحقق Google من بريدك الإلكتروني، لذلك لا يمكن لأي حساب مزيف الاتصال.',
+      'registerSub':
+          'أنشئ حسابك عبر Google: يتحقق Google من بريدك الإلكتروني، لذلك لا يمكن لأي حساب مزيف الاتصال.',
       'fullNameLabel': 'الاسم الكامل',
       'fullNameHint': 'اسمك',
       'createMyAccount': 'إنشاء حسابي',
@@ -1848,7 +1964,8 @@ class L10n {
       'home.noPharmacy': 'لم يتم العثور على أي صيدلية حاليًا.',
       'home.aiInstant': 'ذكاء فوري',
       'home.heroTitle': 'لديك وصفة تحتاج تحضيرًا؟',
-      'home.heroDesc': 'صوّرها. يتعرف الذكاء الاصطناعي على أدويتك ويجد الصيدلية المناوبة.',
+      'home.heroDesc':
+          'صوّرها. يتعرف الذكاء الاصطناعي على أدويتك ويجد الصيدلية المناوبة.',
       'home.scanCta': 'امسح وصفتك',
       'home.tagline': 'مساعد ذكي + توصيل',
       'home.pharmacies': 'الصيدليات',
@@ -1864,14 +1981,15 @@ class L10n {
       'notifications': 'الإشعارات',
       'signOut': 'تسجيل الخروج',
       'delivery.title': 'أين نوصل أدويتكم؟',
-      'delivery.hint': 'اختاروا موقعكم الحالي أو حيًا آخر. سيتم اختيار الصيدلية قرب مكان التوصيل.',
+      'delivery.hint':
+          'اختاروا موقعكم الحالي أو حيًا آخر. سيتم اختيار الصيدلية قرب مكان التوصيل.',
       'delivery.myPosition': 'موقعي',
       'delivery.otherNeighborhood': 'حي آخر',
       'delivery.locating': 'جارٍ تحديد الموقع…',
       'delivery.positionOk': 'تم العثور على الموقع',
       'delivery.geoDenied': 'الموقع غير متوفر. تحققوا من GPS أو اختاروا حيًا.',
       'delivery.retryGeo': 'إعادة المحاولة',
-    'delivery.continue': 'Continue',
+      'delivery.continue': 'Continue',
       'delivery.searchNeighborhood': 'ابحثوا عن حي…',
       'delivery.noNeighborhood': 'لم يتم العثور على حي',
       'delivery.change': 'تغيير',
@@ -1886,7 +2004,8 @@ class L10n {
       'delivery.pickupSelf': 'سأستلم من الصيدلية',
       'delivery.seePharmacies': 'عرض الصيدليات',
       'pharmacy.title': 'اختاروا الصيدلية',
-      'pharmacy.hint': 'مرتبة حسب المخزون: التي لديها كل شيء أولاً، مع الأسعار.',
+      'pharmacy.hint':
+          'مرتبة حسب المخزون: التي لديها كل شيء أولاً، مع الأسعار.',
       'pharmacy.full': 'كل شيء متوفر',
       'pharmacy.missing': 'ناقص:',
       'pharmacy.availableAt': 'متوفر أيضًا لدى',
@@ -1901,7 +2020,8 @@ class L10n {
       'whatsapp.fabAria': 'WhatsApp SAHA Santé kuma yɛlɛma',
       'whatsapp.prefill': 'I ni ce, n b\'a fɛ ka ɔrdɔnansi ci.',
       'whatsapp.notInstalledTitle': 'WhatsApp tɛ i telefonu kɔnɔ',
-      'whatsapp.notInstalledBody': 'Ka kuma an ye WhatsApp la, i ka WhatsApp sigi walima i k\'an wele ka fɔ ɲɔgɔn ye {number}.',
+      'whatsapp.notInstalledBody':
+          'Ka kuma an ye WhatsApp la, i ka WhatsApp sigi walima i k\'an wele ka fɔ ɲɔgɔn ye {number}.',
       'whatsapp.installAction': 'WhatsApp sigi',
       'whatsapp.callAction': 'An wele',
       'phm.open24': 'Bɛn 24h/24',
@@ -1930,7 +2050,8 @@ class L10n {
       'otc.findPharmacy': 'Ka farmasi bɔ',
       'nt.loadFailed': 'Adira ka kabiniw taa.',
       'nt.unread': 'Kalu',
-      'nt.empty': 'Kabiniw tɛ bɔra.\n\nN’gɔnaw ɲumanw ani wala ɲumanw ani suraw bɛn joli la.',
+      'nt.empty':
+          'Kabiniw tɛ bɔra.\n\nN’gɔnaw ɲumanw ani wala ɲumanw ani suraw bɛn joli la.',
       'nt.allUpToDate': 'Fɛn nyɛrɛ ɲuman bɔ.',
       'nt.unreadOne': '{count} tɛ tarimu',
       'nt.unreadMany': '{count} tɛ tarimu',
@@ -1944,8 +2065,10 @@ class L10n {
       'cr.offline': 'Sanjɛ la tɛ',
       'cr.profileStatus': 'Profil: {status}',
       'cr.inProgress': 'Ka taa la',
-      'cr.noProfile': 'Kurye profil tɛ bɔra in ka akuntili la.\n\nKa kurye fɛn web sayitilɛ la ka fɛn bɔ.',
-      'cr.noDeliveries': 'Lazandiyɔn tɛ ka taa la.\n\nKa sanjɛ la bɛn : farmasiw ka lazandiyɔnaw bɛn joli la.',
+      'cr.noProfile':
+          'Kurye profil tɛ bɔra in ka akuntili la.\n\nKa kurye fɛn web sayitilɛ la ka fɛn bɔ.',
+      'cr.noDeliveries':
+          'Lazandiyɔn tɛ ka taa la.\n\nKa sanjɛ la bɛn : farmasiw ka lazandiyɔnaw bɛn joli la.',
       'pr.loadFailed': 'Adira ka kunbɔnɔw taa.',
       'pr.rejectTitle': 'Ka kunbɔnɔ dɔnni',
       'pr.rejectReasonHint': 'Ka a dɔnni sababu (fɛnɲɛ)',
@@ -1958,7 +2081,8 @@ class L10n {
       'pr.today': 'O sansu',
       'pr.upcoming': 'Ka ɲɛn bɛn',
       'pr.done': 'Kɛra bɔ',
-      'pr.noProfile': 'Baarakɛ profil tɛ in ka akuntili la.\n\nKa jate tɔrɔmɔsɔrɔma fɛ ka a ka profil sɔ.',
+      'pr.noProfile':
+          'Baarakɛ profil tɛ in ka akuntili la.\n\nKa jate tɔrɔmɔsɔrɔma fɛ ka a ka profil sɔ.',
       'pr.noAppointments': 'Kunbɔnɔ tɛ bɔra.\n\nMaribaw ka tiɲɛw bɛn joli la.',
       'ph.loadFailed': 'Adira ka farmasi baara taa.',
       'ph.noRxAttached': 'Dɔnw tɛ bɔra.',
@@ -1973,7 +2097,8 @@ class L10n {
       'ph.markReady': 'Ka a ye « bɛɛ » sɛnɛnin',
       'ph.assignCourier': 'Ka kurye taa',
       'ph.awaitPickup': 'Kɔrɔfɛn ka a taa kɛnɛn kɔnɔ.',
-      'ph.noOrders': 'N’gɔnaw tɛ bɔra.\n\nKɔrɔfɛn ka faraɲa n’gɔnaw bɛn joli la.',
+      'ph.noOrders':
+          'N’gɔnaw tɛ bɔra.\n\nKɔrɔfɛn ka faraɲa n’gɔnaw bɛn joli la.',
       'ph.searchMedicine': 'Ka furaw ɲinina…',
       'ph.outOfStock': 'Tɛ bɔra',
       'ph.lowStock': 'Ka tɔɔn · {qty}',
@@ -2063,8 +2188,10 @@ class L10n {
       'adm.reject': 'Dɔnni',
       'adm.createAccount': 'Ka farmasi ka kaunti bɔ',
       'adm.enterManagerEmail': 'Ka gɛranti mail sɛnɛnin ka a taa.',
-      'adm.noAccountForEmail': 'Kaunti tɛ mail in fɛ — farmasi ka a dɔnni ka a ka kaunti bɔra sigi.',
-      'adm.ownerAssigned': 'Gɛranti taa bɔra: kaunti in bɛ nɔ yɛrɛsen ka farmasi baara kɛ.',
+      'adm.noAccountForEmail':
+          'Kaunti tɛ mail in fɛ — farmasi ka a dɔnni ka a ka kaunti bɔra sigi.',
+      'adm.ownerAssigned':
+          'Gɛranti taa bɔra: kaunti in bɛ nɔ yɛrɛsen ka farmasi baara kɛ.',
       'adm.removeManagerTitle': 'Ka gɛranti bɔ ?',
       'adm.loseAccessEmail': '«{email}» ka yɛrɛsen farmasi in taa bɔ.',
       'adm.loseAccess': 'Kaunti in ka yɛrɛsen farmasi in taa bɔ.',
@@ -2102,7 +2229,8 @@ class L10n {
       'adm.editPractitioner': 'Furakɛla ladilan',
       'adm.noPractitioners': 'Furakɛla tɛ sɛbɛnni kɛra.',
       'adm.noSpecialties': 'Kunnafoniw tɛ : ɲinin ka dɔnni min bɛ data la.',
-      'adm.pendingPractitioners': '{count} furakɛla(la) bɛ kɔnɔna la ka dan sigi.',
+      'adm.pendingPractitioners':
+          '{count} furakɛla(la) bɛ kɔnɔna la ka dan sigi.',
       'adm.fullName': 'Tɔgɔ yera',
       'adm.typeLabel': 'Sifa',
       'adm.specialty': 'Furakɛli suguya',
@@ -2136,7 +2264,8 @@ class L10n {
       'adm.tabOverview': 'Bɛn bɛn',
       'rev.title': 'Sɛnɛninw ka yɛrɛsen',
       'rev.subtitle': 'AI ka yɛrɛnin labɛnniw tɔɔma.',
-      'rev.entrySubtitle': 'AI ka yɛrɛnin labɛnniw: ka yɛrɛsen, ka dɔnni, wala ka tɔɔma.',
+      'rev.entrySubtitle':
+          'AI ka yɛrɛnin labɛnniw: ka yɛrɛsen, ka dɔnni, wala ka tɔɔma.',
       'rev.countPending': '{count} kɛnɛn kɔnɔ — cinkinw ɲuman tɛrɛ.',
       'rev.nonePending': 'Sɛnɛnin tɛ kɛnɛn kɔnɔ.',
       'rev.loadFailed': 'Adira ka yɛrɛsen labɛnna sɛnɛnin taa.',
@@ -2193,7 +2322,8 @@ class L10n {
       'trk.step.delivered': 'Bɛɛ tɔɔma',
       'trk.payPending': 'Kɛnɛn ka taa nɔmɔ',
       'trk.payDeclaredTitle': 'Sɔrɔ dɔnni tɔɔma',
-      'trk.payRegistered': 'A ka sɔrɔ {method} sɛnɛnin taa. Farmasi ka a yɛrɛsen ka a sɔrɔ, a bɛɛ ka n’gɔnaw kɛ.',
+      'trk.payRegistered':
+          'A ka sɔrɔ {method} sɛnɛnin taa. Farmasi ka a yɛrɛsen ka a sɔrɔ, a bɛɛ ka n’gɔnaw kɛ.',
       'trk.payRefusedMsg': 'Farmasi tɛ n ka sɔrɔ dɔn. Ka a gɛn na.',
       'trk.pickup': 'Ka taa farmasi la',
       'trk.delivery': 'Ka lazandiyɔn gɛn',
@@ -2216,19 +2346,27 @@ class L10n {
       'trk.transactionRef': 'Transaksionw nɔmɔ',
       'trk.payWith': 'Ka taa sigi · {amount}',
       'trk.payOnline': 'Ka taa sigi ɔnline (Orange Money)',
-      'trk.payOnlineHint': 'A bɛ na ɲɛnabɔ Orange Money kan. Bɔyɔrɔ bɛɛ (sɛnɛninw + lazandiyɔn) bɛ taa farmasi la.',
+      'trk.payOnlineHint':
+          'A bɛ na ɲɛnabɔ Orange Money kan. Bɔyɔrɔ bɛɛ (sɛnɛninw + lazandiyɔn) bɛ taa farmasi la.',
       'trk.orManual': 'walima ka taa sigi bɔlɔla',
       'trk.orangeUnavailable': 'Sigi ɔnline man bɛ farmasi nin na.',
       'trk.payOpenFailed': 'A man se ka Orange Money ɲɛ sigi.',
-      'trk.payNotConfirmed': 'Sigi ma dafa walima a bɔra. I bɛ se ka segin ka a kɛ.',
+      'trk.payNotConfirmed':
+          'Sigi ma dafa walima a bɔra. I bɛ se ka segin ka a kɛ.',
       'trk.payClose': 'Sigi ɲɛ lajɛ',
-      'trk.payAutoClose': 'Sigi dafara: ni ɲɛ bɛna a yɛ ka bɔ ɲine, o bɛ se ka segin ka a kɛ.',
+      'trk.payAutoClose':
+          'Sigi dafara: ni ɲɛ bɛna a yɛ ka bɔ ɲine, o bɛ se ka segin ka a kɛ.',
       'scan.title': 'Ka sɛnɛninw sɛnɛninjɛfɛn kɛ',
+      'scan.badge': 'Ɲɛɲɛ',
+      'scan.heroHighlight': 'sɛnɛninw',
+      'scan.tipTitle': 'Lajɛɲɛni ka ɲi',
+      'scan.tipBody': 'Aw ka sɛnɛninw ye cɛɲi, bɛɛ la ani aw ka yeɲɛ.',
       'scan.cameraDenied': 'Adira ka kamɛra bɔ. Bɛɛn jammaw.',
       'scan.galleryDenied': 'Adira ka galariw bɔ. Bɛɛn jammaw.',
       'scan.uploadFailed': 'Sɛnɛninw tɔɔni tɛ kɛ. Kɛnɛn kɔnɔ.',
       'scan.reviewFailed': 'Tɔɔma bindinkunw tɛ kɛ. Kɛnɛn kɔnɔ.',
-      'scan.subtitle': 'Ka tɛmɛ bɔ juru juru sɛnɛninw la. Wa ka AI ye sɛnɛninw tɛrɛ taa.',
+      'scan.subtitle':
+          'Ka tɛmɛ bɔ juru juru sɛnɛninw la. Wa ka AI ye sɛnɛninw tɛrɛ taa.',
       'scan.takePhoto': 'Tɛmɛ bɔ',
       'scan.fromGallery': 'Ka taa galariw la',
       'scan.yourRx': 'A ka sɛnɛninw',
@@ -2236,11 +2374,13 @@ class L10n {
       'scan.reading': 'Sɛnɛninw bɛ sɛnɛnin…',
       'scan.readFailed': 'Sɛnɛnin tɛ kɛ',
       'scan.noMedicine': 'Sɛnɛnin tɛ bɔra',
-      'scan.noMedicineHint': 'Ka tɛmɛ bɔ juru juru tɛ, wala ka sɛnɛninw tɛ bɔra bɛn.',
+      'scan.noMedicineHint':
+          'Ka tɛmɛ bɔ juru juru tɛ, wala ka sɛnɛninw tɛ bɔra bɛn.',
       'scan.medicinesFound': 'Sɛnɛninw bɔra',
       'scan.pharmacistReview': 'Farmasi ka yɛrɛsen',
       'scan.transmitted': 'Sɛnɛninw tɔɔma wa ka bindinkunw',
-      'scan.transmittedMsg': 'A ka notifikatɛrɛ bɔra kɛnɛn bɛɛ taa. A ka a sɔrɔ ka taa lazandiyɔn tɛrɛ fɛ, ka bɔya kɛnɛn bɛ.',
+      'scan.transmittedMsg':
+          'A ka notifikatɛrɛ bɔra kɛnɛn bɛɛ taa. A ka a sɔrɔ ka taa lazandiyɔn tɛrɛ fɛ, ka bɔya kɛnɛn bɛ.',
       'scan.chooseDelivery': 'Ka lazandiyɔn taa',
       'scan.retakePhoto': 'Ka tɛmɛ bɔ kɔnɔ',
       'scan.aiUnreadable': 'AI ka sɛnɛnin tɛ kɛ',
@@ -2329,7 +2469,8 @@ class L10n {
       'tagline': 'Dɛmɛni + nɛgɛso',
       'hero1': 'I ka kɛnɛya,',
       'hero2': 'nɔgɔya na.',
-      'heroDesc': 'I ka ɔrdɔnansi jɛɲɛ, i ka faramasɔɲɔgɔn ɲini, i ka nɛgɛso tɛmɛkɔ.',
+      'heroDesc':
+          'I ka ɔrdɔnansi jɛɲɛ, i ka faramasɔɲɔgɔn ɲini, i ka nɛgɛso tɛmɛkɔ.',
       'getStarted': 'Daminɛ',
       'language': 'Kan',
       'voice': 'Yɛrɛ',
@@ -2370,7 +2511,8 @@ class L10n {
       'errSmsNotEnabled': 'SMS don tɛ sisan.',
       'errFillCode': 'Kodi sagi 6 sɛbɛn',
       'registerTitle': 'Konti kura dilan',
-      'registerSub': 'I ka kɔnti si Google ye: Google ye bɛ na a ka ɔrɔsi sɛmɛntiya, o dɛmɛn bɛnnɛ bɛn ma a sɔrɔ waati.',
+      'registerSub':
+          'I ka kɔnti si Google ye: Google ye bɛ na a ka ɔrɔsi sɛmɛntiya, o dɛmɛn bɛnnɛ bɛn ma a sɔrɔ waati.',
       'fullNameLabel': 'Tɔgɔ',
       'fullNameHint': 'I tɔgɔ',
       'createMyAccount': 'N ka konti kɛ',
@@ -2402,7 +2544,8 @@ class L10n {
       'home.noPharmacy': 'Faramasɔ si ye sisan.',
       'home.aiInstant': 'AI faama yɛrɛma',
       'home.heroTitle': 'I ka ɲɛ ɔrɔdɔnansi ka dilan waati?',
-      'home.heroDesc': 'Jɛɲɛ a photo. An ka AI bɛ i ka ɛmɛnw lajɛ ani ka faramasɔ tiɲɛ na.',
+      'home.heroDesc':
+          'Jɛɲɛ a photo. An ka AI bɛ i ka ɛmɛnw lajɛ ani ka faramasɔ tiɲɛ na.',
       'home.scanCta': 'N ka ɔrɔdɔnansi jɛɲɛ',
       'home.tagline': 'AI dɛmɛ + jɔnli',
       'home.pharmacies': 'Faramasɔw',
@@ -2418,14 +2561,15 @@ class L10n {
       'notifications': 'Kabiniw',
       'signOut': 'Bɔ',
       'delivery.title': 'Aw ka furaw lase aw ma yɔrɔ jumɛn?',
-      'delivery.hint': 'Aw ka yɔrɔ sisan walima sigida wɛrɛ sugandi. Farmasi bɛna sugandi laseyɔrɔ kɛrɛfɛ.',
+      'delivery.hint':
+          'Aw ka yɔrɔ sisan walima sigida wɛrɛ sugandi. Farmasi bɛna sugandi laseyɔrɔ kɛrɛfɛ.',
       'delivery.myPosition': 'Ne yɔrɔ',
       'delivery.otherNeighborhood': 'Sigida wɛrɛ',
       'delivery.locating': 'Yɔrɔ ɲinini…',
       'delivery.positionOk': 'Yɔrɔ sɔrɔla',
       'delivery.geoDenied': 'Yɔrɔ tɛ sɔrɔ. GPS lajɛ walima sigida sugandi.',
       'delivery.retryGeo': 'A tɔɲɛ ka a lajɛ',
-    'delivery.continue': 'Continue',
+      'delivery.continue': 'Continue',
       'delivery.searchNeighborhood': 'Sigida ɲini…',
       'delivery.noNeighborhood': 'Sigida ma sɔrɔ',
       'delivery.change': 'Yɛlɛma',
@@ -2440,7 +2584,8 @@ class L10n {
       'delivery.pickupSelf': 'Ne bɛna ta farmasi la',
       'delivery.seePharmacies': 'Farmasiw lajɛ',
       'pharmacy.title': 'Aw ka farmasi sugandi',
-      'pharmacy.hint': 'U bolola mara fɛ : minw bɛ ni bɛɛ ye, olu fɔlɔ, ni songow ye.',
+      'pharmacy.hint':
+          'U bolola mara fɛ : minw bɛ ni bɛɛ ye, olu fɔlɔ, ni songow ye.',
       'pharmacy.full': 'Bɛɛ bɛ mara la',
       'pharmacy.missing': 'Min tɛ yen:',
       'pharmacy.availableAt': 'O bɛ sɔrɔ fana',

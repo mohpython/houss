@@ -18,6 +18,7 @@ import {
   Bike,
   MapPin,
   Loader2,
+  Lightbulb,
 } from "lucide-react";
 import { uploadPrescriptionFile } from "@/integrations/storage/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -702,33 +703,78 @@ function Scan() {
 
       {phase === 0 && !failed && !review && !correction && (
         <>
-          <button
-            type="button"
-            onClick={() => startCapture("camera")}
-            aria-label={t("nav.scan")}
-            className="flex h-40 w-40 items-center justify-center rounded-full aurora-bg text-on-aurora shadow-2xl shadow-primary/40 transition-transform active:scale-95"
-          >
-            <Camera className="h-16 w-16" />
-          </button>
-          <div className="mt-8 flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-12 w-12 rounded-full border border-border"
-              aria-label={t("scan.file")}
-              onClick={() => startCapture("file")}
-            >
-              <Upload className="h-5 w-5" />
-            </Button>
+          <div className="w-full overflow-hidden rounded-[2rem] border border-emerald-300/20 bg-gradient-to-br from-emerald-700/85 via-emerald-900/85 to-[#06251b] p-5 shadow-2xl shadow-emerald-950/50 md:p-7">
+            <div className="flex items-center gap-2">
+              <img
+                src="/icons3d/robot.png"
+                alt=""
+                className="h-9 w-9 drop-shadow-lg"
+              />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold text-white backdrop-blur">
+                <ScanLine className="h-3.5 w-3.5 text-emerald-300" />
+                {t("scan.badge")}
+              </span>
+            </div>
+            <div className="relative mt-3 min-h-[176px]">
+              <img
+                src="/icons3d/rx.png"
+                alt=""
+                className="pointer-events-none absolute right-0 top-0 w-32 drop-shadow-[0_16px_26px_rgba(0,0,0,0.45)] md:w-40"
+              />
+              <img
+                src="/icons3d/bottle.png"
+                alt=""
+                className="pointer-events-none absolute bottom-0 right-2 w-16 drop-shadow-lg md:w-20"
+              />
+              <h1 className="relative max-w-[62%] text-[2rem] font-extrabold leading-[1.08] tracking-tight text-white md:text-4xl">
+                <ScanHighlight />
+              </h1>
+              <p className="relative mt-3 max-w-[68%] text-sm leading-relaxed text-emerald-100/75">
+                {t("scan.subtitle")}
+              </p>
+            </div>
+            <div className="mt-5 space-y-2.5">
+              <button
+                type="button"
+                onClick={() => startCapture("camera")}
+                className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-300 to-emerald-500 px-5 text-[15px] font-extrabold text-emerald-950 shadow-[0_14px_34px_-12px_rgba(52,227,164,0.9)] transition active:scale-[0.98]"
+              >
+                <img src="/icons3d/camera.png" alt="" className="h-7 w-7" />
+                {t("scan.takePhoto")}
+              </button>
+              <button
+                type="button"
+                onClick={() => startCapture("file")}
+                className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-emerald-200/25 bg-white/[0.05] px-5 text-[15px] font-bold text-white backdrop-blur-xl transition hover:border-emerald-200/50"
+              >
+                <Upload className="h-5 w-5 text-emerald-200" />
+                {t("scan.fromGallery")}
+              </button>
+            </div>
+            <div className="mt-5 flex items-start gap-3 rounded-2xl border border-emerald-200/20 bg-white/[0.05] p-4 backdrop-blur-xl">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-300/15">
+                <Lightbulb className="h-5 w-5 text-amber-300" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-white">
+                  {t("scan.tipTitle")}
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-emerald-100/70">
+                  {t("scan.tipBody")}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-3">
             <Link
               to="/app/otc"
               aria-label={t("nav.otc")}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:text-foreground"
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-emerald-100 transition hover:border-emerald-300/40"
             >
               <Pill className="h-5 w-5" />
             </Link>
             <SpeakButton
-              className="h-12 w-12 rounded-full border border-border"
+              className="h-12 w-12 rounded-full border border-white/15 bg-white/5"
               text={`${t("scan.locationTitle")}. ${t("scan.locationHint")}`}
               phrase="scan.location"
             />
@@ -1156,5 +1202,21 @@ function Scan() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Titre du scan avec le mot-clé en jaune, comme dans la maquette 3D. */
+function ScanHighlight() {
+  const { t } = useTranslation();
+  const title = t("scan.title");
+  const highlight = t("scan.heroHighlight");
+  const index = highlight ? title.indexOf(highlight) : -1;
+  if (index < 0) return <>{title}</>;
+  return (
+    <>
+      {title.slice(0, index)}
+      <span className="text-amber-300">{highlight}</span>
+      {title.slice(index + highlight.length)}
+    </>
   );
 }

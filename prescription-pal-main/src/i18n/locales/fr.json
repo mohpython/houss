@@ -222,7 +222,13 @@
     "locationTitle": "D'abord, où s'il vous plaît ?",
     "locationHint": "Choisissez votre lieu de livraison avant de photographier l'ordonnance.",
     "locationContinue": "Continuer",
-    "captureCancelled": "Aucune photo sélectionnée. Touchez à nouveau l'icône caméra pour réessayer."
+    "captureCancelled": "Aucune photo sélectionnée. Touchez à nouveau l'icône caméra pour réessayer.",
+    "badge": "Scanner",
+    "heroHighlight": "ordonnance",
+    "takePhoto": "Prendre une photo",
+    "fromGallery": "Choisir depuis la galerie",
+    "tipTitle": "Conseil pour une bonne analyse",
+    "tipBody": "Assurez-vous que l'ordonnance est bien lisible, complète et bien éclairée."
   },
   "rxList": {
     "title": "Mes ordonnances",
