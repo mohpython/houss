@@ -11,6 +11,7 @@ import 'package:saha_sante/features/location/delivery_location_screen.dart';
 import 'package:saha_sante/features/notifications/notifications_screen.dart';
 import 'package:saha_sante/features/pharmacy/pharmacy_main_screen.dart';
 import 'package:saha_sante/features/pharmacy_choice/pharmacy_quotes_screen.dart';
+import 'package:saha_sante/features/pharmacy_directory/pharmacies_screen.dart';
 import 'package:saha_sante/features/otc/otc_screen.dart';
 import 'package:saha_sante/features/prescriptions/prescriptions_screen.dart';
 import 'package:saha_sante/features/profile/profile_screen.dart';
@@ -135,6 +136,10 @@ class AppRouter {
             builder: (context, state) => DeliveryLocationScreen(
               prescriptionId: state.pathParameters['prescriptionId'] ?? '',
             ),
+          ),
+          GoRoute(
+            path: '/pharmacies',
+            builder: (context, state) => const PharmaciesScreen(),
           ),
           GoRoute(
             path: '/pharmacies/:prescriptionId',

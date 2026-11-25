@@ -31,6 +31,7 @@ import { Route as AuthenticatedAppReservationsIndexRouteImport } from './routes/
 import { Route as AuthenticatedAppPrescriptionsIndexRouteImport } from './routes/_authenticated/app/prescriptions/index'
 import { Route as AuthenticatedAppPraticienIndexRouteImport } from './routes/_authenticated/app/praticien/index'
 import { Route as AuthenticatedAppPharmacyIndexRouteImport } from './routes/_authenticated/app/pharmacy/index'
+import { Route as AuthenticatedAppPharmaciesIndexRouteImport } from './routes/_authenticated/app/pharmacies/index'
 import { Route as AuthenticatedAppHealthIndexRouteImport } from './routes/_authenticated/app/health/index'
 import { Route as AuthenticatedAppCourierIndexRouteImport } from './routes/_authenticated/app/courier/index'
 import { Route as AuthenticatedAppAppointmentsIndexRouteImport } from './routes/_authenticated/app/appointments/index'
@@ -175,6 +176,12 @@ const AuthenticatedAppPharmacyIndexRoute =
   AuthenticatedAppPharmacyIndexRouteImport.update({
     id: '/app/pharmacy/',
     path: '/app/pharmacy/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAppPharmaciesIndexRoute =
+  AuthenticatedAppPharmaciesIndexRouteImport.update({
+    id: '/app/pharmacies/',
+    path: '/app/pharmacies/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAppHealthIndexRoute =
@@ -406,6 +413,7 @@ export interface FileRoutesByFullPath {
   '/app/appointments/': typeof AuthenticatedAppAppointmentsIndexRoute
   '/app/courier/': typeof AuthenticatedAppCourierIndexRoute
   '/app/health/': typeof AuthenticatedAppHealthIndexRoute
+  '/app/pharmacies/': typeof AuthenticatedAppPharmaciesIndexRoute
   '/app/pharmacy/': typeof AuthenticatedAppPharmacyIndexRoute
   '/app/praticien/': typeof AuthenticatedAppPraticienIndexRoute
   '/app/prescriptions/': typeof AuthenticatedAppPrescriptionsIndexRoute
@@ -461,6 +469,7 @@ export interface FileRoutesByTo {
   '/app/appointments': typeof AuthenticatedAppAppointmentsIndexRoute
   '/app/courier': typeof AuthenticatedAppCourierIndexRoute
   '/app/health': typeof AuthenticatedAppHealthIndexRoute
+  '/app/pharmacies': typeof AuthenticatedAppPharmaciesIndexRoute
   '/app/pharmacy': typeof AuthenticatedAppPharmacyIndexRoute
   '/app/praticien': typeof AuthenticatedAppPraticienIndexRoute
   '/app/prescriptions': typeof AuthenticatedAppPrescriptionsIndexRoute
@@ -518,6 +527,7 @@ export interface FileRoutesById {
   '/_authenticated/app/appointments/': typeof AuthenticatedAppAppointmentsIndexRoute
   '/_authenticated/app/courier/': typeof AuthenticatedAppCourierIndexRoute
   '/_authenticated/app/health/': typeof AuthenticatedAppHealthIndexRoute
+  '/_authenticated/app/pharmacies/': typeof AuthenticatedAppPharmaciesIndexRoute
   '/_authenticated/app/pharmacy/': typeof AuthenticatedAppPharmacyIndexRoute
   '/_authenticated/app/praticien/': typeof AuthenticatedAppPraticienIndexRoute
   '/_authenticated/app/prescriptions/': typeof AuthenticatedAppPrescriptionsIndexRoute
@@ -575,6 +585,7 @@ export interface FileRouteTypes {
     | '/app/appointments/'
     | '/app/courier/'
     | '/app/health/'
+    | '/app/pharmacies/'
     | '/app/pharmacy/'
     | '/app/praticien/'
     | '/app/prescriptions/'
@@ -630,6 +641,7 @@ export interface FileRouteTypes {
     | '/app/appointments'
     | '/app/courier'
     | '/app/health'
+    | '/app/pharmacies'
     | '/app/pharmacy'
     | '/app/praticien'
     | '/app/prescriptions'
@@ -686,6 +698,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/appointments/'
     | '/_authenticated/app/courier/'
     | '/_authenticated/app/health/'
+    | '/_authenticated/app/pharmacies/'
     | '/_authenticated/app/pharmacy/'
     | '/_authenticated/app/praticien/'
     | '/_authenticated/app/prescriptions/'
@@ -880,6 +893,13 @@ declare module '@tanstack/react-router' {
       path: '/app/pharmacy'
       fullPath: '/app/pharmacy/'
       preLoaderRoute: typeof AuthenticatedAppPharmacyIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/app/pharmacies/': {
+      id: '/_authenticated/app/pharmacies/'
+      path: '/app/pharmacies'
+      fullPath: '/app/pharmacies/'
+      preLoaderRoute: typeof AuthenticatedAppPharmaciesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/app/health/': {
@@ -1131,6 +1151,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAppAppointmentsIndexRoute: typeof AuthenticatedAppAppointmentsIndexRoute
   AuthenticatedAppCourierIndexRoute: typeof AuthenticatedAppCourierIndexRoute
   AuthenticatedAppHealthIndexRoute: typeof AuthenticatedAppHealthIndexRoute
+  AuthenticatedAppPharmaciesIndexRoute: typeof AuthenticatedAppPharmaciesIndexRoute
   AuthenticatedAppPharmacyIndexRoute: typeof AuthenticatedAppPharmacyIndexRoute
   AuthenticatedAppPraticienIndexRoute: typeof AuthenticatedAppPraticienIndexRoute
   AuthenticatedAppPrescriptionsIndexRoute: typeof AuthenticatedAppPrescriptionsIndexRoute
@@ -1176,6 +1197,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAppAppointmentsIndexRoute,
   AuthenticatedAppCourierIndexRoute: AuthenticatedAppCourierIndexRoute,
   AuthenticatedAppHealthIndexRoute: AuthenticatedAppHealthIndexRoute,
+  AuthenticatedAppPharmaciesIndexRoute: AuthenticatedAppPharmaciesIndexRoute,
   AuthenticatedAppPharmacyIndexRoute: AuthenticatedAppPharmacyIndexRoute,
   AuthenticatedAppPraticienIndexRoute: AuthenticatedAppPraticienIndexRoute,
   AuthenticatedAppPrescriptionsIndexRoute:

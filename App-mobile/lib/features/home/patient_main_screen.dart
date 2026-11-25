@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
-import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/features/admin/admin_space_screen.dart';
 import 'package:saha_sante/features/courier/courier_space_screen.dart';
 import 'package:saha_sante/features/home/home_screen.dart';
@@ -112,12 +111,14 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
           body: Stack(
             children: [
               tabs.pages[_currentIndex],
-              // Bouton pause/reprise vocale flottant (façon NIAGA), en haut
-              // à gauche : présent sur tous les écrans de l'application.
-              const Positioned(
-                top: 44,
+              // Bouton pause/reprise vocale flottant (façon NIAGA). Sur
+              // l'accueil, il passe en bas à gauche pour ne pas chevaucher le
+              // nouveau logo ; ailleurs il reste en haut à gauche.
+              Positioned(
+                top: _currentIndex == 0 ? null : 44,
+                bottom: _currentIndex == 0 ? 16 : null,
                 left: 8,
-                child: VoiceGuideToggle(),
+                child: const VoiceGuideToggle(),
               ),
               // Commande via WhatsApp, bouton flottant façon site : visible
               // pour tous les comptes, comme sur le site.
@@ -128,47 +129,96 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
               ),
             ],
           ),
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border(
-                top: BorderSide(color: AppColors.border),
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+          // Barre flottante « verre » alignée sur la maquette 3D : fond vert
+          // profond translucide, pastille menthe sur l'onglet actif.
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xF2071F17),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: const Color(0x551F7A57)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: List.generate(tabs.pages.length, (index) {
                     final selected = _currentIndex == index;
-                    return GestureDetector(
-                      onTap: () => setState(() => _currentIndex = index),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: selected ? AppColors.primary.withAlpha(40) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Icon(
-                              tabs.icons[index],
-                              color: selected ? AppColors.primaryLight : AppColors.textMuted,
-                              size: 22,
+                    final asset = switch (index) {
+                      0 => 'assets/icons3d/home.png',
+                      1 => 'assets/icons3d/camera.png',
+                      2 => 'assets/icons3d/tracking.png',
+                      _ when index == tabs.pages.length - 1 =>
+                        'assets/icons3d/person.png',
+                      _ => null,
+                    };
+                    return Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => setState(() => _currentIndex = index),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? const Color(0x2634E3A4)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0x5534E3A4)
+                                  : Colors.transparent,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            labels[index],
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: selected ? AppColors.primaryLight : AppColors.textMuted,
-                              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (asset != null)
+                                Opacity(
+                                  opacity: selected ? 1 : 0.7,
+                                  child: Image.asset(
+                                    asset,
+                                    width: 25,
+                                    height: 25,
+                                  ),
+                                )
+                              else
+                                Icon(
+                                  tabs.icons[index],
+                                  color: selected
+                                      ? const Color(0xFF34E3A4)
+                                      : const Color(0xFF8FB8A8),
+                                  size: 24,
+                                ),
+                              const SizedBox(height: 4),
+                              Text(
+                                labels[index],
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: selected
+                                      ? const Color(0xFF34E3A4)
+                                      : const Color(0xFF8FB8A8),
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     );
                   }),
