@@ -17,6 +17,7 @@ import {
   Users,
   Stethoscope,
   HandCoins,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -217,6 +218,14 @@ function AuthedLayout() {
             <span className="font-display text-lg">SAHA</span>
           </Link>
           <div className="flex items-center gap-1">
+            <Link
+              to="/app/profile"
+              aria-label={t("nav.profile")}
+              title={t("nav.profile")}
+              className="grid h-9 w-9 place-items-center rounded-full text-foreground/70 transition hover:bg-secondary hover:text-foreground"
+            >
+              <UserRound className="h-5 w-5" />
+            </Link>
             <ThemeSwitcher compact />
             <LanguageSwitcher compact />
             <NotificationsBell userId={user.id} />
@@ -296,8 +305,7 @@ function AuthedLayout() {
                     aria-hidden
                     className={cn(
                       "h-7 w-7 object-contain opacity-70 drop-shadow [&.active]:opacity-100",
-                      item.mobileIcon.includes("shield") &&
-                        "hue-rotate-[115deg] saturate-150",
+                      item.mobileIcon.includes("shield") && "hue-rotate-[115deg] saturate-150",
                     )}
                   />
                 ) : (
@@ -411,9 +419,13 @@ function SidebarFooter({ user, onSignOut }: { user: AuthUser; onSignOut: () => v
   const { t } = useTranslation();
   return (
     <div className="border-t border-border p-3">
-      <div className="mb-2 truncate px-2 text-xs text-foreground/60">
-        {user.email ?? user.phone}
-      </div>
+      <Link
+        to="/app/profile"
+        className="mb-2 flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs text-foreground/60 transition hover:bg-secondary hover:text-foreground"
+      >
+        <UserRound className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{user.email ?? user.phone}</span>
+      </Link>
       <Button
         variant="ghost"
         size="sm"

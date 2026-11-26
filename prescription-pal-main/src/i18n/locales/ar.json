@@ -40,6 +40,7 @@
   },
   "nav": {
     "home": "الرئيسية",
+    "profile": "ملفي",
     "scan": "صيدلية",
     "prescriptions": "الوصفات",
     "reservations": "الحجوزات",
@@ -62,6 +63,18 @@
     "appointments": "المواعيد",
     "payments": "المدفوعات",
     "support": "المساعدة"
+  },
+  "profile": {
+    "badge": "ملفي الشخصي",
+    "title": "معلوماتك",
+    "desc": "حسابك ووصفاتك وطلباتك في مكان واحد.",
+    "prescriptions": "وصفي الطبية",
+    "orders": "حجوزاتي",
+    "pharmacies": "صيدليات قريبة",
+    "scan": "امسح وصفة طبية",
+    "language": "اللغة",
+    "theme": "المظهر",
+    "signOut": "تسجيل الخروج"
   },
   "languages": {
     "fr": "Français",
@@ -313,6 +326,17 @@
   "track": {
     "back": "← حجوزاتي",
     "title": "تتبع التوصيل",
+    "heroLead": "تتبع",
+    "heroHighlight": "طلبك",
+    "heroDesc": "تابع حالة طلبك وتوصيل أدويتك في الوقت الفعلي.",
+    "orderLabel": "طلب رقم {{id}}",
+    "mapTitle": "توصيلك مباشرة",
+    "stepReceived": "تم الاستلام",
+    "stepPrepared": "تم التحضير",
+    "stepDelivering": "قيد التوصيل",
+    "stepDelivered": "تم التوصيل",
+    "stepReady": "جاهزة",
+    "stepPickedUp": "تم الاستلام",
     "notFound": "الحجز غير موجود.",
     "deliveryStatus": "حالة التوصيل",
     "courier": "الموصّل",

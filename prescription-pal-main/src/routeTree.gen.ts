@@ -25,6 +25,7 @@ import { Route as ApiTtsBambaraRouteImport } from './routes/api/tts/bambara'
 import { Route as ApiStorageUploadRouteImport } from './routes/api/storage/upload'
 import { Route as ApiStorageSplatRouteImport } from './routes/api/storage/$'
 import { Route as AuthenticatedAppScanRouteImport } from './routes/_authenticated/app/scan'
+import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/app/profile'
 import { Route as AuthenticatedAppOtcRouteImport } from './routes/_authenticated/app/otc'
 import { Route as ApiAuthGoogleIndexRouteImport } from './routes/api/auth/google/index'
 import { Route as AuthenticatedAppReservationsIndexRouteImport } from './routes/_authenticated/app/reservations/index'
@@ -142,6 +143,11 @@ const ApiStorageSplatRoute = ApiStorageSplatRouteImport.update({
 const AuthenticatedAppScanRoute = AuthenticatedAppScanRouteImport.update({
   id: '/app/scan',
   path: '/app/scan',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAppProfileRoute = AuthenticatedAppProfileRouteImport.update({
+  id: '/app/profile',
+  path: '/app/profile',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAppOtcRoute = AuthenticatedAppOtcRouteImport.update({
@@ -387,6 +393,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/app/otc': typeof AuthenticatedAppOtcRoute
+  '/app/profile': typeof AuthenticatedAppProfileRoute
   '/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
@@ -443,6 +450,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/app/otc': typeof AuthenticatedAppOtcRoute
+  '/app/profile': typeof AuthenticatedAppProfileRoute
   '/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
@@ -501,6 +509,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/_authenticated/app/otc': typeof AuthenticatedAppOtcRoute
+  '/_authenticated/app/profile': typeof AuthenticatedAppProfileRoute
   '/_authenticated/app/scan': typeof AuthenticatedAppScanRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
   '/api/storage/upload': typeof ApiStorageUploadRoute
@@ -559,6 +568,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/realtime'
     | '/app/otc'
+    | '/app/profile'
     | '/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
@@ -615,6 +625,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/realtime'
     | '/app/otc'
+    | '/app/profile'
     | '/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
@@ -672,6 +683,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/realtime'
     | '/_authenticated/app/otc'
+    | '/_authenticated/app/profile'
     | '/_authenticated/app/scan'
     | '/api/storage/$'
     | '/api/storage/upload'
@@ -851,6 +863,13 @@ declare module '@tanstack/react-router' {
       path: '/app/scan'
       fullPath: '/app/scan'
       preLoaderRoute: typeof AuthenticatedAppScanRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/app/profile': {
+      id: '/_authenticated/app/profile'
+      path: '/app/profile'
+      fullPath: '/app/profile'
+      preLoaderRoute: typeof AuthenticatedAppProfileRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/app/otc': {
@@ -1131,6 +1150,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAppOtcRoute: typeof AuthenticatedAppOtcRoute
+  AuthenticatedAppProfileRoute: typeof AuthenticatedAppProfileRoute
   AuthenticatedAppScanRoute: typeof AuthenticatedAppScanRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppAdminAppointmentsRoute: typeof AuthenticatedAppAdminAppointmentsRoute
@@ -1171,6 +1191,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAppOtcRoute: AuthenticatedAppOtcRoute,
+  AuthenticatedAppProfileRoute: AuthenticatedAppProfileRoute,
   AuthenticatedAppScanRoute: AuthenticatedAppScanRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppAdminAppointmentsRoute:

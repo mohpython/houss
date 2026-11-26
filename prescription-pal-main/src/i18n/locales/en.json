@@ -40,6 +40,7 @@
   },
   "nav": {
     "home": "Home",
+    "profile": "Profile",
     "scan": "Pharmacy",
     "prescriptions": "Prescriptions",
     "reservations": "Reservations",
@@ -62,6 +63,18 @@
     "appointments": "Appointments",
     "payments": "Payments",
     "support": "Support"
+  },
+  "profile": {
+    "badge": "My profile",
+    "title": "Your information",
+    "desc": "Your account, prescriptions and orders in one place.",
+    "prescriptions": "My prescriptions",
+    "orders": "My reservations",
+    "pharmacies": "Nearby pharmacies",
+    "scan": "Scan a prescription",
+    "language": "Language",
+    "theme": "Theme",
+    "signOut": "Sign out"
   },
   "languages": {
     "fr": "Français",
@@ -313,6 +326,17 @@
   "track": {
     "back": "← My reservations",
     "title": "Delivery tracking",
+    "heroLead": "Track your",
+    "heroHighlight": "order",
+    "heroDesc": "Follow your order status and medicine delivery in real time.",
+    "orderLabel": "Order no. {{id}}",
+    "mapTitle": "Your delivery live",
+    "stepReceived": "Received",
+    "stepPrepared": "Prepared",
+    "stepDelivering": "Out for delivery",
+    "stepDelivered": "Delivered",
+    "stepReady": "Ready",
+    "stepPickedUp": "Picked up",
     "notFound": "Reservation not found.",
     "deliveryStatus": "Delivery status",
     "courier": "Courier",

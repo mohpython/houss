@@ -40,6 +40,7 @@
   },
   "nav": {
     "home": "Accueil",
+    "profile": "Profil",
     "scan": "Pharmacie",
     "prescriptions": "Ordonnances",
     "reservations": "Réservations",
@@ -62,6 +63,18 @@
     "appointments": "Rendez-vous",
     "payments": "Paiements",
     "support": "Assistance"
+  },
+  "profile": {
+    "badge": "Mon profil",
+    "title": "Vos informations",
+    "desc": "Votre compte, vos ordonnances et vos commandes au même endroit.",
+    "prescriptions": "Mes ordonnances",
+    "orders": "Mes réservations",
+    "pharmacies": "Pharmacies proches",
+    "scan": "Scanner une ordonnance",
+    "language": "Langue",
+    "theme": "Thème",
+    "signOut": "Se déconnecter"
   },
   "languages": {
     "fr": "Français",
@@ -313,6 +326,17 @@
   "track": {
     "back": "← Mes réservations",
     "title": "Suivi de livraison",
+    "heroLead": "Suivi de",
+    "heroHighlight": "votre commande",
+    "heroDesc": "Suivez en temps réel l'état de votre commande et la livraison de vos médicaments.",
+    "orderLabel": "Commande n° {{id}}",
+    "mapTitle": "Votre livraison en direct",
+    "stepReceived": "Reçue",
+    "stepPrepared": "Préparée",
+    "stepDelivering": "En livraison",
+    "stepDelivered": "Livrée",
+    "stepReady": "Prête",
+    "stepPickedUp": "Retirée",
     "notFound": "Réservation introuvable.",
     "deliveryStatus": "Statut livraison",
     "courier": "Livreur",
