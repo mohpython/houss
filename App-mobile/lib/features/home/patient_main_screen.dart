@@ -29,14 +29,14 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
 
   /// Espace professionnel du compte connecté (priorité : admin > pharmacie >
   /// livreur > praticien).
-  static ({Widget page, String labelKey, IconData icon})? _spaceFor(
-    Set<String> roles,
-  ) {
+  static ({Widget page, String labelKey, IconData icon, String asset})?
+  _spaceFor(Set<String> roles) {
     if (roles.contains('admin')) {
       return (
         page: const AdminSpaceScreen(),
         labelKey: 'navAdmin',
         icon: Icons.admin_panel_settings_outlined,
+        asset: 'assets/icons3d/shield.png',
       );
     }
     if (roles.contains('pharmacy_staff')) {
@@ -44,6 +44,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
         page: const PharmacySpaceScreen(),
         labelKey: 'navPharmacy',
         icon: Icons.local_pharmacy_outlined,
+        asset: 'assets/icons3d/pharmacy.png',
       );
     }
     if (roles.contains('courier')) {
@@ -51,6 +52,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
         page: const CourierSpaceScreen(),
         labelKey: 'navCourier',
         icon: Icons.delivery_dining_outlined,
+        asset: 'assets/icons3d/scooter.png',
       );
     }
     if (roles.contains('doctor') || roles.contains('nurse')) {
@@ -58,6 +60,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
         page: const PractitionerSpaceScreen(),
         labelKey: 'navPractitioner',
         icon: Icons.medical_services_outlined,
+        asset: 'assets/icons3d/stethoscope.png',
       );
     }
     return null;
@@ -69,9 +72,13 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
   /// lien profond, les rôles arrivent via `/me` quelques centaines de ms après
   /// le jeton. Si l'écran était construit avant, l'onglet admin/pharmacie
   /// restait invisible jusqu'à un redémarrage (où `restore()` précharge `/me`).
-  ({List<Widget> pages, List<IconData> icons, String spaceLabelKey}) _tabsFor(
-    Set<String> roles,
-  ) {
+  ({
+    List<Widget> pages,
+    List<IconData> icons,
+    String spaceLabelKey,
+    String? spaceAsset,
+  })
+  _tabsFor(Set<String> roles) {
     final space = _spaceFor(roles);
     return (
       pages: [
@@ -89,6 +96,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
         Icons.person_outline,
       ],
       spaceLabelKey: space?.labelKey ?? '',
+      spaceAsset: space?.asset,
     );
   }
 
@@ -161,7 +169,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
                       2 => 'assets/icons3d/tracking.png',
                       _ when index == tabs.pages.length - 1 =>
                         'assets/icons3d/person.png',
-                      _ => null,
+                      _ => tabs.spaceAsset,
                     };
                     return Expanded(
                       child: GestureDetector(
@@ -188,7 +196,19 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (asset != null)
-                                Image.asset(asset, width: 26, height: 26)
+                                asset.endsWith('shield.png')
+                                    ? ColorFiltered(
+                                        colorFilter: const ColorFilter.mode(
+                                          Color(0xFF34E3A4),
+                                          BlendMode.modulate,
+                                        ),
+                                        child: Image.asset(
+                                          asset,
+                                          width: 26,
+                                          height: 26,
+                                        ),
+                                      )
+                                    : Image.asset(asset, width: 26, height: 26)
                               else
                                 Icon(
                                   tabs.icons[index],

@@ -41,7 +41,13 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthedLayout,
 });
 
-type NavEntry = { to: string; icon: React.ReactNode; label: string };
+type NavEntry = {
+  to: string;
+  icon: React.ReactNode;
+  label: string;
+  /** Icone 3D (format PNG) utilisee dans la barre du bas, comme la maquette. */
+  mobileIcon?: string;
+};
 
 function AuthedLayout() {
   const { user } = Route.useRouteContext();
@@ -77,14 +83,30 @@ function AuthedLayout() {
   const isPractitioner = roles.includes("doctor") || roles.includes("nurse") || practitionerLinked;
 
   const primary: NavEntry[] = [
-    { to: "/app", icon: <LayoutGrid className="h-5 w-5" />, label: t("nav.home") },
-    { to: "/app/scan", icon: <Camera className="h-5 w-5" />, label: t("nav.scan") },
+    {
+      to: "/app",
+      icon: <LayoutGrid className="h-5 w-5" />,
+      label: t("nav.home"),
+      mobileIcon: "/icons3d/home.png",
+    },
+    {
+      to: "/app/scan",
+      icon: <Camera className="h-5 w-5" />,
+      label: t("nav.scan"),
+      mobileIcon: "/icons3d/camera.png",
+    },
     {
       to: "/app/prescriptions",
       icon: <ListChecks className="h-5 w-5" />,
       label: t("nav.prescriptions"),
+      mobileIcon: "/icons3d/rx.png",
     },
-    { to: "/app/reservations", icon: <Store className="h-5 w-5" />, label: t("nav.reservations") },
+    {
+      to: "/app/reservations",
+      icon: <Store className="h-5 w-5" />,
+      label: t("nav.reservations"),
+      mobileIcon: "/icons3d/tracking.png",
+    },
   ];
   const extras: NavEntry[] = [];
   if (!isPharmacy && !isCourier) {
@@ -133,24 +155,28 @@ function AuthedLayout() {
       to: "/app/pharmacy",
       icon: <Store className="h-5 w-5" />,
       label: t("nav.pharmacy"),
+      mobileIcon: "/icons3d/pharmacy.png",
     });
   if (isCourier)
     roleTabs.push({
       to: "/app/courier",
       icon: <Bike className="h-5 w-5" />,
       label: t("nav.courier"),
+      mobileIcon: "/icons3d/scooter.png",
     });
   if (isPractitioner)
     roleTabs.push({
       to: "/app/praticien",
       icon: <Stethoscope className="h-5 w-5" />,
       label: t("nav.practitioner"),
+      mobileIcon: "/icons3d/stethoscope.png",
     });
   if (isAdmin && roleTabs.length === 0)
     roleTabs.push({
       to: "/app/admin",
       icon: <ShieldCheck className="h-5 w-5" />,
       label: t("nav.admin"),
+      mobileIcon: "/icons3d/shield.png",
     });
 
   const bottomBar: NavEntry[] = roleTabs.length > 0 ? [...primary, roleTabs[0]] : [...primary];
@@ -263,7 +289,20 @@ function AuthedLayout() {
                 activeOptions={{ exact: item.to === "/app" }}
                 className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/60 transition-all [&.active]:aurora-bg [&.active]:text-on-aurora [&.active]:shadow-lg [&.active]:shadow-primary/30"
               >
-                {item.icon}
+                {item.mobileIcon ? (
+                  <img
+                    src={item.mobileIcon}
+                    alt=""
+                    aria-hidden
+                    className={cn(
+                      "h-7 w-7 object-contain opacity-70 drop-shadow [&.active]:opacity-100",
+                      item.mobileIcon.includes("shield") &&
+                        "hue-rotate-[115deg] saturate-150",
+                    )}
+                  />
+                ) : (
+                  item.icon
+                )}
               </Link>
             ))}
             {showBottomMore && (
