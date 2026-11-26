@@ -13,7 +13,13 @@ import { setMyLanguage } from "@/lib/account.functions";
 
 const FLAGS: Record<SupportedLang, string> = { fr: "🇫🇷", en: "🇬🇧", ar: "🇸🇦" };
 
-export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
+export function LanguageSwitcher({
+  compact = false,
+  className,
+}: {
+  compact?: boolean;
+  className?: string;
+}) {
   const { t, i18n } = useTranslation();
   const current = (i18n.resolvedLanguage ?? "fr") as SupportedLang;
 
@@ -28,7 +34,11 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size={compact ? "icon" : "sm"} className="gap-2">
+        <Button
+          variant="ghost"
+          size={compact ? "icon" : "sm"}
+          className={`gap-2 ${className ?? ""}`}
+        >
           <Globe className="h-4 w-4" />
           {!compact && (
             <span>

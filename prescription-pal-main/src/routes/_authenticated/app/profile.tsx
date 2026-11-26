@@ -112,14 +112,14 @@ function ProfilePage() {
             <img src="/icons3d/globe.png" alt="" aria-hidden className="h-8 w-8 object-contain" />
             <span className="text-sm font-semibold text-emerald-50">{t("profile.language")}</span>
             <div className="ml-auto">
-              <LanguageSwitcher />
+              <LanguageSwitcher className="text-emerald-200 hover:bg-white/10 hover:text-white" />
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-300/15 bg-[#0a2a20]/90 p-3">
             <img src="/icons3d/palette.png" alt="" aria-hidden className="h-8 w-8 object-contain" />
             <span className="text-sm font-semibold text-emerald-50">{t("profile.theme")}</span>
             <div className="ml-auto">
-              <ThemeSwitcher />
+              <ThemeSwitcher className="text-emerald-200 hover:bg-white/10 hover:text-white" />
             </div>
           </div>
         </div>
