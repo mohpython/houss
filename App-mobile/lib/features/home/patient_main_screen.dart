@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:saha_sante/core/l10n/app_locale.dart';
 import 'package:saha_sante/core/services/auth_service.dart';
@@ -6,6 +8,7 @@ import 'package:saha_sante/features/courier/courier_space_screen.dart';
 import 'package:saha_sante/features/home/home_screen.dart';
 import 'package:saha_sante/features/home/whatsapp_fab.dart';
 import 'package:saha_sante/features/pharmacy/pharmacy_space_screen.dart';
+import 'package:saha_sante/features/practitioner/doctor_rx_portal_screen.dart';
 import 'package:saha_sante/features/practitioner/practitioner_space_screen.dart';
 import 'package:saha_sante/features/profile/profile_screen.dart';
 import 'package:saha_sante/features/scan/scan_screen.dart';
@@ -24,79 +27,125 @@ class PatientMainScreen extends StatefulWidget {
   State<PatientMainScreen> createState() => _PatientMainScreenState();
 }
 
-class _PatientMainScreenState extends State<PatientMainScreen> {
+class _PatientMainScreenState extends State<PatientMainScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
 
-  /// Espace professionnel du compte connecté (priorité : admin > pharmacie >
-  /// livreur > praticien).
-  static ({Widget page, String labelKey, IconData icon, String asset})?
-  _spaceFor(Set<String> roles) {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Un rôle attribué par l'admin pendant que l'app est en arrière-plan
+    // doit faire apparaître les nouveaux onglets au retour dans l'app.
+    if (state == AppLifecycleState.resumed && AuthService.instance.isLoggedIn) {
+      unawaited(AuthService.instance.refreshUser().catchError((_) {}));
+    }
+  }
+
+  /// Espaces professionnels du compte connecté.
+  ///
+  /// Un médecin a deux entrées distinctes : « Praticien » (rendez-vous) et
+  /// « e-Ordonnance » (portail de prescription ouvert dans le navigateur).
+  static List<({Widget page, String labelKey, IconData icon, String asset})>
+  _spacesFor(Set<String> roles) {
+    final spaces =
+        <({Widget page, String labelKey, IconData icon, String asset})>[];
     if (roles.contains('admin')) {
-      return (
+      spaces.add((
         page: const AdminSpaceScreen(),
         labelKey: 'navAdmin',
         icon: Icons.admin_panel_settings_outlined,
         asset: 'assets/icons3d/shield.png',
-      );
+      ));
     }
     if (roles.contains('pharmacy_staff')) {
-      return (
+      spaces.add((
         page: const PharmacySpaceScreen(),
         labelKey: 'navPharmacy',
         icon: Icons.local_pharmacy_outlined,
         asset: 'assets/icons3d/pharmacy.png',
-      );
+      ));
     }
     if (roles.contains('courier')) {
-      return (
+      spaces.add((
         page: const CourierSpaceScreen(),
         labelKey: 'navCourier',
         icon: Icons.delivery_dining_outlined,
         asset: 'assets/icons3d/scooter.png',
-      );
+      ));
     }
     if (roles.contains('doctor') || roles.contains('nurse')) {
-      return (
+      spaces.add((
         page: const PractitionerSpaceScreen(),
         labelKey: 'navPractitioner',
         icon: Icons.medical_services_outlined,
         asset: 'assets/icons3d/stethoscope.png',
-      );
+      ));
     }
-    return null;
+    if (roles.contains('doctor')) {
+      spaces.add((
+        page: const DoctorRxPortalScreen(),
+        labelKey: 'navERx',
+        icon: Icons.description_outlined,
+        asset: 'assets/icons3d/records.png',
+      ));
+    }
+    return spaces;
   }
 
   /// Recalcule la barre du bas à partir des rôles **actuels**.
   ///
   /// Ne JAMAIS figer ceci dans `initState` : après une connexion Google par
   /// lien profond, les rôles arrivent via `/me` quelques centaines de ms après
-  /// le jeton. Si l'écran était construit avant, l'onglet admin/pharmacie
-  /// restait invisible jusqu'à un redémarrage (où `restore()` précharge `/me`).
+  /// le jeton. Si l'écran était construit avant, l'onglet médecin restait
+  /// invisible jusqu'à un redémarrage (où `restore()` précharge `/me`).
   ({
     List<Widget> pages,
     List<IconData> icons,
-    String spaceLabelKey,
-    String? spaceAsset,
+    List<String> labels,
+    List<String?> assets,
   })
   _tabsFor(Set<String> roles) {
-    final space = _spaceFor(roles);
+    final spaces = _spacesFor(roles);
     return (
       pages: [
         const HomeScreen(),
         const ScanScreen(),
         const TrackingScreen(),
-        if (space != null) space.page,
+        ...spaces.map((s) => s.page),
         const ProfileScreen(),
       ],
       icons: [
         Icons.home,
         Icons.camera_alt,
         Icons.local_shipping,
-        if (space != null) space.icon,
+        ...spaces.map((s) => s.icon),
         Icons.person_outline,
       ],
-      spaceLabelKey: space?.labelKey ?? '',
-      spaceAsset: space?.asset,
+      labels: [
+        'navHome',
+        'navScan',
+        'navTrack',
+        ...spaces.map((s) => s.labelKey),
+        'navProfile',
+      ],
+      assets: [
+        'assets/icons3d/home.png',
+        'assets/icons3d/camera.png',
+        'assets/icons3d/tracking.png',
+        ...spaces.map((s) => s.asset),
+        'assets/icons3d/person.png',
+      ],
     );
   }
 
@@ -113,12 +162,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
           _currentIndex = tabs.pages.length - 1;
         }
         final labels = [
-          L10n.t(context, 'navHome'),
-          L10n.t(context, 'navScan'),
-          L10n.t(context, 'navTrack'),
-          if (tabs.spaceLabelKey.isNotEmpty)
-            L10n.t(context, tabs.spaceLabelKey),
-          L10n.t(context, 'navProfile'),
+          for (final key in tabs.labels) L10n.t(context, key),
         ];
 
         return Scaffold(
@@ -163,14 +207,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
                 child: Row(
                   children: List.generate(tabs.pages.length, (index) {
                     final selected = _currentIndex == index;
-                    final asset = switch (index) {
-                      0 => 'assets/icons3d/home.png',
-                      1 => 'assets/icons3d/camera.png',
-                      2 => 'assets/icons3d/tracking.png',
-                      _ when index == tabs.pages.length - 1 =>
-                        'assets/icons3d/person.png',
-                      _ => tabs.spaceAsset,
-                    };
+                    final asset = tabs.assets[index];
                     return Expanded(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
