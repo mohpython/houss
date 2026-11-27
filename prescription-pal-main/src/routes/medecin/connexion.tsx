@@ -1,0 +1,240 @@
+import { useEffect, useState } from "react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  LockKeyhole,
+  ShieldCheck,
+  Stethoscope,
+} from "lucide-react";
+import { toast } from "sonner";
+import { auth } from "@/integrations/auth/client";
+import { DoctorBrand } from "@/components/doctor-rx/DoctorShell";
+import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
+
+export const Route = createFileRoute("/medecin/connexion")({
+  ssr: false,
+  head: () => ({
+    meta: [{ title: "Connexion médecin — SAHA Santé e-Ordonnance" }],
+  }),
+  component: DoctorLogin,
+});
+
+function DoctorLogin() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [existing, setExisting] = useState<string | null>(null);
+
+  useEffect(() => {
+    void auth.getUser().then(({ data }) => {
+      if (data.user) setExisting(data.user.email ?? data.user.phone ?? "Compte connecté");
+    });
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) {
+      setError("Renseignez votre e-mail et votre mot de passe.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const { error: authError } = await auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (authError) {
+      setError(
+        authError.message === "Invalid login credentials"
+          ? "E-mail ou mot de passe incorrect."
+          : authError.message,
+      );
+      setLoading(false);
+      return;
+    }
+    toast.success("Connexion réussie.");
+    router.navigate({ to: "/medecin/app" });
+  };
+
+  return (
+    <div className="grid min-h-dvh lg:grid-cols-[1.05fr_0.95fr]">
+      {/* Panneau gauche */}
+      <div className="relative hidden overflow-hidden border-r border-white/8 p-10 lg:flex lg:flex-col">
+        <div className="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-[#00c995]/18 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-[#0fb98b]/12 blur-3xl" />
+        <DoctorBrand />
+        <div className="relative my-auto max-w-lg">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#2ee0aa]/25 bg-[#2ee0aa]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#5ff0c4]">
+            <Stethoscope className="h-3.5 w-3.5" />
+            Espace médecin
+          </span>
+          <h1 className="mt-5 font-display text-4xl leading-[1.1] text-white">
+            Vos ordonnances,
+            <br />
+            signées en un geste.
+          </h1>
+          <p className="mt-4 text-sm leading-relaxed text-[#a9ccc2]">
+            Retrouvez vos patients, rédigez une prescription structurée et transmettez-la dans
+            l'espace SAHA du patient. Chaque document est scellé et vérifiable par QR code.
+          </p>
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            {[
+              ["Signature HMAC-SHA256", "Document figé après signature"],
+              ["QR de vérification", "Contrôle pharmacie en un scan"],
+              ["Transmission directe", "Notification au patient"],
+              ["Piste d'audit", "Chaque action horodatée"],
+            ].map(([title, body]) => (
+              <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold text-white">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#2ee0aa]" />
+                  {title}
+                </p>
+                <p className="mt-1 text-[10px] text-[#9fc4b9]">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="relative text-[10px] text-[#7da69b]">
+          SAHA Santé · Bamako, Mali — votre santé, notre priorité.
+        </p>
+      </div>
+
+      {/* Formulaire */}
+      <div className="relative flex min-h-dvh flex-col justify-center px-4 py-10 sm:px-8">
+        <div className="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-[#00c995]/12 blur-3xl lg:hidden" />
+        <div className="mx-auto w-full max-w-md">
+          <div className="mb-6 flex items-center justify-between lg:hidden">
+            <DoctorBrand compact />
+            <Link
+              to="/medecin"
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/[0.06] text-[#c9e5dd]"
+              aria-label="Retour"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="rx-glass rounded-[30px] p-6 sm:p-8">
+            <span className="grid h-12 w-12 place-items-center overflow-hidden rounded-2xl bg-white shadow-lg">
+              <img src={sahaLogo.url} alt="" className="h-full w-full object-cover" />
+            </span>
+            <h2 className="mt-4 font-display text-3xl text-white">Connexion médecin</h2>
+            <p className="mt-1 text-xs leading-relaxed text-[#9fc4b9]">
+              Utilisez l'adresse e-mail rattachée à votre profil praticien approuvé.
+            </p>
+
+            {existing && (
+              <div className="mt-4 rounded-2xl border border-[#2ee0aa]/25 bg-[#2ee0aa]/10 p-3">
+                <p className="text-[11px] text-[#c9e5dd]">
+                  Déjà connecté en tant que <strong className="text-white">{existing}</strong>.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.navigate({ to: "/medecin/app" })}
+                  className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-[#5ff0c4]"
+                >
+                  Ouvrir mon espace
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={submit} className="mt-6 space-y-4">
+              <label className="block">
+                <span className="rx-label-dark">Adresse e-mail</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="medecin@exemple.com"
+                  className="rx-field-dark"
+                  autoComplete="email"
+                  autoFocus
+                />
+              </label>
+              <label className="block">
+                <span className="rx-label-dark">Mot de passe</span>
+                <div className="relative">
+                  <input
+                    type={show ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Votre mot de passe"
+                    className="rx-field-dark pr-11"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7da69b] transition hover:text-white"
+                    aria-label={show ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  >
+                    {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </label>
+
+              {error && (
+                <div className="rounded-xl border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-[11px] text-rose-200">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="rx-btn-primary w-full px-5 py-3 text-sm"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                {loading ? "Connexion…" : "Se connecter"}
+              </button>
+            </form>
+
+            <div className="mt-4 flex items-center justify-between text-[11px]">
+              <Link to="/reset-password" className="text-[#9fc4b9] transition hover:text-white">
+                Mot de passe oublié ?
+              </Link>
+              <Link
+                to="/auth"
+                search={{ mode: "signin" }}
+                className="inline-flex items-center gap-1 font-semibold text-[#5ff0c4]"
+              >
+                Connexion par téléphone
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#8fb8ac]">
+                <LockKeyhole className="h-3.5 w-3.5 text-[#2ee0aa]" />
+                Accès réservé
+              </p>
+              <p className="mt-1 text-[10px] leading-relaxed text-[#9fc4b9]">
+                Seuls les médecins dont le profil a été approuvé par un administrateur SAHA Santé
+                peuvent signer une ordonnance. Vous n'avez pas encore de compte ?{" "}
+                <Link to="/auth" search={{ mode: "signup" }} className="font-semibold text-[#5ff0c4]">
+                  Créer un compte
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-5 text-center text-[10px] text-[#7da69b]">
+            <Link to="/medecin" className="transition hover:text-white">
+              ← Retour à la présentation
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

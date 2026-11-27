@@ -13,13 +13,21 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as MedecinRouteImport } from './routes/medecin'
 import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as AuthCallbackRouteImport } from './routes/auth-callback'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MedecinIndexRouteImport } from './routes/medecin/index'
+import { Route as MedecinConnexionRouteImport } from './routes/medecin/connexion'
+import { Route as MedecinAppRouteImport } from './routes/medecin/app'
 import { Route as ApiRealtimeRouteImport } from './routes/api/realtime'
+import { Route as MedecinAppIndexRouteImport } from './routes/medecin/app/index'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as MedecinVerifierTokenRouteImport } from './routes/medecin/verifier/$token'
+import { Route as MedecinAppParametresRouteImport } from './routes/medecin/app/parametres'
+import { Route as MedecinAppModelesRouteImport } from './routes/medecin/app/modeles'
 import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 import { Route as ApiTtsBambaraRouteImport } from './routes/api/tts/bambara'
 import { Route as ApiStorageUploadRouteImport } from './routes/api/storage/upload'
@@ -27,6 +35,8 @@ import { Route as ApiStorageSplatRouteImport } from './routes/api/storage/$'
 import { Route as AuthenticatedAppScanRouteImport } from './routes/_authenticated/app/scan'
 import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/app/profile'
 import { Route as AuthenticatedAppOtcRouteImport } from './routes/_authenticated/app/otc'
+import { Route as MedecinAppPatientsIndexRouteImport } from './routes/medecin/app/patients/index'
+import { Route as MedecinAppOrdonnancesIndexRouteImport } from './routes/medecin/app/ordonnances/index'
 import { Route as ApiAuthGoogleIndexRouteImport } from './routes/api/auth/google/index'
 import { Route as AuthenticatedAppReservationsIndexRouteImport } from './routes/_authenticated/app/reservations/index'
 import { Route as AuthenticatedAppPrescriptionsIndexRouteImport } from './routes/_authenticated/app/prescriptions/index'
@@ -37,6 +47,7 @@ import { Route as AuthenticatedAppHealthIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedAppCourierIndexRouteImport } from './routes/_authenticated/app/courier/index'
 import { Route as AuthenticatedAppAppointmentsIndexRouteImport } from './routes/_authenticated/app/appointments/index'
 import { Route as AuthenticatedAppAdminIndexRouteImport } from './routes/_authenticated/app/admin/index'
+import { Route as MedecinAppOrdonnancesNouvelleRouteImport } from './routes/medecin/app/ordonnances/nouvelle'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp/webhook'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
 import { Route as AuthenticatedAppPharmacyOnboardingRouteImport } from './routes/_authenticated/app/pharmacy/onboarding'
@@ -53,8 +64,10 @@ import { Route as AuthenticatedAppAdminFeedbackRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppAdminCouriersRouteImport } from './routes/_authenticated/app/admin/couriers'
 import { Route as AuthenticatedAppAdminCommissionsRouteImport } from './routes/_authenticated/app/admin/commissions'
 import { Route as AuthenticatedAppAdminAppointmentsRouteImport } from './routes/_authenticated/app/admin/appointments'
+import { Route as MedecinAppOrdonnancesIdIndexRouteImport } from './routes/medecin/app/ordonnances/$id/index'
 import { Route as AuthenticatedAppReservationsIdIndexRouteImport } from './routes/_authenticated/app/reservations/$id/index'
 import { Route as AuthenticatedAppPrescriptionsIdIndexRouteImport } from './routes/_authenticated/app/prescriptions/$id/index'
+import { Route as MedecinAppOrdonnancesIdModifierRouteImport } from './routes/medecin/app/ordonnances/$id/modifier'
 import { Route as ApiPublicPaymentsOrangeNotifyRouteImport } from './routes/api/public/payments/orange/notify'
 import { Route as AuthenticatedAppReservationsIdTrackRouteImport } from './routes/_authenticated/app/reservations/$id/track'
 import { Route as AuthenticatedAppReservationsIdCheckoutRouteImport } from './routes/_authenticated/app/reservations/$id/checkout'
@@ -86,6 +99,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MedecinRoute = MedecinRouteImport.update({
+  id: '/medecin',
+  path: '/medecin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FeedbackRoute = FeedbackRouteImport.update({
   id: '/feedback',
   path: '/feedback',
@@ -110,15 +128,50 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MedecinIndexRoute = MedecinIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MedecinRoute,
+} as any)
+const MedecinConnexionRoute = MedecinConnexionRouteImport.update({
+  id: '/connexion',
+  path: '/connexion',
+  getParentRoute: () => MedecinRoute,
+} as any)
+const MedecinAppRoute = MedecinAppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => MedecinRoute,
+} as any)
 const ApiRealtimeRoute = ApiRealtimeRouteImport.update({
   id: '/api/realtime',
   path: '/api/realtime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MedecinAppIndexRoute = MedecinAppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MedecinAppRoute,
+} as any)
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const MedecinVerifierTokenRoute = MedecinVerifierTokenRouteImport.update({
+  id: '/verifier/$token',
+  path: '/verifier/$token',
+  getParentRoute: () => MedecinRoute,
+} as any)
+const MedecinAppParametresRoute = MedecinAppParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
+  getParentRoute: () => MedecinAppRoute,
+} as any)
+const MedecinAppModelesRoute = MedecinAppModelesRouteImport.update({
+  id: '/modeles',
+  path: '/modeles',
+  getParentRoute: () => MedecinAppRoute,
 } as any)
 const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
   id: '/api/v1/$',
@@ -155,6 +208,17 @@ const AuthenticatedAppOtcRoute = AuthenticatedAppOtcRouteImport.update({
   path: '/app/otc',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const MedecinAppPatientsIndexRoute = MedecinAppPatientsIndexRouteImport.update({
+  id: '/patients/',
+  path: '/patients/',
+  getParentRoute: () => MedecinAppRoute,
+} as any)
+const MedecinAppOrdonnancesIndexRoute =
+  MedecinAppOrdonnancesIndexRouteImport.update({
+    id: '/ordonnances/',
+    path: '/ordonnances/',
+    getParentRoute: () => MedecinAppRoute,
+  } as any)
 const ApiAuthGoogleIndexRoute = ApiAuthGoogleIndexRouteImport.update({
   id: '/api/auth/google/',
   path: '/api/auth/google/',
@@ -213,6 +277,12 @@ const AuthenticatedAppAdminIndexRoute =
     id: '/app/admin/',
     path: '/app/admin/',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const MedecinAppOrdonnancesNouvelleRoute =
+  MedecinAppOrdonnancesNouvelleRouteImport.update({
+    id: '/ordonnances/nouvelle',
+    path: '/ordonnances/nouvelle',
+    getParentRoute: () => MedecinAppRoute,
   } as any)
 const ApiPublicWhatsappWebhookRoute =
   ApiPublicWhatsappWebhookRouteImport.update({
@@ -309,6 +379,12 @@ const AuthenticatedAppAdminAppointmentsRoute =
     path: '/app/admin/appointments',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const MedecinAppOrdonnancesIdIndexRoute =
+  MedecinAppOrdonnancesIdIndexRouteImport.update({
+    id: '/ordonnances/$id/',
+    path: '/ordonnances/$id/',
+    getParentRoute: () => MedecinAppRoute,
+  } as any)
 const AuthenticatedAppReservationsIdIndexRoute =
   AuthenticatedAppReservationsIdIndexRouteImport.update({
     id: '/app/reservations/$id/',
@@ -320,6 +396,12 @@ const AuthenticatedAppPrescriptionsIdIndexRoute =
     id: '/app/prescriptions/$id/',
     path: '/app/prescriptions/$id/',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const MedecinAppOrdonnancesIdModifierRoute =
+  MedecinAppOrdonnancesIdModifierRouteImport.update({
+    id: '/ordonnances/$id/modifier',
+    path: '/ordonnances/$id/modifier',
+    getParentRoute: () => MedecinAppRoute,
   } as any)
 const ApiPublicPaymentsOrangeNotifyRoute =
   ApiPublicPaymentsOrangeNotifyRouteImport.update({
@@ -387,11 +469,15 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/auth-callback': typeof AuthCallbackRoute
   '/feedback': typeof FeedbackRoute
+  '/medecin': typeof MedecinRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
+  '/medecin/app': typeof MedecinAppRouteWithChildren
+  '/medecin/connexion': typeof MedecinConnexionRoute
+  '/medecin/': typeof MedecinIndexRoute
   '/app/otc': typeof AuthenticatedAppOtcRoute
   '/app/profile': typeof AuthenticatedAppProfileRoute
   '/app/scan': typeof AuthenticatedAppScanRoute
@@ -399,7 +485,11 @@ export interface FileRoutesByFullPath {
   '/api/storage/upload': typeof ApiStorageUploadRoute
   '/api/tts/bambara': typeof ApiTtsBambaraRoute
   '/api/v1/$': typeof ApiV1SplatRoute
+  '/medecin/app/modeles': typeof MedecinAppModelesRoute
+  '/medecin/app/parametres': typeof MedecinAppParametresRoute
+  '/medecin/verifier/$token': typeof MedecinVerifierTokenRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/medecin/app/': typeof MedecinAppIndexRoute
   '/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/app/admin/commissions': typeof AuthenticatedAppAdminCommissionsRoute
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -416,6 +506,7 @@ export interface FileRoutesByFullPath {
   '/app/pharmacy/onboarding': typeof AuthenticatedAppPharmacyOnboardingRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
+  '/medecin/app/ordonnances/nouvelle': typeof MedecinAppOrdonnancesNouvelleRoute
   '/app/admin/': typeof AuthenticatedAppAdminIndexRoute
   '/app/appointments/': typeof AuthenticatedAppAppointmentsIndexRoute
   '/app/courier/': typeof AuthenticatedAppCourierIndexRoute
@@ -426,6 +517,8 @@ export interface FileRoutesByFullPath {
   '/app/prescriptions/': typeof AuthenticatedAppPrescriptionsIndexRoute
   '/app/reservations/': typeof AuthenticatedAppReservationsIndexRoute
   '/api/auth/google/': typeof ApiAuthGoogleIndexRoute
+  '/medecin/app/ordonnances/': typeof MedecinAppOrdonnancesIndexRoute
+  '/medecin/app/patients/': typeof MedecinAppPatientsIndexRoute
   '/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
   '/app/pharmacy/$pharmacyId/commissions': typeof AuthenticatedAppPharmacyPharmacyIdCommissionsRoute
@@ -436,8 +529,10 @@ export interface FileRoutesByFullPath {
   '/app/reservations/$id/checkout': typeof AuthenticatedAppReservationsIdCheckoutRoute
   '/app/reservations/$id/track': typeof AuthenticatedAppReservationsIdTrackRoute
   '/api/public/payments/orange/notify': typeof ApiPublicPaymentsOrangeNotifyRoute
+  '/medecin/app/ordonnances/$id/modifier': typeof MedecinAppOrdonnancesIdModifierRoute
   '/app/prescriptions/$id/': typeof AuthenticatedAppPrescriptionsIdIndexRoute
   '/app/reservations/$id/': typeof AuthenticatedAppReservationsIdIndexRoute
+  '/medecin/app/ordonnances/$id/': typeof MedecinAppOrdonnancesIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -449,6 +544,8 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
+  '/medecin/connexion': typeof MedecinConnexionRoute
+  '/medecin': typeof MedecinIndexRoute
   '/app/otc': typeof AuthenticatedAppOtcRoute
   '/app/profile': typeof AuthenticatedAppProfileRoute
   '/app/scan': typeof AuthenticatedAppScanRoute
@@ -456,7 +553,11 @@ export interface FileRoutesByTo {
   '/api/storage/upload': typeof ApiStorageUploadRoute
   '/api/tts/bambara': typeof ApiTtsBambaraRoute
   '/api/v1/$': typeof ApiV1SplatRoute
+  '/medecin/app/modeles': typeof MedecinAppModelesRoute
+  '/medecin/app/parametres': typeof MedecinAppParametresRoute
+  '/medecin/verifier/$token': typeof MedecinVerifierTokenRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/medecin/app': typeof MedecinAppIndexRoute
   '/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/app/admin/commissions': typeof AuthenticatedAppAdminCommissionsRoute
   '/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -473,6 +574,7 @@ export interface FileRoutesByTo {
   '/app/pharmacy/onboarding': typeof AuthenticatedAppPharmacyOnboardingRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
+  '/medecin/app/ordonnances/nouvelle': typeof MedecinAppOrdonnancesNouvelleRoute
   '/app/admin': typeof AuthenticatedAppAdminIndexRoute
   '/app/appointments': typeof AuthenticatedAppAppointmentsIndexRoute
   '/app/courier': typeof AuthenticatedAppCourierIndexRoute
@@ -483,6 +585,8 @@ export interface FileRoutesByTo {
   '/app/prescriptions': typeof AuthenticatedAppPrescriptionsIndexRoute
   '/app/reservations': typeof AuthenticatedAppReservationsIndexRoute
   '/api/auth/google': typeof ApiAuthGoogleIndexRoute
+  '/medecin/app/ordonnances': typeof MedecinAppOrdonnancesIndexRoute
+  '/medecin/app/patients': typeof MedecinAppPatientsIndexRoute
   '/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
   '/app/pharmacy/$pharmacyId/commissions': typeof AuthenticatedAppPharmacyPharmacyIdCommissionsRoute
@@ -493,8 +597,10 @@ export interface FileRoutesByTo {
   '/app/reservations/$id/checkout': typeof AuthenticatedAppReservationsIdCheckoutRoute
   '/app/reservations/$id/track': typeof AuthenticatedAppReservationsIdTrackRoute
   '/api/public/payments/orange/notify': typeof ApiPublicPaymentsOrangeNotifyRoute
+  '/medecin/app/ordonnances/$id/modifier': typeof MedecinAppOrdonnancesIdModifierRoute
   '/app/prescriptions/$id': typeof AuthenticatedAppPrescriptionsIdIndexRoute
   '/app/reservations/$id': typeof AuthenticatedAppReservationsIdIndexRoute
+  '/medecin/app/ordonnances/$id': typeof MedecinAppOrdonnancesIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -503,11 +609,15 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/auth-callback': typeof AuthCallbackRoute
   '/feedback': typeof FeedbackRoute
+  '/medecin': typeof MedecinRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/realtime': typeof ApiRealtimeRoute
+  '/medecin/app': typeof MedecinAppRouteWithChildren
+  '/medecin/connexion': typeof MedecinConnexionRoute
+  '/medecin/': typeof MedecinIndexRoute
   '/_authenticated/app/otc': typeof AuthenticatedAppOtcRoute
   '/_authenticated/app/profile': typeof AuthenticatedAppProfileRoute
   '/_authenticated/app/scan': typeof AuthenticatedAppScanRoute
@@ -515,7 +625,11 @@ export interface FileRoutesById {
   '/api/storage/upload': typeof ApiStorageUploadRoute
   '/api/tts/bambara': typeof ApiTtsBambaraRoute
   '/api/v1/$': typeof ApiV1SplatRoute
+  '/medecin/app/modeles': typeof MedecinAppModelesRoute
+  '/medecin/app/parametres': typeof MedecinAppParametresRoute
+  '/medecin/verifier/$token': typeof MedecinVerifierTokenRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/medecin/app/': typeof MedecinAppIndexRoute
   '/_authenticated/app/admin/appointments': typeof AuthenticatedAppAdminAppointmentsRoute
   '/_authenticated/app/admin/commissions': typeof AuthenticatedAppAdminCommissionsRoute
   '/_authenticated/app/admin/couriers': typeof AuthenticatedAppAdminCouriersRoute
@@ -532,6 +646,7 @@ export interface FileRoutesById {
   '/_authenticated/app/pharmacy/onboarding': typeof AuthenticatedAppPharmacyOnboardingRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
+  '/medecin/app/ordonnances/nouvelle': typeof MedecinAppOrdonnancesNouvelleRoute
   '/_authenticated/app/admin/': typeof AuthenticatedAppAdminIndexRoute
   '/_authenticated/app/appointments/': typeof AuthenticatedAppAppointmentsIndexRoute
   '/_authenticated/app/courier/': typeof AuthenticatedAppCourierIndexRoute
@@ -542,6 +657,8 @@ export interface FileRoutesById {
   '/_authenticated/app/prescriptions/': typeof AuthenticatedAppPrescriptionsIndexRoute
   '/_authenticated/app/reservations/': typeof AuthenticatedAppReservationsIndexRoute
   '/api/auth/google/': typeof ApiAuthGoogleIndexRoute
+  '/medecin/app/ordonnances/': typeof MedecinAppOrdonnancesIndexRoute
+  '/medecin/app/patients/': typeof MedecinAppPatientsIndexRoute
   '/_authenticated/app/courier/deliveries/$id': typeof AuthenticatedAppCourierDeliveriesIdRoute
   '/_authenticated/app/payments/orange/return': typeof AuthenticatedAppPaymentsOrangeReturnRoute
   '/_authenticated/app/pharmacy/$pharmacyId/commissions': typeof AuthenticatedAppPharmacyPharmacyIdCommissionsRoute
@@ -552,8 +669,10 @@ export interface FileRoutesById {
   '/_authenticated/app/reservations/$id/checkout': typeof AuthenticatedAppReservationsIdCheckoutRoute
   '/_authenticated/app/reservations/$id/track': typeof AuthenticatedAppReservationsIdTrackRoute
   '/api/public/payments/orange/notify': typeof ApiPublicPaymentsOrangeNotifyRoute
+  '/medecin/app/ordonnances/$id/modifier': typeof MedecinAppOrdonnancesIdModifierRoute
   '/_authenticated/app/prescriptions/$id/': typeof AuthenticatedAppPrescriptionsIdIndexRoute
   '/_authenticated/app/reservations/$id/': typeof AuthenticatedAppReservationsIdIndexRoute
+  '/medecin/app/ordonnances/$id/': typeof MedecinAppOrdonnancesIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -562,11 +681,15 @@ export interface FileRouteTypes {
     | '/auth'
     | '/auth-callback'
     | '/feedback'
+    | '/medecin'
     | '/privacy'
     | '/reset-password'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/realtime'
+    | '/medecin/app'
+    | '/medecin/connexion'
+    | '/medecin/'
     | '/app/otc'
     | '/app/profile'
     | '/app/scan'
@@ -574,7 +697,11 @@ export interface FileRouteTypes {
     | '/api/storage/upload'
     | '/api/tts/bambara'
     | '/api/v1/$'
+    | '/medecin/app/modeles'
+    | '/medecin/app/parametres'
+    | '/medecin/verifier/$token'
     | '/app/'
+    | '/medecin/app/'
     | '/app/admin/appointments'
     | '/app/admin/commissions'
     | '/app/admin/couriers'
@@ -591,6 +718,7 @@ export interface FileRouteTypes {
     | '/app/pharmacy/onboarding'
     | '/api/auth/google/callback'
     | '/api/public/whatsapp/webhook'
+    | '/medecin/app/ordonnances/nouvelle'
     | '/app/admin/'
     | '/app/appointments/'
     | '/app/courier/'
@@ -601,6 +729,8 @@ export interface FileRouteTypes {
     | '/app/prescriptions/'
     | '/app/reservations/'
     | '/api/auth/google/'
+    | '/medecin/app/ordonnances/'
+    | '/medecin/app/patients/'
     | '/app/courier/deliveries/$id'
     | '/app/payments/orange/return'
     | '/app/pharmacy/$pharmacyId/commissions'
@@ -611,8 +741,10 @@ export interface FileRouteTypes {
     | '/app/reservations/$id/checkout'
     | '/app/reservations/$id/track'
     | '/api/public/payments/orange/notify'
+    | '/medecin/app/ordonnances/$id/modifier'
     | '/app/prescriptions/$id/'
     | '/app/reservations/$id/'
+    | '/medecin/app/ordonnances/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -624,6 +756,8 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/realtime'
+    | '/medecin/connexion'
+    | '/medecin'
     | '/app/otc'
     | '/app/profile'
     | '/app/scan'
@@ -631,7 +765,11 @@ export interface FileRouteTypes {
     | '/api/storage/upload'
     | '/api/tts/bambara'
     | '/api/v1/$'
+    | '/medecin/app/modeles'
+    | '/medecin/app/parametres'
+    | '/medecin/verifier/$token'
     | '/app'
+    | '/medecin/app'
     | '/app/admin/appointments'
     | '/app/admin/commissions'
     | '/app/admin/couriers'
@@ -648,6 +786,7 @@ export interface FileRouteTypes {
     | '/app/pharmacy/onboarding'
     | '/api/auth/google/callback'
     | '/api/public/whatsapp/webhook'
+    | '/medecin/app/ordonnances/nouvelle'
     | '/app/admin'
     | '/app/appointments'
     | '/app/courier'
@@ -658,6 +797,8 @@ export interface FileRouteTypes {
     | '/app/prescriptions'
     | '/app/reservations'
     | '/api/auth/google'
+    | '/medecin/app/ordonnances'
+    | '/medecin/app/patients'
     | '/app/courier/deliveries/$id'
     | '/app/payments/orange/return'
     | '/app/pharmacy/$pharmacyId/commissions'
@@ -668,8 +809,10 @@ export interface FileRouteTypes {
     | '/app/reservations/$id/checkout'
     | '/app/reservations/$id/track'
     | '/api/public/payments/orange/notify'
+    | '/medecin/app/ordonnances/$id/modifier'
     | '/app/prescriptions/$id'
     | '/app/reservations/$id'
+    | '/medecin/app/ordonnances/$id'
   id:
     | '__root__'
     | '/'
@@ -677,11 +820,15 @@ export interface FileRouteTypes {
     | '/auth'
     | '/auth-callback'
     | '/feedback'
+    | '/medecin'
     | '/privacy'
     | '/reset-password'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/realtime'
+    | '/medecin/app'
+    | '/medecin/connexion'
+    | '/medecin/'
     | '/_authenticated/app/otc'
     | '/_authenticated/app/profile'
     | '/_authenticated/app/scan'
@@ -689,7 +836,11 @@ export interface FileRouteTypes {
     | '/api/storage/upload'
     | '/api/tts/bambara'
     | '/api/v1/$'
+    | '/medecin/app/modeles'
+    | '/medecin/app/parametres'
+    | '/medecin/verifier/$token'
     | '/_authenticated/app/'
+    | '/medecin/app/'
     | '/_authenticated/app/admin/appointments'
     | '/_authenticated/app/admin/commissions'
     | '/_authenticated/app/admin/couriers'
@@ -706,6 +857,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/pharmacy/onboarding'
     | '/api/auth/google/callback'
     | '/api/public/whatsapp/webhook'
+    | '/medecin/app/ordonnances/nouvelle'
     | '/_authenticated/app/admin/'
     | '/_authenticated/app/appointments/'
     | '/_authenticated/app/courier/'
@@ -716,6 +868,8 @@ export interface FileRouteTypes {
     | '/_authenticated/app/prescriptions/'
     | '/_authenticated/app/reservations/'
     | '/api/auth/google/'
+    | '/medecin/app/ordonnances/'
+    | '/medecin/app/patients/'
     | '/_authenticated/app/courier/deliveries/$id'
     | '/_authenticated/app/payments/orange/return'
     | '/_authenticated/app/pharmacy/$pharmacyId/commissions'
@@ -726,8 +880,10 @@ export interface FileRouteTypes {
     | '/_authenticated/app/reservations/$id/checkout'
     | '/_authenticated/app/reservations/$id/track'
     | '/api/public/payments/orange/notify'
+    | '/medecin/app/ordonnances/$id/modifier'
     | '/_authenticated/app/prescriptions/$id/'
     | '/_authenticated/app/reservations/$id/'
+    | '/medecin/app/ordonnances/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -736,6 +892,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   FeedbackRoute: typeof FeedbackRoute
+  MedecinRoute: typeof MedecinRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
@@ -781,6 +938,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/medecin': {
+      id: '/medecin'
+      path: '/medecin'
+      fullPath: '/medecin'
+      preLoaderRoute: typeof MedecinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/feedback': {
       id: '/feedback'
       path: '/feedback'
@@ -816,6 +980,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/medecin/': {
+      id: '/medecin/'
+      path: '/'
+      fullPath: '/medecin/'
+      preLoaderRoute: typeof MedecinIndexRouteImport
+      parentRoute: typeof MedecinRoute
+    }
+    '/medecin/connexion': {
+      id: '/medecin/connexion'
+      path: '/connexion'
+      fullPath: '/medecin/connexion'
+      preLoaderRoute: typeof MedecinConnexionRouteImport
+      parentRoute: typeof MedecinRoute
+    }
+    '/medecin/app': {
+      id: '/medecin/app'
+      path: '/app'
+      fullPath: '/medecin/app'
+      preLoaderRoute: typeof MedecinAppRouteImport
+      parentRoute: typeof MedecinRoute
+    }
     '/api/realtime': {
       id: '/api/realtime'
       path: '/api/realtime'
@@ -823,12 +1008,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRealtimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/medecin/app/': {
+      id: '/medecin/app/'
+      path: '/'
+      fullPath: '/medecin/app/'
+      preLoaderRoute: typeof MedecinAppIndexRouteImport
+      parentRoute: typeof MedecinAppRoute
+    }
     '/_authenticated/app/': {
       id: '/_authenticated/app/'
       path: '/app'
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/medecin/verifier/$token': {
+      id: '/medecin/verifier/$token'
+      path: '/verifier/$token'
+      fullPath: '/medecin/verifier/$token'
+      preLoaderRoute: typeof MedecinVerifierTokenRouteImport
+      parentRoute: typeof MedecinRoute
+    }
+    '/medecin/app/parametres': {
+      id: '/medecin/app/parametres'
+      path: '/parametres'
+      fullPath: '/medecin/app/parametres'
+      preLoaderRoute: typeof MedecinAppParametresRouteImport
+      parentRoute: typeof MedecinAppRoute
+    }
+    '/medecin/app/modeles': {
+      id: '/medecin/app/modeles'
+      path: '/modeles'
+      fullPath: '/medecin/app/modeles'
+      preLoaderRoute: typeof MedecinAppModelesRouteImport
+      parentRoute: typeof MedecinAppRoute
     }
     '/api/v1/$': {
       id: '/api/v1/$'
@@ -878,6 +1091,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/otc'
       preLoaderRoute: typeof AuthenticatedAppOtcRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/medecin/app/patients/': {
+      id: '/medecin/app/patients/'
+      path: '/patients'
+      fullPath: '/medecin/app/patients/'
+      preLoaderRoute: typeof MedecinAppPatientsIndexRouteImport
+      parentRoute: typeof MedecinAppRoute
+    }
+    '/medecin/app/ordonnances/': {
+      id: '/medecin/app/ordonnances/'
+      path: '/ordonnances'
+      fullPath: '/medecin/app/ordonnances/'
+      preLoaderRoute: typeof MedecinAppOrdonnancesIndexRouteImport
+      parentRoute: typeof MedecinAppRoute
     }
     '/api/auth/google/': {
       id: '/api/auth/google/'
@@ -948,6 +1175,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/admin/'
       preLoaderRoute: typeof AuthenticatedAppAdminIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/medecin/app/ordonnances/nouvelle': {
+      id: '/medecin/app/ordonnances/nouvelle'
+      path: '/ordonnances/nouvelle'
+      fullPath: '/medecin/app/ordonnances/nouvelle'
+      preLoaderRoute: typeof MedecinAppOrdonnancesNouvelleRouteImport
+      parentRoute: typeof MedecinAppRoute
     }
     '/api/public/whatsapp/webhook': {
       id: '/api/public/whatsapp/webhook'
@@ -1061,6 +1295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAdminAppointmentsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/medecin/app/ordonnances/$id/': {
+      id: '/medecin/app/ordonnances/$id/'
+      path: '/ordonnances/$id'
+      fullPath: '/medecin/app/ordonnances/$id/'
+      preLoaderRoute: typeof MedecinAppOrdonnancesIdIndexRouteImport
+      parentRoute: typeof MedecinAppRoute
+    }
     '/_authenticated/app/reservations/$id/': {
       id: '/_authenticated/app/reservations/$id/'
       path: '/app/reservations/$id'
@@ -1074,6 +1315,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/prescriptions/$id/'
       preLoaderRoute: typeof AuthenticatedAppPrescriptionsIdIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/medecin/app/ordonnances/$id/modifier': {
+      id: '/medecin/app/ordonnances/$id/modifier'
+      path: '/ordonnances/$id/modifier'
+      fullPath: '/medecin/app/ordonnances/$id/modifier'
+      preLoaderRoute: typeof MedecinAppOrdonnancesIdModifierRouteImport
+      parentRoute: typeof MedecinAppRoute
     }
     '/api/public/payments/orange/notify': {
       id: '/api/public/payments/orange/notify'
@@ -1252,12 +1500,56 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface MedecinAppRouteChildren {
+  MedecinAppModelesRoute: typeof MedecinAppModelesRoute
+  MedecinAppParametresRoute: typeof MedecinAppParametresRoute
+  MedecinAppIndexRoute: typeof MedecinAppIndexRoute
+  MedecinAppOrdonnancesNouvelleRoute: typeof MedecinAppOrdonnancesNouvelleRoute
+  MedecinAppOrdonnancesIndexRoute: typeof MedecinAppOrdonnancesIndexRoute
+  MedecinAppPatientsIndexRoute: typeof MedecinAppPatientsIndexRoute
+  MedecinAppOrdonnancesIdModifierRoute: typeof MedecinAppOrdonnancesIdModifierRoute
+  MedecinAppOrdonnancesIdIndexRoute: typeof MedecinAppOrdonnancesIdIndexRoute
+}
+
+const MedecinAppRouteChildren: MedecinAppRouteChildren = {
+  MedecinAppModelesRoute: MedecinAppModelesRoute,
+  MedecinAppParametresRoute: MedecinAppParametresRoute,
+  MedecinAppIndexRoute: MedecinAppIndexRoute,
+  MedecinAppOrdonnancesNouvelleRoute: MedecinAppOrdonnancesNouvelleRoute,
+  MedecinAppOrdonnancesIndexRoute: MedecinAppOrdonnancesIndexRoute,
+  MedecinAppPatientsIndexRoute: MedecinAppPatientsIndexRoute,
+  MedecinAppOrdonnancesIdModifierRoute: MedecinAppOrdonnancesIdModifierRoute,
+  MedecinAppOrdonnancesIdIndexRoute: MedecinAppOrdonnancesIdIndexRoute,
+}
+
+const MedecinAppRouteWithChildren = MedecinAppRoute._addFileChildren(
+  MedecinAppRouteChildren,
+)
+
+interface MedecinRouteChildren {
+  MedecinAppRoute: typeof MedecinAppRouteWithChildren
+  MedecinConnexionRoute: typeof MedecinConnexionRoute
+  MedecinIndexRoute: typeof MedecinIndexRoute
+  MedecinVerifierTokenRoute: typeof MedecinVerifierTokenRoute
+}
+
+const MedecinRouteChildren: MedecinRouteChildren = {
+  MedecinAppRoute: MedecinAppRouteWithChildren,
+  MedecinConnexionRoute: MedecinConnexionRoute,
+  MedecinIndexRoute: MedecinIndexRoute,
+  MedecinVerifierTokenRoute: MedecinVerifierTokenRoute,
+}
+
+const MedecinRouteWithChildren =
+  MedecinRoute._addFileChildren(MedecinRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   FeedbackRoute: FeedbackRoute,
+  MedecinRoute: MedecinRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
@@ -1276,8 +1568,8 @@ export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
+import type { getRouter } from '../../Users/user/Documents/Default Project/houss/prescription-pal-main/src/router.tsx'
+import type { startInstance } from '../../Users/user/Documents/Default Project/houss/prescription-pal-main/src/start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true

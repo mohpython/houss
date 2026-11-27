@@ -18,6 +18,7 @@ import {
   Stethoscope,
   HandCoins,
   UserRound,
+  FileSignature,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -497,6 +498,12 @@ function NavList({
             to="/app/praticien"
             icon={<Stethoscope className="h-4 w-4" />}
             label={t("nav.practitioner")}
+            onNavigate={onNavigate}
+          />
+          <NavItem
+            to="/medecin/app"
+            icon={<FileSignature className="h-4 w-4" />}
+            label="e-Ordonnance"
             onNavigate={onNavigate}
           />
         </>

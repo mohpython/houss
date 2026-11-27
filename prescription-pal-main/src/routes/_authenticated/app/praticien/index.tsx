@@ -32,6 +32,8 @@ import {
   Stethoscope,
   Users,
   XCircle,
+  FileSignature,
+  ArrowRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/praticien/")({
@@ -174,6 +176,24 @@ function PractitionerDashboardPage() {
           <Switch checked={me.is_available} disabled={toggling} onCheckedChange={onToggle} aria-label={t("prac.available")} />
         </label>
       </header>
+
+      {me.type === "doctor" && (
+        <Link
+          to="/medecin/app"
+          className="mt-4 flex items-center gap-3 rounded-2xl aurora-bg px-4 py-3 text-on-aurora shadow-lg shadow-primary/20 transition hover:brightness-105"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/30">
+            <FileSignature className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">e-Ordonnance médecin</span>
+            <span className="block text-[11px] opacity-80">
+              Rédiger, signer et transmettre une ordonnance électronique vérifiable.
+            </span>
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0" />
+        </Link>
+      )}
 
       {/* KPIs */}
       <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label={t("prac.kpis")}>
