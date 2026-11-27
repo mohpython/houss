@@ -63,7 +63,11 @@ function List() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">
-                  {r.doctor_name ? `Dr. ${r.doctor_name}` : t("rxList.rxLabel")}
+                  {r.doctor_name
+                    ? /^dr\.?\s/i.test(r.doctor_name)
+                      ? r.doctor_name
+                      : `Dr. ${r.doctor_name}`
+                    : t("rxList.rxLabel")}
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>{new Date(r.created_at).toLocaleDateString(getDateLocale())}</span>
