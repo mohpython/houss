@@ -27,6 +27,16 @@ export type AdminPractitionerRow = {
   user_id: string | null;
   owner_email: string | null;
   claim_email: string | null;
+  has_doctor_role: boolean;
+};
+
+export type AdminRoleUserRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  phone: string | null;
+  roles: string[];
+  practitioner_id: string | null;
 };
 
 export const listPractitionersAdmin = createServerFn({ method: "POST" })
@@ -54,7 +64,7 @@ export const listPractitionersAdmin = createServerFn({ method: "POST" })
         bio: true,
         user_id: true,
         claim_email: true,
-        user: { select: { email: true } },
+        user: { select: { email: true, user_roles: { select: { role: true } } } },
       },
       orderBy: { full_name: "asc" },
     });
@@ -63,8 +73,201 @@ export const listPractitionersAdmin = createServerFn({ method: "POST" })
       rows.map(({ user, ...r }) => ({
         ...r,
         owner_email: r.user_id ? (user?.email ?? null) : null,
+        has_doctor_role: user?.user_roles.some((role) => role.role === "doctor") ?? false,
       })),
     ) as AdminPractitionerRow[];
+  });
+
+/** Comptes existants que l'administrateur peut promouvoir au rôle médecin. */
+export const listUsersForDoctorRoleAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ query: z.string().trim().min(1).max(120) }).parse(input),
+  )
+  .handler(async ({ data, context }): Promise<AdminRoleUserRow[]> => {
+    await assertCallerIsAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
+    const q = data.query;
+    const rows = await prisma.users.findMany({
+      where: {
+        OR: [
+          { email: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q } },
+          { profile: { full_name: { contains: q, mode: "insensitive" } } },
+        ],
+      },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        profile: { select: { full_name: true } },
+        user_roles: { select: { role: true } },
+        practitioner: { select: { id: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: 30,
+    });
+    return toPlain(
+      rows.map((u) => ({
+        id: u.id,
+        email: u.email,
+        phone: u.phone,
+        full_name: u.profile?.full_name ?? null,
+        roles: u.user_roles.map((r) => r.role),
+        practitioner_id: u.practitioner?.id ?? null,
+      })),
+    ) as AdminRoleUserRow[];
+  });
+
+/**
+ * L'administrateur attribue le rôle médecin à un compte existant.
+ * Le profil praticien est rattaché et validé dans la même opération : l'utilisateur
+ * voit immédiatement l'entrée « e-Ordonnance » et peut ouvrir son espace.
+ */
+export const assignDoctorRoleAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        userId: z.string().uuid(),
+        specialtyCode: z.string().trim().min(2).max(40).default("general"),
+        fullName: z.string().trim().min(2).max(120).optional(),
+        licenseNumber: z.string().trim().max(80).nullable().optional(),
+        establishmentName: z.string().trim().max(160).nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertCallerIsAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
+
+    const user = await prisma.users.findUnique({
+      where: { id: data.userId },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        profile: { select: { full_name: true, phone: true, address: true } },
+      },
+    });
+    if (!user) throw new Error("Compte utilisateur introuvable");
+
+    const specialty = await prisma.practitioner_specialties.findUnique({
+      where: { code: data.specialtyCode },
+      select: { code: true, practitioner_type: true },
+    });
+    if (!specialty || specialty.practitioner_type !== "doctor") {
+      throw new Error("Spécialité médicale invalide");
+    }
+
+    const now = new Date();
+    const fullName =
+      data.fullName?.trim() || user.profile?.full_name?.trim() || user.email?.split("@")[0] || "Médecin";
+    const practitionerData = {
+      user_id: user.id,
+      claim_email: null,
+      type: "doctor" as const,
+      full_name: fullName,
+      specialty_code: specialty.code,
+      license_number: data.licenseNumber?.trim() || null,
+      phone: user.phone ?? user.profile?.phone ?? null,
+      address: user.profile?.address ?? null,
+      status: "approved" as const,
+      approved_at: now,
+      approved_by: context.userId,
+      establishment_name: data.establishmentName?.trim() || null,
+    };
+
+    // Un praticien déjà rattaché à ce compte est promu ; sinon on réutilise une
+    // invitation du même e-mail, sinon on crée le profil.
+    const existing = await prisma.practitioners.findFirst({
+      where: user.email
+        ? {
+            OR: [
+              { user_id: user.id },
+              { user_id: null, claim_email: { equals: user.email, mode: "insensitive" } },
+            ],
+          }
+        : { user_id: user.id },
+      select: { id: true },
+      orderBy: { created_at: "desc" },
+    });
+
+    const practitioner = existing
+      ? await prisma.practitioners.update({
+          where: { id: existing.id },
+          data: practitionerData,
+          select: { id: true },
+        })
+      : await prisma.practitioners.create({
+          data: practitionerData,
+          select: { id: true },
+        });
+
+    await prisma.user_roles.upsert({
+      where: { user_id_role: { user_id: user.id, role: "doctor" } },
+      create: { user_id: user.id, role: "doctor" },
+      update: {},
+    });
+
+    await prisma.notifications.create({
+      data: {
+        user_id: user.id,
+        type: "doctor_role_assigned",
+        title: "Votre espace médecin est activé",
+        body: "L'administrateur SAHA Santé vous a attribué le rôle médecin. Retrouvez « e-Ordonnance » dans votre menu.",
+        data: { practitioner_id: practitioner.id } as never,
+      },
+    });
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "doctor.role.grant",
+        entity: "user_roles",
+        entity_id: user.id,
+        meta: { email: user.email, practitioner_id: practitioner.id } as never,
+      },
+    });
+
+    return { ok: true, user_id: user.id, practitioner_id: practitioner.id };
+  });
+
+/** Retire le rôle médecin et suspend l'accès à la rédaction d'ordonnances. */
+export const revokeDoctorRoleAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertCallerIsAdmin(context.userId);
+    const { prisma } = await import("@/server/db.server");
+    const user = await prisma.users.findUnique({
+      where: { id: data.userId },
+      select: { email: true },
+    });
+    await prisma.user_roles.deleteMany({
+      where: { user_id: data.userId, role: "doctor" },
+    });
+    await prisma.practitioners.updateMany({
+      where: { user_id: data.userId, type: "doctor" },
+      data: { status: "rejected", approved_at: null, approved_by: null },
+    });
+    await prisma.notifications.create({
+      data: {
+        user_id: data.userId,
+        type: "doctor_role_revoked",
+        title: "Accès médecin suspendu",
+        body: "Votre accès à l'espace e-Ordonnance a été retiré par l'administrateur.",
+      },
+    });
+    await prisma.audit_logs.create({
+      data: {
+        actor_user_id: context.userId,
+        action: "doctor.role.revoke",
+        entity: "user_roles",
+        entity_id: data.userId,
+        meta: { email: user?.email ?? null } as never,
+      },
+    });
+    return { ok: true };
   });
 
 const PractitionerInput = z.object({
@@ -163,7 +366,11 @@ export const setPractitionerStatus = createServerFn({ method: "POST" })
     const { prisma } = await import("@/server/db.server");
     await prisma.practitioners.updateMany({
       where: { id: data.id },
-      data: { status: data.status },
+      data: {
+        status: data.status,
+        approved_at: data.status === "approved" ? new Date() : null,
+        approved_by: data.status === "approved" ? context.userId : null,
+      },
     });
     return { ok: true };
   });

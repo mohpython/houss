@@ -12,7 +12,11 @@ import {
   upsertPractitioner,
   setPractitionerStatus,
   deletePractitioner,
+  listUsersForDoctorRoleAdmin,
+  assignDoctorRoleAdmin,
+  revokeDoctorRoleAdmin,
   type AdminPractitionerRow,
+  type AdminRoleUserRow,
 } from "@/lib/practitioner-admin.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,7 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Stethoscope, Plus, Trash2, Pencil, X } from "lucide-react";
+import { Stethoscope, Plus, Trash2, Pencil, X, Search, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/app/admin/practitioners")({
@@ -91,6 +95,15 @@ function AdminPractitioners() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [userQuery, setUserQuery] = useState("");
+  const [roleUsers, setRoleUsers] = useState<AdminRoleUserRow[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminRoleUserRow | null>(null);
+  const [roleSpecialty, setRoleSpecialty] = useState("general");
+  const [roleFullName, setRoleFullName] = useState("");
+  const [roleLicense, setRoleLicense] = useState("");
+  const [roleEstablishment, setRoleEstablishment] = useState("");
+  const [roleBusy, setRoleBusy] = useState(false);
 
   const list = useServerFn(listPractitionersAdmin);
   const loadStats = useServerFn(getPractitionerResponseStats);
@@ -100,6 +113,35 @@ function AdminPractitioners() {
   const remove = useServerFn(deletePractitioner);
   const fetchRoles = useServerFn(getMyRoles);
   const fetchSpecialties = useServerFn(listSpecialties);
+  const searchUsers = useServerFn(listUsersForDoctorRoleAdmin);
+  const assignRole = useServerFn(assignDoctorRoleAdmin);
+  const revokeRole = useServerFn(revokeDoctorRoleAdmin);
+
+  useEffect(() => {
+    const q = userQuery.trim();
+    if (!isAdmin || q.length < 2) {
+      setRoleUsers([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      void searchUsers({ data: { query: q } })
+        .then((res) => {
+          if (!cancelled) setRoleUsers(res);
+        })
+        .catch(() => {
+          if (!cancelled) setRoleUsers([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [userQuery, isAdmin, searchUsers]);
 
   useEffect(() => {
     fetchRoles()
@@ -209,6 +251,51 @@ function AdminPractitioners() {
     }
   };
 
+  const chooseUser = (u: AdminRoleUserRow) => {
+    setSelectedUser(u);
+    setRoleFullName(u.full_name ?? "");
+  };
+
+  const assign = async () => {
+    if (!selectedUser) {
+      toast.error(t("pr.searchUsers"));
+      return;
+    }
+    setRoleBusy(true);
+    try {
+      await assignRole({
+        data: {
+          userId: selectedUser.id,
+          specialtyCode: roleSpecialty,
+          fullName: roleFullName.trim() || undefined,
+          licenseNumber: roleLicense.trim() || null,
+          establishmentName: roleEstablishment.trim() || null,
+        },
+      });
+      toast.success(t("pr.assigned"));
+      setSelectedUser(null);
+      setUserQuery("");
+      setRoleFullName("");
+      setRoleLicense("");
+      setRoleEstablishment("");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("common.error"));
+    } finally {
+      setRoleBusy(false);
+    }
+  };
+
+  const revoke = async (userId: string) => {
+    try {
+      await revokeRole({ data: { userId } });
+      toast.success(t("pr.revoked"));
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("common.error"));
+    }
+  };
+
   if (isAdmin === null)
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
@@ -223,6 +310,7 @@ function AdminPractitioners() {
     );
 
   const typeSpecialties = specialties.filter((s) => s.practitioner_type === form.type);
+  const doctorSpecialties = specialties.filter((s) => s.practitioner_type === "doctor");
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -251,6 +339,118 @@ function AdminPractitioners() {
       <p className="mt-1 text-sm text-muted-foreground">
         {t("pr.subtitle")}
       </p>
+
+      <div className="mt-6 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">{t("pr.assignTitle")}</h2>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">{t("pr.assignDesc")}</p>
+
+        <div className="relative mt-4">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={userQuery}
+            onChange={(e) => {
+              setUserQuery(e.target.value);
+              setSelectedUser(null);
+            }}
+            placeholder={t("pr.searchUsers")}
+            className="pl-9"
+          />
+        </div>
+
+        {!selectedUser && userQuery.trim().length >= 2 && (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {roleUsers.map((u) => (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => chooseUser(u)}
+                className="rounded-xl border border-border bg-background p-3 text-left transition hover:border-primary hover:bg-secondary"
+              >
+                <div className="truncate text-sm font-medium">{u.full_name ?? u.email ?? u.phone}</div>
+                <div className="truncate text-xs text-muted-foreground">{u.email ?? u.phone}</div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {u.roles.map((role) => (
+                    <Badge key={role} variant="outline" className="text-[10px]">
+                      {t(`role.${role}`)}
+                    </Badge>
+                  ))}
+                  {u.practitioner_id && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {t("nav.practitioner")}
+                    </Badge>
+                  )}
+                </div>
+              </button>
+            ))}
+            {!searching && roleUsers.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t("pr.noUsers")}</p>
+            )}
+          </div>
+        )}
+
+        {selectedUser && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 sm:col-span-2">
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  {t("pr.selectedUser")}
+                </div>
+                <div className="truncate text-sm font-medium">
+                  {selectedUser.full_name ?? selectedUser.email} · {selectedUser.email ?? selectedUser.phone}
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedUser(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("pr.nameLabel")}</Label>
+              <Input value={roleFullName} onChange={(e) => setRoleFullName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("pr.specialtyLabel")}</Label>
+              <Select value={roleSpecialty} onValueChange={setRoleSpecialty}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(doctorSpecialties.length ? doctorSpecialties : [{ code: "general", label_fr: "Généraliste" }]).map(
+                    (s) => (
+                      <SelectItem key={s.code} value={s.code}>
+                        {s.label_fr}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                {t("pr.licenseLabel")} ({t("pr.optional")})
+              </Label>
+              <Input value={roleLicense} onChange={(e) => setRoleLicense(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                {t("pr.establishmentLabel")} ({t("pr.optional")})
+              </Label>
+              <Input
+                value={roleEstablishment}
+                onChange={(e) => setRoleEstablishment(e.target.value)}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <LoadingButton onClick={assign} loading={roleBusy} className="gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                {t("pr.assignBtn")}
+              </LoadingButton>
+            </div>
+          </div>
+        )}
+      </div>
 
       {open && (
         <Card className="mt-6 space-y-4 p-4">
@@ -436,6 +636,11 @@ function AdminPractitioners() {
                   {p.status}
                 </Badge>
                 {p.home_visits && <Badge variant="outline">{t("pr.homeBadge")}</Badge>}
+                {p.has_doctor_role && (
+                  <Badge variant="secondary" className="bg-primary/10 text-primary">
+                    {t("pr.doctorRoleBadge")}
+                  </Badge>
+                )}
               </div>
               <div className="mt-1 text-xs text-muted-foreground">
                 {specialties.find((s) => s.code === p.specialty_code)?.label_fr ?? p.specialty_code}
@@ -480,6 +685,17 @@ function AdminPractitioners() {
               {p.status !== "rejected" && (
                 <Button size="sm" variant="outline" onClick={() => act(p.id, "rejected")}>
                   {t("pr.suspend")}
+                </Button>
+              )}
+              {p.has_doctor_role && p.user_id && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2 text-destructive"
+                  onClick={() => revoke(p.user_id!)}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {t("pr.revokeBtn")}
                 </Button>
               )}
               <Button

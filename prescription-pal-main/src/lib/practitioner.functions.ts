@@ -476,7 +476,7 @@ export const getPractitionerResponseStats = createServerFn({ method: "POST" })
 // afterwards immediately gets the "Praticien" entry in the navigation.
 export const ensurePractitionerAccess = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .handler(async ({ context }): Promise<{ isPractitioner: boolean }> => {
+  .handler(async ({ context }): Promise<{ isPractitioner: boolean; isDoctor: boolean }> => {
     const me = await getMyPractitioner(context.userId);
-    return { isPractitioner: !!me };
+    return { isPractitioner: !!me, isDoctor: me?.type === "doctor" };
   });

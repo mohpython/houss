@@ -56,17 +56,46 @@ function AuthedLayout() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const [roles, setRoles] = useState<string[]>([]);
-  const [practitionerLinked, setPractitionerLinked] = useState(false);
+  const [practitionerAccess, setPractitionerAccess] = useState({
+    isPractitioner: false,
+    isDoctor: false,
+  });
   const [open, setOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
-    void getMyRoles()
-      .then((r) => setRoles(r))
-      .catch(() => setRoles([]));
-    void ensurePractitionerAccess()
-      .then((r) => setPractitionerLinked(r.isPractitioner))
-      .catch(() => setPractitionerLinked(false));
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const r = await getMyRoles();
+        if (!cancelled) setRoles(r);
+      } catch {
+        if (!cancelled) setRoles([]);
+      }
+      try {
+        // Peut rattacher un praticien invité : on relit les rôles juste après.
+        const access = await ensurePractitionerAccess();
+        if (!cancelled) setPractitionerAccess(access);
+        const r = await getMyRoles();
+        if (!cancelled) setRoles(r);
+      } catch {
+        if (!cancelled) setPractitionerAccess({ isPractitioner: false, isDoctor: false });
+      }
+    };
+    void refresh();
+    // Un rôle attribué par l'admin pendant que l'app est ouverte apparaît
+    // dès que l'utilisateur revient sur l'onglet.
+    const onFocus = () => void refresh();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") onFocus();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [user.id]);
 
   useEffect(() => {
@@ -82,7 +111,9 @@ function AuthedLayout() {
   const isPharmacy = roles.includes("pharmacy_staff");
   const isAdmin = roles.includes("admin");
   const isCourier = roles.includes("courier");
-  const isPractitioner = roles.includes("doctor") || roles.includes("nurse") || practitionerLinked;
+  const isDoctor = roles.includes("doctor") || practitionerAccess.isDoctor;
+  const isPractitioner =
+    isDoctor || roles.includes("nurse") || practitionerAccess.isPractitioner;
 
   const primary: NavEntry[] = [
     {
@@ -149,6 +180,11 @@ function AuthedLayout() {
       icon: <Users className="h-5 w-5" />,
       label: "Patients",
     });
+    extras.push({
+      to: "/app/admin/practitioners",
+      icon: <Stethoscope className="h-5 w-5" />,
+      label: t("nav.practitioners"),
+    });
   }
 
   const roleTabs: NavEntry[] = [];
@@ -165,6 +201,13 @@ function AuthedLayout() {
       icon: <Bike className="h-5 w-5" />,
       label: t("nav.courier"),
       mobileIcon: "/icons3d/scooter.png",
+    });
+  if (isDoctor)
+    roleTabs.push({
+      to: "/medecin/app",
+      icon: <FileSignature className="h-5 w-5" />,
+      label: t("nav.ePrescription"),
+      mobileIcon: "/icons3d/records.png",
     });
   if (isPractitioner)
     roleTabs.push({
@@ -190,6 +233,7 @@ function AuthedLayout() {
       isAdmin={isAdmin}
       isCourier={isCourier}
       isPractitioner={isPractitioner}
+      isDoctor={isDoctor}
       onNavigate={() => setOpen(false)}
     />
   );
@@ -445,12 +489,14 @@ function NavList({
   isAdmin,
   isCourier,
   isPractitioner,
+  isDoctor,
   onNavigate,
 }: {
   isPharmacy: boolean;
   isAdmin: boolean;
   isCourier: boolean;
   isPractitioner: boolean;
+  isDoctor: boolean;
   onNavigate: () => void;
 }) {
   const { t } = useTranslation();
@@ -500,12 +546,14 @@ function NavList({
             label={t("nav.practitioner")}
             onNavigate={onNavigate}
           />
-          <NavItem
-            to="/medecin/app"
-            icon={<FileSignature className="h-4 w-4" />}
-            label="e-Ordonnance"
-            onNavigate={onNavigate}
-          />
+          {isDoctor && (
+            <NavItem
+              to="/medecin/app"
+              icon={<FileSignature className="h-4 w-4" />}
+              label={t("nav.ePrescription")}
+              onNavigate={onNavigate}
+            />
+          )}
         </>
       )}
       {isCourier ? (
@@ -575,6 +623,12 @@ function NavList({
             to="/app/admin/patients"
             icon={<Users className="h-4 w-4" />}
             label="Patients"
+            onNavigate={onNavigate}
+          />
+          <NavItem
+            to="/app/admin/practitioners"
+            icon={<Stethoscope className="h-4 w-4" />}
+            label={t("nav.practitioners")}
             onNavigate={onNavigate}
           />
         </>
