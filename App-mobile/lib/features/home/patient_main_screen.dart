@@ -257,10 +257,11 @@ class _PatientMainScreenState extends State<PatientMainScreen>
                               const SizedBox(height: 4),
                               Text(
                                 labels[index],
-                                maxLines: 1,
+                                textAlign: TextAlign.center,
+                                maxLines: tabs.pages.length > 5 ? 2 : 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: tabs.pages.length > 5 ? 9 : 10,
                                   color: selected
                                       ? const Color(0xFF34E3A4)
                                       : const Color(0xFFD7EFE4),
