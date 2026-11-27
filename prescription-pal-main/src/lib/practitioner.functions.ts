@@ -478,5 +478,9 @@ export const ensurePractitionerAccess = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<{ isPractitioner: boolean; isDoctor: boolean }> => {
     const me = await getMyPractitioner(context.userId);
-    return { isPractitioner: !!me, isDoctor: me?.type === "doctor" };
+    const active = !!me && me.status !== "rejected";
+    return {
+      isPractitioner: active,
+      isDoctor: active && me.type === "doctor" && me.status === "approved",
+    };
   });
