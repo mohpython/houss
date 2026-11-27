@@ -18,6 +18,7 @@
     "db:studio": "prisma studio",
     "admin:create": "tsx --env-file-if-exists=.env scripts/create-admin.ts",
     "accounts:demo": "tsx --env-file-if-exists=.env scripts/create-demo-accounts.ts",
+    "doctor:demo": "tsx --env-file-if-exists=.env scripts/seed-doctor-rx-demo.ts",
     "medicines:seed": "tsx --env-file-if-exists=.env scripts/seed-medicines.ts",
     "postinstall": "prisma generate",
     "db:import-supabase": "bash scripts/migrate-from-supabase.sh",
