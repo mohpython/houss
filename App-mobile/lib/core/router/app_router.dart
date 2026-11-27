@@ -4,6 +4,11 @@ import 'package:saha_sante/core/config/app_config.dart';
 import 'package:saha_sante/features/admin/admin_reviews_screen.dart';
 import 'package:saha_sante/features/auth/login_screen.dart';
 import 'package:saha_sante/features/auth/register_screen.dart';
+import 'package:saha_sante/features/doctor_rx/doctor_rx_editor_screen.dart';
+import 'package:saha_sante/features/doctor_rx/doctor_rx_home_screen.dart';
+import 'package:saha_sante/features/doctor_rx/doctor_rx_list_screen.dart';
+import 'package:saha_sante/features/doctor_rx/doctor_rx_patients_screen.dart';
+import 'package:saha_sante/features/doctor_rx/doctor_rx_verify_screen.dart';
 import 'package:saha_sante/features/health/health_screen.dart';
 import 'package:saha_sante/features/home/home_screen.dart';
 import 'package:saha_sante/features/home/patient_main_screen.dart';
@@ -42,6 +47,7 @@ class AppRouter {
     '/notifications',
     '/otc',
     '/health',
+    '/doctor-rx',
   ];
 
   /// Ouvre le fil des notifications sans casser la pile de
@@ -187,6 +193,27 @@ class AppRouter {
           GoRoute(
             path: '/health',
             builder: (context, state) => const HealthScreen(),
+          ),
+          // E-Ordonnance 100 % native (aucune ouverture de portail web).
+          GoRoute(
+            path: '/doctor-rx',
+            builder: (context, state) => const DoctorRxHomeScreen(),
+          ),
+          GoRoute(
+            path: '/doctor-rx/patients',
+            builder: (context, state) => const DoctorRxPatientsScreen(),
+          ),
+          GoRoute(
+            path: '/doctor-rx/list',
+            builder: (context, state) => const DoctorRxListScreen(),
+          ),
+          GoRoute(
+            path: '/doctor-rx/editor',
+            builder: (context, state) => DoctorRxEditorScreen(),
+          ),
+          GoRoute(
+            path: '/doctor-rx/verify',
+            builder: (context, state) => const DoctorRxVerifyScreen(),
           ),
         ],
       );

@@ -49,6 +49,22 @@ import { TEMPLATE_KEYS, defaultTemplate, type BotLang, type TemplateKey } from "
 import { rateLimit } from "./rate-limit.server";
 import { env } from "./env.server";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import {
+  RX_SAVE_SCHEMA,
+  rxDashboard,
+  rxGet,
+  rxGetPatient,
+  rxList,
+  rxListPatients,
+  rxPdf,
+  rxQr,
+  rxSave,
+  rxSearchPatients,
+  rxSend,
+  rxSession,
+  rxSign,
+  rxVerify,
+} from "./doctor-rx-api.server";
 
 // ============================================================================
 // Utilitaires HTTP
@@ -3797,6 +3813,74 @@ async function adminWhatsappTemplateSave(ctx: Ctx) {
 }
 
 // ============================================================================
+// E-ordonnance médecin (application mobile)
+// ============================================================================
+
+async function doctorRxSession(ctx: Ctx) {
+  return json(await rxSession(requireUser(ctx)));
+}
+async function doctorRxDashboard(ctx: Ctx) {
+  return json(await rxDashboard(requireUser(ctx)));
+}
+async function doctorRxPatients(ctx: Ctx) {
+  return json({ patients: await rxListPatients(requireUser(ctx)) });
+}
+async function doctorRxPatientsSearch(ctx: Ctx) {
+  const data = await body(ctx, z.object({ query: z.string().trim().min(2).max(120) }));
+  return json({ patients: await rxSearchPatients(requireUser(ctx), data.query) });
+}
+async function doctorRxPatientGet(ctx: Ctx) {
+  const data = await body(ctx, z.object({ patientId: z.string().uuid() }));
+  return json(await rxGetPatient(requireUser(ctx), data.patientId));
+}
+async function doctorRxList(ctx: Ctx) {
+  const data = await body(
+    ctx,
+    z.object({
+      status: z
+        .enum(["all", "draft", "signed", "sent", "viewed", "cancelled", "amended"])
+        .optional()
+        .default("all"),
+      query: z.string().trim().max(120).optional().default(""),
+    }),
+  );
+  return json({ prescriptions: await rxList(requireUser(ctx), data.status, data.query) });
+}
+async function doctorRxGet(ctx: Ctx) {
+  const data = await body(ctx, z.object({ id: z.string().uuid() }));
+  return json(await rxGet(requireUser(ctx), data.id));
+}
+async function doctorRxSave(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const data = await body(ctx, RX_SAVE_SCHEMA);
+  return json(await rxSave(userId, data, ctx.request));
+}
+async function doctorRxSign(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const data = await body(ctx, z.object({ id: z.string().uuid(), password: z.string().min(1).max(200) }));
+  return json(await rxSign(userId, data.id, data.password, ctx.request));
+}
+async function doctorRxSend(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const data = await body(ctx, z.object({ id: z.string().uuid() }));
+  return json(await rxSend(userId, data.id, ctx.request));
+}
+async function doctorRxPdf(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const data = await body(ctx, z.object({ id: z.string().uuid() }));
+  return json(await rxPdf(userId, data.id));
+}
+async function doctorRxQr(ctx: Ctx) {
+  const userId = requireUser(ctx);
+  const data = await body(ctx, z.object({ id: z.string().uuid() }));
+  return json(await rxQr(userId, data.id));
+}
+async function doctorRxVerify(ctx: Ctx) {
+  const data = await body(ctx, z.object({ token: z.string().trim().min(8).max(120) }));
+  return json(await rxVerify(data.token));
+}
+
+// ============================================================================
 // Table de routage
 // ============================================================================
 
@@ -3872,6 +3956,21 @@ const ROUTES: Array<[string, string, Handler]> = [
   // Espace praticien
   ["GET", "practitioner/dashboard", practitionerDashboard],
   ["POST", "practitioner/appointments/:id", practitionerRespond],
+
+  // E-ordonnance médecin (native, même moteur que le portail web)
+  ["GET", "doctor-rx/session", doctorRxSession],
+  ["GET", "doctor-rx/dashboard", doctorRxDashboard],
+  ["GET", "doctor-rx/patients", doctorRxPatients],
+  ["POST", "doctor-rx/patients/search", doctorRxPatientsSearch],
+  ["POST", "doctor-rx/patients/get", doctorRxPatientGet],
+  ["POST", "doctor-rx/prescriptions/list", doctorRxList],
+  ["POST", "doctor-rx/prescriptions/get", doctorRxGet],
+  ["POST", "doctor-rx/prescriptions/save", doctorRxSave],
+  ["POST", "doctor-rx/prescriptions/sign", doctorRxSign],
+  ["POST", "doctor-rx/prescriptions/send", doctorRxSend],
+  ["POST", "doctor-rx/prescriptions/pdf", doctorRxPdf],
+  ["POST", "doctor-rx/prescriptions/qr", doctorRxQr],
+  ["POST", "doctor-rx/verify", doctorRxVerify],
 
   // Administration
   ["GET", "admin/overview", adminOverview],

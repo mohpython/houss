@@ -50,6 +50,9 @@ dependencies:
   # ainsi surveiller la transaction et refermer la page automatiquement dès
   # que le paiement est confirmé (au lieu d'attendre le retour du navigateur).
   webview_flutter: ^4.13.0
+  # Ordonnance électronique native : partage du PDF généré par le serveur.
+  path_provider: ^2.1.0
+  share_plus: ^10.0.0
 
   # Notifications push en arrière-plan, façon WhatsApp (Firebase Cloud Messaging)
   firebase_core: ^4.0.0
