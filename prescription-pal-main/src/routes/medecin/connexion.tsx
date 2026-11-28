@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter, useSearch } from "@tanstack/react-router";
+import { z } from "zod";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,11 +15,17 @@ import {
 import { toast } from "sonner";
 import { auth } from "@/integrations/auth/client";
 import { getAuthConfig } from "@/lib/auth.functions";
+import { getDoctorSession } from "@/lib/doctor-rx.functions";
 import { DoctorBrand } from "@/components/doctor-rx/DoctorShell";
 import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 
+const searchSchema = z.object({
+  reason: z.enum(["not_approved"]).optional(),
+});
+
 export const Route = createFileRoute("/medecin/connexion")({
   ssr: false,
+  validateSearch: searchSchema,
   head: () => ({
     meta: [{ title: "Connexion médecin — SAHA Santé e-Ordonnance" }],
   }),
@@ -27,18 +34,17 @@ export const Route = createFileRoute("/medecin/connexion")({
 
 function DoctorLogin() {
   const router = useRouter();
+  const { reason } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [existing, setExisting] = useState<string | null>(null);
   const [googleAvailable, setGoogleAvailable] = useState(false);
 
+  // Aucun raccourci « déjà connecté » : on n'affiche jamais le compte en cours
+  // et on n'offre aucun lien direct vers l'espace médecin sur cette page.
   useEffect(() => {
-    void auth.getUser().then(({ data }) => {
-      if (data.user) setExisting(data.user.email ?? data.user.phone ?? "Compte connecté");
-    });
     void getAuthConfig()
       .then((config) => setGoogleAvailable(config.google))
       .catch(() => setGoogleAvailable(false));
@@ -62,6 +68,23 @@ function DoctorLogin() {
           ? "E-mail ou mot de passe incorrect."
           : authError.message,
       );
+      setLoading(false);
+      return;
+    }
+    // On vérifie l'autorisation avant d'annoncer une connexion réussie :
+    // un compte patient/non approuvé ne doit jamais voir de message positif
+    // ni obtenir de navigation vers l'espace médecin.
+    try {
+      const session = await getDoctorSession();
+      if (session.access !== "ok") {
+        setError(
+          "Ce compte n'est pas autorisé à ouvrir l'espace médecin. Seuls les médecins approuvés par l'administrateur peuvent y accéder.",
+        );
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setError("Vérification du profil médecin impossible. Réessayez.");
       setLoading(false);
       return;
     }
@@ -144,19 +167,10 @@ function DoctorLogin() {
               Utilisez l'adresse e-mail rattachée à votre profil praticien approuvé.
             </p>
 
-            {existing && (
-              <div className="mt-4 rounded-2xl border border-[#2ee0aa]/25 bg-[#2ee0aa]/10 p-3">
-                <p className="text-[11px] text-[#c9e5dd]">
-                  Déjà connecté en tant que <strong className="text-white">{existing}</strong>.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => router.navigate({ to: "/medecin/app" })}
-                  className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-[#5ff0c4]"
-                >
-                  Ouvrir mon espace
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
+            {reason === "not_approved" && (
+              <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3 text-[11px] leading-relaxed text-amber-100">
+                Cet espace est réservé aux médecins approuvés par l'administrateur SAHA Santé.
+                Connectez-vous avec un compte autorisé.
               </div>
             )}
 
