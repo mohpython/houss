@@ -3,17 +3,14 @@ import { useRouter } from "@tanstack/react-router";
 import {
   ArrowLeft,
   BookMarked,
-  CheckCircle2,
   ChevronDown,
   Eye,
-  FileCheck2,
   Loader2,
   LockKeyhole,
   Plus,
   Save,
   Send,
   ShieldCheck,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -267,6 +264,160 @@ export function ItemEditor({
           </Field>
         </div>
       )}
+    </div>
+  );
+}
+
+export function PaperItemEditor({
+  item,
+  index,
+  onChange,
+  onRemove,
+  canRemove,
+  readOnly,
+}: {
+  item: EditorItem;
+  index: number;
+  onChange: (patch: Partial<EditorItem>) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+  readOnly: boolean;
+}) {
+  return (
+    <div className="rx-med-block">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#e2f7ee] text-[10px] font-bold text-[#047857]">
+          {index + 1}
+        </span>
+        {canRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="grid h-6 w-6 place-items-center rounded-full text-[#9b6b6b] transition hover:bg-rose-50 hover:text-rose-600"
+            aria-label={`Retirer le médicament ${index + 1}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="rx-write-row grid grid-cols-[minmax(0,1fr)_120px] gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
+        <input
+          value={item.medicineName}
+          onChange={(e) => onChange({ medicineName: e.target.value })}
+          placeholder="Médicament *"
+          className="rx-write-input"
+          disabled={readOnly}
+          autoComplete="off"
+        />
+        <input
+          value={item.dosage}
+          onChange={(e) => onChange({ dosage: e.target.value })}
+          placeholder="Dosage"
+          className="rx-write-input"
+          disabled={readOnly}
+        />
+      </div>
+      <div className="rx-write-row grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_110px]">
+        <input
+          value={item.form}
+          onChange={(e) => onChange({ form: e.target.value })}
+          placeholder="Forme"
+          list="rx-forms"
+          className="rx-write-input"
+          disabled={readOnly}
+        />
+        <input
+          value={item.route}
+          onChange={(e) => onChange({ route: e.target.value })}
+          placeholder="Voie"
+          list="rx-routes"
+          className="rx-write-input"
+          disabled={readOnly}
+        />
+        <input
+          value={item.quantity}
+          onChange={(e) => onChange({ quantity: e.target.value })}
+          placeholder="Quantité"
+          className="rx-write-input hidden sm:block"
+          disabled={readOnly}
+        />
+      </div>
+      <div className="rx-write-row hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_100px] gap-2 sm:grid">
+        <input
+          value={item.posology}
+          onChange={(e) => onChange({ posology: e.target.value })}
+          placeholder="Posologie"
+          className="rx-write-input"
+          disabled={readOnly}
+        />
+        <input
+          value={item.frequency}
+          onChange={(e) => onChange({ frequency: e.target.value })}
+          placeholder="Fréquence"
+          className="rx-write-input"
+          disabled={readOnly}
+        />
+        <input
+          value={item.duration}
+          onChange={(e) => onChange({ duration: e.target.value })}
+          placeholder="Durée"
+          className="rx-write-input"
+          disabled={readOnly}
+        />
+      </div>
+      <div className="rx-write-row hidden grid-cols-1 gap-2 sm:grid">
+        <input
+          value={item.instructions}
+          onChange={(e) => onChange({ instructions: e.target.value })}
+          placeholder="Instructions particulières"
+          className="rx-write-input"
+          disabled={readOnly}
+        />
+      </div>
+      {/* Les champs masqués sur petit écran restent éditables via la section compacte ci-dessous. */}
+      <div className="mt-1 space-y-1 sm:hidden">
+        <div className="rx-write-row grid grid-cols-[minmax(0,1fr)_100px] gap-2">
+          <input
+            value={item.posology}
+            onChange={(e) => onChange({ posology: e.target.value })}
+            placeholder="Posologie"
+            className="rx-write-input"
+            disabled={readOnly}
+          />
+          <input
+            value={item.duration}
+            onChange={(e) => onChange({ duration: e.target.value })}
+            placeholder="Durée"
+            className="rx-write-input"
+            disabled={readOnly}
+          />
+        </div>
+        <div className="rx-write-row grid grid-cols-2 gap-2">
+          <input
+            value={item.frequency}
+            onChange={(e) => onChange({ frequency: e.target.value })}
+            placeholder="Fréquence"
+            className="rx-write-input"
+            disabled={readOnly}
+          />
+          <input
+            value={item.quantity}
+            onChange={(e) => onChange({ quantity: e.target.value })}
+            placeholder="Quantité"
+            className="rx-write-input"
+            disabled={readOnly}
+          />
+        </div>
+        <div className="rx-write-row">
+          <input
+            value={item.instructions}
+            onChange={(e) => onChange({ instructions: e.target.value })}
+            placeholder="Instructions particulières"
+            className="rx-write-input"
+            disabled={readOnly}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -579,168 +730,173 @@ export function PrescriptionEditor({
         </div>
       )}
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_480px]">
-        {/* Formulaire */}
-        <div className="space-y-4">
-          <section className="rx-card rounded-[24px] p-4 sm:p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-[#072b26]">
-                <span className="grid h-6 w-6 place-items-center rounded-lg bg-[#e2f7ee] text-[#047857]">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </span>
-                Informations du patient
-              </h2>
-              <span className="text-[10px] font-semibold text-[#7a978f]">
-                {patient ? "Sélectionné" : "Obligatoire"}
-              </span>
+      <div className="mx-auto max-w-4xl">
+        <section className="rx-form-sheet rounded-[26px] px-5 py-6 sm:px-8 sm:py-8">
+          <div className="mb-5 text-center">
+            <p className="font-display text-2xl uppercase tracking-[0.2em] text-[#072b26]">
+              Ordonnance
+            </p>
+            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#047857]">
+              SAHA Santé · Bamako, Mali · {rx?.number ?? "ORD-APERÇU"}
+            </p>
+          </div>
+
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[#b9cec6] pb-3">
+            <div>
+              <p className="font-display text-lg leading-tight text-[#072b26]">
+                {doctorDisplay(rx?.doctor_name || me.full_name)}
+              </p>
+              <p className="text-[11px] font-semibold text-[#047857]">
+                {rx?.doctor_specialty || me.specialty_label}
+              </p>
+              <p className="mt-0.5 text-[10px] text-[#5f7f76]">
+                {rx?.establishment_name ||
+                  me.establishment_name ||
+                  (me.city ? `Cabinet médical — ${me.city}` : "Cabinet médical SAHA")}
+              </p>
             </div>
-            <PatientPicker
-              value={patient}
-              onSelect={(p) => {
-                setPatient(p);
-                setIdentityVerified(false);
-              }}
-              onClear={() => {
-                setPatient(null);
-                setIdentityVerified(false);
-              }}
+            <div className="text-right text-[10px] text-[#5f7f76]">
+              <p className="font-bold text-[#072b26]">N° {rx?.number ?? "ORD-APERÇU"}</p>
+              <p>Version {rx?.version ?? 1}</p>
+            </div>
+          </div>
+
+          <p className="rx-section-title mt-0">Patient</p>
+          <PatientPicker
+            value={patient}
+            onSelect={(p) => {
+              setPatient(p);
+              setIdentityVerified(false);
+            }}
+            onClear={() => {
+              setPatient(null);
+              setIdentityVerified(false);
+            }}
+          />
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="rx-write-row flex items-center gap-3">
+              <span className="rx-write-label">Date</span>
+              <input
+                type="date"
+                value={consultationDate}
+                onChange={(e) => setConsultationDate(e.target.value)}
+                className="rx-write-input"
+                disabled={readOnly}
+              />
+            </div>
+            <label className="rx-write-row flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={identityVerified}
+                onChange={(e) => setIdentityVerified(e.target.checked)}
+                className="h-4 w-4 shrink-0 accent-[#047857]"
+                disabled={readOnly}
+              />
+              <span className="text-[10px] font-bold text-[#072b26]">Identité vérifiée</span>
+              <span className="text-[9px] text-[#6d8a82]">
+                Pièce d'identité ou date de naissance confirmée.
+              </span>
+            </label>
+          </div>
+
+          <p className="rx-section-title">Diagnostic / motif</p>
+          <div className="rx-write-row grid grid-cols-[88px_minmax(0,1fr)] gap-2">
+            <span className="rx-write-label">Diagnostic</span>
+            <input
+              value={diagnosis}
+              onChange={(e) => setDiagnosis(e.target.value)}
+              placeholder="Ex. Paludisme simple"
+              className="rx-write-input"
+              disabled={readOnly}
             />
+          </div>
+          <div className="rx-write-row grid grid-cols-[88px_minmax(0,1fr)] gap-2">
+            <span className="rx-write-label">Motif</span>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Ex. Fièvre et céphalées depuis 48 h"
+              className="rx-write-input"
+              disabled={readOnly}
+            />
+          </div>
 
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <div className="rounded-xl border border-[#e4efeb] bg-[#f8fcfa] px-3 py-2">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#7a978f]">
-                  Date de consultation
-                </p>
-                <input
-                  type="date"
-                  value={consultationDate}
-                  onChange={(e) => setConsultationDate(e.target.value)}
-                  className="mt-0.5 w-full border-0 bg-transparent p-0 text-sm font-semibold text-[#072b26] outline-none"
-                  disabled={readOnly}
-                />
-              </div>
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#e4efeb] bg-[#f8fcfa] px-3 py-2">
-                <input
-                  type="checkbox"
-                  checked={identityVerified}
-                  onChange={(e) => setIdentityVerified(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-[#047857]"
-                  disabled={readOnly}
-                />
-                <span>
-                  <span className="block text-[11px] font-bold text-[#072b26]">
-                    Identité du patient vérifiée
-                  </span>
-                  <span className="block text-[10px] leading-snug text-[#6d8a82]">
-                    Pièce d'identité ou date de naissance confirmée en consultation.
-                  </span>
-                </span>
-              </label>
-            </div>
-          </section>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="rx-section-title mt-0">Prescription</p>
+            <span className="text-[9px] font-bold text-[#047857]">
+              {filledItems.length} ligne{filledItems.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="mt-1">
+            {items.map((item, index) => (
+              <PaperItemEditor
+                key={item.key}
+                item={item}
+                index={index}
+                canRemove={items.length > 1 && !readOnly}
+                readOnly={readOnly}
+                onChange={(patch) =>
+                  setItems((prev) =>
+                    prev.map((it) => (it.key === item.key ? { ...it, ...patch } : it)),
+                  )
+                }
+                onRemove={() => setItems((prev) => prev.filter((it) => it.key !== item.key))}
+              />
+            ))}
+          </div>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => setItems((prev) => [...prev, emptyItem()])}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#9fc9ba] bg-[#f4faf7] px-3 py-2 text-[11px] font-bold text-[#047857] transition hover:border-[#00a97c] hover:bg-[#eaf8f2]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Ajouter une ligne de médicament
+            </button>
+          )}
 
-          <section className="rx-card rounded-[24px] p-4 sm:p-5">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-[#072b26]">
-              <span className="grid h-6 w-6 place-items-center rounded-lg bg-[#e2f7ee] text-[#047857]">
-                <FileCheck2 className="h-3.5 w-3.5" />
-              </span>
-              Diagnostic et motif
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Diagnostic">
-                <input
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  placeholder="Ex. Infection ORL"
-                  className="rx-field"
-                  disabled={readOnly}
-                />
-              </Field>
-              <Field label="Motif de consultation">
-                <input
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Ex. Fièvre et toux depuis 3 jours"
-                  className="rx-field"
-                  disabled={readOnly}
-                />
-              </Field>
-            </div>
-          </section>
+          <p className="rx-section-title">Conseils au patient</p>
+          <div className="rx-write-row">
+            <textarea
+              value={advice}
+              onChange={(e) => setAdvice(e.target.value)}
+              rows={2}
+              placeholder="Boire abondamment, se reposer, revenir si la fièvre persiste…"
+              className="rx-write-textarea"
+              disabled={readOnly}
+            />
+          </div>
 
-          <section className="rx-card rounded-[24px] p-4 sm:p-5">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-[#072b26]">
-                <span className="grid h-6 w-6 place-items-center rounded-lg bg-[#e2f7ee] text-[#047857]">
-                  <Plus className="h-3.5 w-3.5" />
-                </span>
-                Médicaments prescrits
-              </h2>
-              <span className="rx-chip bg-[#e2f7ee] text-[#047857]">
-                {filledItems.length} médicament{filledItems.length > 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {items.map((item, index) => (
-                <ItemEditor
-                  key={item.key}
-                  item={item}
-                  index={index}
-                  canRemove={items.length > 1 && !readOnly}
-                  onChange={(patch) =>
-                    setItems((prev) =>
-                      prev.map((it) => (it.key === item.key ? { ...it, ...patch } : it)),
-                    )
-                  }
-                  onRemove={() => setItems((prev) => prev.filter((it) => it.key !== item.key))}
-                />
-              ))}
-            </div>
-            {!readOnly && (
-              <button
-                type="button"
-                onClick={() => setItems((prev) => [...prev, emptyItem()])}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#bfe6d8] bg-[#f4fbf8] px-4 py-3 text-xs font-bold text-[#047857] transition hover:border-[#00a97c] hover:bg-[#eaf8f2]"
-              >
-                <Plus className="h-4 w-4" />
-                Ajouter un médicament
-              </button>
-            )}
-          </section>
+          <p className="rx-section-title">Observations médicales</p>
+          <div className="rx-write-row">
+            <textarea
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+              rows={2}
+              placeholder="Antécédents, allergies, tension, température…"
+              className="rx-write-textarea"
+              disabled={readOnly}
+            />
+          </div>
 
-          <section className="rx-card rounded-[24px] p-4 sm:p-5">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-[#072b26]">
-              <span className="grid h-6 w-6 place-items-center rounded-lg bg-[#e2f7ee] text-[#047857]">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              </span>
-              Conseils et observations
-            </h2>
-            <div className="grid gap-3">
-              <Field label="Conseils au patient">
-                <textarea
-                  value={advice}
-                  onChange={(e) => setAdvice(e.target.value)}
-                  rows={3}
-                  placeholder="Boire beaucoup d'eau, se reposer, revenir en cas de fièvre persistante…"
-                  className="rx-field resize-y"
-                  disabled={readOnly}
-                />
-              </Field>
-              <Field label="Observations médicales">
-                <textarea
-                  value={observations}
-                  onChange={(e) => setObservations(e.target.value)}
-                  rows={3}
-                  placeholder="Antécédents, allergies, tension, température…"
-                  className="rx-field resize-y"
-                  disabled={readOnly}
-                />
-              </Field>
+          <div className="mt-6 flex items-end justify-between gap-4 border-t border-[#b9cec6] pt-4">
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-[#5f7f76]">
+                Signature du praticien
+              </p>
+              <p className="mt-8 font-display text-lg italic text-[#072b26]">
+                {doctorDisplay(rx?.doctor_name || me.full_name)}
+              </p>
             </div>
-          </section>
+            <div className="text-right text-[9px] text-[#5f7f76]">
+              <p>Fait à Bamako, le {formatDateFr(consultationDate)}</p>
+              <p className="mt-1">Document signé électroniquement</p>
+            </div>
+          </div>
 
           {!readOnly && (
-            <div className="hidden flex-wrap items-center justify-between gap-3 rounded-[24px] border border-white/[0.12] bg-white/[0.04] p-3 sm:flex">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#edf4f1] pt-4">
               <button
                 type="button"
                 onClick={saveDraft}
@@ -761,24 +917,7 @@ export function PrescriptionEditor({
               </button>
             </div>
           )}
-        </div>
-
-        {/* Aperçu desktop */}
-        <div className="hidden xl:block">
-          <div className="sticky top-6">
-            <div className="mb-2 flex items-center justify-between px-1">
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9fc4b9]">
-                Aperçu du document
-              </span>
-              <span className="rx-chip border border-white/10 bg-white/[0.06] text-[#c9e5dd]">
-                Temps réel
-              </span>
-            </div>
-            <div className="max-h-[calc(100dvh-130px)] overflow-y-auto rounded-[28px] rx-scroll">
-              <RxDocument {...documentProps} compact />
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
 
       {/* Barre d'action mobile */}

@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ItemEditor,
+  PaperItemEditor,
   emptyItem,
   type EditorItem,
 } from "@/components/doctor-rx/PrescriptionEditor";
@@ -262,7 +262,7 @@ function TemplatesPage() {
       {/* Création / édition */}
       <Dialog open={open} onOpenChange={(v) => !saving && setOpen(v)}>
         <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto border-0 bg-transparent p-0 shadow-none rx-scroll">
-          <div className="rx-paper rounded-[26px] p-5 sm:p-6">
+          <div className="rx-form-sheet rounded-[26px] p-5 sm:p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 font-display text-2xl text-[#072b26]">
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e2f7ee] text-[#047857]">
@@ -276,42 +276,44 @@ function TemplatesPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className="block sm:col-span-2">
-                <span className="rx-label">Nom du modèle *</span>
+            <div className="mt-4">
+              <div className="rx-write-row grid grid-cols-[110px_minmax(0,1fr)] gap-2">
+                <span className="rx-write-label">Nom du modèle *</span>
                 <input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="Ex. Angine — adulte"
-                  className="rx-field"
+                  className="rx-write-input"
                 />
-              </label>
-              <label className="block">
-                <span className="rx-label">Diagnostic</span>
+              </div>
+              <div className="rx-write-row grid grid-cols-[110px_minmax(0,1fr)] gap-2">
+                <span className="rx-write-label">Diagnostic</span>
                 <input
                   value={form.diagnosis}
                   onChange={(e) => setForm((f) => ({ ...f, diagnosis: e.target.value }))}
                   placeholder="Ex. Infection ORL"
-                  className="rx-field"
+                  className="rx-write-input"
                 />
-              </label>
-              <label className="block">
-                <span className="rx-label">Conseils</span>
+              </div>
+              <div className="rx-write-row grid grid-cols-[110px_minmax(0,1fr)] gap-2">
+                <span className="rx-write-label">Conseils</span>
                 <input
                   value={form.advice}
                   onChange={(e) => setForm((f) => ({ ...f, advice: e.target.value }))}
                   placeholder="Ex. Boire beaucoup d'eau"
-                  className="rx-field"
+                  className="rx-write-input"
                 />
-              </label>
+              </div>
             </div>
 
-            <div className="mt-4 space-y-2.5">
+            <div className="mt-4">
+              <p className="rx-section-title mt-0">Médicaments du modèle</p>
               {form.items.map((item, index) => (
-                <ItemEditor
+                <PaperItemEditor
                   key={item.key}
                   item={item}
                   index={index}
+                  readOnly={false}
                   canRemove={form.items.length > 1}
                   onChange={(patch) =>
                     setForm((f) => ({
@@ -327,7 +329,7 @@ function TemplatesPage() {
               <button
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, items: [...f.items, emptyItem()] }))}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#bfe6d8] bg-[#f4fbf8] px-4 py-2.5 text-xs font-bold text-[#047857] transition hover:bg-[#eaf8f2]"
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#9fc9ba] bg-[#f4faf7] px-3 py-2 text-[11px] font-bold text-[#047857] transition hover:border-[#00a97c] hover:bg-[#eaf8f2]"
               >
                 <Plus className="h-4 w-4" />
                 Ajouter un médicament
