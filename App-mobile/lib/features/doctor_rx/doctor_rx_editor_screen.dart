@@ -12,6 +12,12 @@ import 'package:saha_sante/core/theme/app_theme.dart';
 import 'package:saha_sante/features/doctor_rx/doctor_rx_api.dart';
 import 'package:saha_sante/features/spaces/space_widgets.dart';
 
+const Color _paper = Color(0xFFFDFBF5);
+const Color _ink = Color(0xFF072B26);
+const Color _emerald = Color(0xFF047857);
+const Color _muted = Color(0xFF5F7F76);
+const Color _rule = Color(0xFFB9CEC6);
+
 class _RxItem {
   final medicine = TextEditingController();
   final dosage = TextEditingController();
@@ -382,96 +388,81 @@ class _DoctorRxEditorScreenState extends State<DoctorRxEditorScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SpaceCard(
-                            child: Row(
-                              children: [
-                                Icon(Icons.person_outline, color: AppColors.primaryLight),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        name,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        details,
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                          _paperSheet(
+                            children: [
+                              _paperHeader(number: _number),
+                              _paperSectionTitle(L10n.c('erx.patient')),
+                              _paperPatient(name: name, details: details),
+                              if (_status.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                statusChip(
+                                  _status == 'sent'
+                                      ? L10n.c('erx.statusSent')
+                                      : _status == 'signed'
+                                          ? L10n.c('erx.statusSigned')
+                                          : L10n.c('erx.statusDraft'),
+                                  _status == 'sent' ? AppColors.success : AppColors.primaryLight,
                                 ),
                               ],
-                            ),
-                          ),
-                          if (_status.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: statusChip(
-                                _status == 'sent'
-                                    ? L10n.c('erx.statusSent')
-                                    : _status == 'signed'
-                                        ? L10n.c('erx.statusSigned')
-                                        : L10n.c('erx.statusDraft'),
-                                _status == 'sent' ? AppColors.success : AppColors.primaryLight,
+                              const SizedBox(height: 14),
+                              _paperField(
+                                L10n.c('erx.consultDate'),
+                                _dateController,
+                                readOnly: true,
+                                onTap: _locked ? null : _pickDate,
+                                suffix: const Icon(Icons.calendar_today_outlined, size: 17),
                               ),
-                            ),
-                          const SizedBox(height: 16),
-                          _field(
-                            L10n.c('erx.consultDate'),
-                            _dateController,
-                            readOnly: true,
-                            onTap: _locked ? null : _pickDate,
-                            suffix: const Icon(Icons.calendar_today_outlined, size: 18),
-                          ),
-                          const SizedBox(height: 12),
-                          _field(L10n.c('erx.diagnosis'), _diagnosis, readOnly: _locked),
-                          const SizedBox(height: 12),
-                          _field(
-                            L10n.c('erx.reason'),
-                            _reason,
-                            readOnly: _locked,
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 16),
-                          sectionTitle(L10n.c('erx.medicine')),
-                          const SizedBox(height: 10),
-                          ...List.generate(_items.length, (index) {
-                            return _itemCard(_items[index], index);
-                          }),
-                          if (!_locked)
-                            TextButton.icon(
-                              onPressed: () => setState(() => _items.add(_RxItem())),
-                              icon: const Icon(Icons.add),
-                              label: Text(L10n.c('erx.addMedicine')),
-                            ),
-                          const SizedBox(height: 12),
-                          _field(
-                            L10n.c('erx.observations'),
-                            _observations,
-                            readOnly: _locked,
-                            maxLines: 3,
-                          ),
-                          const SizedBox(height: 12),
-                          _field(L10n.c('erx.advice'), _advice, readOnly: _locked, maxLines: 3),
-                          const SizedBox(height: 14),
-                          SwitchListTile.adaptive(
-                            value: _identity,
-                            onChanged: _locked
-                                ? null
-                                : (v) => setState(() => _identity = v),
-                            title: Text(
-                              L10n.c('erx.identity'),
-                              style: const TextStyle(fontSize: 12.5),
-                            ),
+                              _paperField(L10n.c('erx.diagnosis'), _diagnosis, readOnly: _locked),
+                              _paperField(
+                                L10n.c('erx.reason'),
+                                _reason,
+                                readOnly: _locked,
+                                maxLines: 2,
+                              ),
+                              const SizedBox(height: 10),
+                              _paperSectionTitle(L10n.c('erx.medicine')),
+                              ...List.generate(_items.length, (index) {
+                                return _paperItem(_items[index], index);
+                              }),
+                              if (!_locked)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  child: TextButton.icon(
+                                    onPressed: () => setState(() => _items.add(_RxItem())),
+                                    icon: const Icon(Icons.add, size: 17),
+                                    label: Text(L10n.c('erx.addMedicine')),
+                                  ),
+                                ),
+                              const SizedBox(height: 6),
+                              _paperSectionTitle(L10n.c('erx.observations')),
+                              _paperField(
+                                L10n.c('erx.observations'),
+                                _observations,
+                                readOnly: _locked,
+                                maxLines: 3,
+                              ),
+                              _paperSectionTitle(L10n.c('erx.advice')),
+                              _paperField(
+                                L10n.c('erx.advice'),
+                                _advice,
+                                readOnly: _locked,
+                                maxLines: 3,
+                              ),
+                              const SizedBox(height: 8),
+                              CheckboxListTile.adaptive(
+                                value: _identity,
+                                onChanged: _locked
+                                    ? null
+                                    : (v) => setState(() => _identity = v ?? false),
+                                title: Text(
+                                  L10n.c('erx.identity'),
+                                  style: const TextStyle(fontSize: 12, color: _ink),
+                                ),
+                                controlAffinity: ListTileControlAffinity.leading,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              _paperSignature(),
+                            ],
                           ),
                           const SizedBox(height: 12),
                           if (!_locked) ...[
@@ -521,7 +512,108 @@ class _DoctorRxEditorScreenState extends State<DoctorRxEditorScreen> {
     );
   }
 
-  Widget _field(
+  Widget _paperSheet({required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: _paper,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDFE9E4)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33041E1A),
+            blurRadius: 32,
+            offset: Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 26,
+            top: 0,
+            bottom: 0,
+            width: 1,
+            child: Container(color: const Color(0x2AB04A4A)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(38, 20, 20, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _paperHeader({required String number}) {
+    return Column(
+      children: [
+        Text(
+          'ORDONNANCE',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 3,
+            color: _ink,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'SAHA SANTÉ · BAMAKO, MALI · ${number.isEmpty ? 'ORD-APERÇU' : number}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: _emerald,
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Divider(color: _rule, height: 1),
+      ],
+    );
+  }
+
+  Widget _paperPatient({required String name, required String details}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _rule)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _ink)),
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(details, style: const TextStyle(fontSize: 11, color: _muted)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _paperSectionTitle(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, bottom: 5),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.4,
+          color: _emerald,
+        ),
+      ),
+    );
+  }
+
+  Widget _paperField(
     String label,
     TextEditingController controller, {
     bool readOnly = false,
@@ -529,84 +621,124 @@ class _DoctorRxEditorScreenState extends State<DoctorRxEditorScreen> {
     VoidCallback? onTap,
     Widget? suffix,
   }) {
-    return TextField(
-      controller: controller,
-      readOnly: readOnly,
-      onTap: onTap,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        suffixIcon: suffix,
-        filled: true,
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _rule)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 88,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                label.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                  color: _emerald,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              readOnly: readOnly,
+              onTap: onTap,
+              maxLines: maxLines,
+              style: const TextStyle(fontSize: 13, color: _ink, height: 1.35),
+              decoration: InputDecoration(
+                hintText: label,
+                hintStyle: const TextStyle(color: Color(0xFFA7B7B2), fontStyle: FontStyle.italic),
+                suffixIcon: suffix,
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _itemCard(_RxItem item, int index) {
-    return SpaceCard(
-      margin: const EdgeInsets.only(bottom: 10),
+  Widget _paperItem(_RxItem item, int index) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _rule)),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  '${L10n.c('erx.medicine')} ${index + 1}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              Container(
+                width: 19,
+                height: 19,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE2F7EE),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '${index + 1}',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _emerald),
+                  ),
                 ),
               ),
-              if (!_locked && _items.length > 1)
+              const SizedBox(width: 6),
+              Text(
+                '${L10n.c('erx.medicine')} ${index + 1}',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _muted),
+              ),
+              if (!_locked && _items.length > 1) ...[
+                const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18),
+                  icon: const Icon(Icons.delete_outline, size: 17, color: Color(0xFF9B6B6B)),
                   onPressed: () {
                     item.dispose();
                     setState(() => _items.removeAt(index));
                   },
                 ),
+              ],
             ],
           ),
-          _field(L10n.c('erx.medicine'), item.medicine, readOnly: _locked),
+          const SizedBox(height: 4),
+          _paperField(L10n.c('erx.medicine'), item.medicine, readOnly: _locked),
+          _paperField(L10n.c('erx.dosage'), item.dosage, readOnly: _locked),
+          _paperField(L10n.c('erx.form'), item.form, readOnly: _locked),
+          _paperField(L10n.c('erx.quantity'), item.quantity, readOnly: _locked),
+          _paperField(L10n.c('erx.posology'), item.posology, readOnly: _locked),
+          _paperField(L10n.c('erx.frequency'), item.frequency, readOnly: _locked),
+          _paperField(L10n.c('erx.duration'), item.duration, readOnly: _locked),
+          _paperField(L10n.c('erx.route'), item.route, readOnly: _locked),
+          _paperField(L10n.c('erx.instructions'), item.instructions, readOnly: _locked),
+        ],
+      ),
+    );
+  }
+
+  Widget _paperSignature() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(color: _rule, height: 1),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _field(L10n.c('erx.dosage'), item.dosage, readOnly: _locked),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _field(L10n.c('erx.form'), item.form, readOnly: _locked),
-              ),
-            ],
+          const Text(
+            'SIGNATURE DU PRATICIEN',
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: _muted),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _field(L10n.c('erx.quantity'), item.quantity, readOnly: _locked),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _field(L10n.c('erx.duration'), item.duration, readOnly: _locked),
-              ),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            'Fait à Bamako, le $_date',
+            style: const TextStyle(fontSize: 9, color: _muted),
           ),
-          const SizedBox(height: 10),
-          _field(L10n.c('erx.posology'), item.posology, readOnly: _locked, maxLines: 2),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _field(L10n.c('erx.frequency'), item.frequency, readOnly: _locked),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _field(L10n.c('erx.route'), item.route, readOnly: _locked),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _field(L10n.c('erx.instructions'), item.instructions, readOnly: _locked, maxLines: 2),
         ],
       ),
     );
