@@ -1,11 +1,11 @@
 /**
  * Génération du PDF officiel d'une e-ordonnance (A4).
  *
- * Le document reprend la mise en page de l'aperçu web : en-tête SAHA,
- * identité du médecin et de l'établissement, patient, diagnostic, tableau des
- * médicaments, conseils, cachet numérique, signature et QR de vérification.
+ * Mise en page « papier ordonnance » : feuille claire, encre noire, lignes
+ * horizontales sur lesquelles sont posées les médicaments, signature manuscrite
+ * et cachet. Le QR et l'empreinte HMAC restent discrets mais vérifiables.
  */
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import {
   ageFromBirth,
   dateFr,
@@ -15,17 +15,18 @@ import {
 } from "./doctor-rx.server";
 
 const A4 = { width: 595.28, height: 841.89 };
-const M = 44;
+const M = 48;
+const CONTENT = A4.width - M * 2;
 
 const COLORS = {
-  ink: rgb(0.055, 0.129, 0.118),
-  muted: rgb(0.36, 0.45, 0.43),
-  line: rgb(0.84, 0.9, 0.88),
-  emerald: rgb(0.0, 0.62, 0.47),
-  emeraldDark: rgb(0.02, 0.3, 0.24),
-  emeraldLight: rgb(0.93, 0.98, 0.96),
+  ink: rgb(0.09, 0.1, 0.11),
+  muted: rgb(0.38, 0.4, 0.41),
+  rule: rgb(0.79, 0.83, 0.84),
+  ruleStrong: rgb(0.58, 0.64, 0.65),
+  accent: rgb(0.04, 0.34, 0.28),
+  accentLight: rgb(0.95, 0.985, 0.97),
+  paper: rgb(0.997, 0.995, 0.988),
   white: rgb(1, 1, 1),
-  paper: rgb(0.985, 0.995, 0.992),
 };
 
 function pdfSafe(input: string | null | undefined): string {
@@ -56,7 +57,6 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
       } else {
         if (line) out.push(line);
         if (font.widthOfTextAtSize(word, size) > maxWidth) {
-          // Very long token: hard split.
           let rest = word;
           while (font.widthOfTextAtSize(rest, size) > maxWidth) {
             let cut = rest.length - 1;
@@ -75,10 +75,47 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
   return out;
 }
 
-function centered(page: PDFPage, text: string, y: number, font: PDFFont, size: number, color = COLORS.ink) {
-  const clean = pdfSafe(text);
-  const width = font.widthOfTextAtSize(clean, size);
-  page.drawText(clean, { x: (A4.width - width) / 2, y, size, font, color });
+function put(
+  page: PDFPage,
+  value: string | null | undefined,
+  x: number,
+  y: number,
+  font: PDFFont,
+  size: number,
+  color = COLORS.ink,
+) {
+  const text = pdfSafe(value);
+  if (!text) return;
+  page.drawText(text, { x, y, size, font, color });
+}
+
+function putRight(
+  page: PDFPage,
+  value: string | null | undefined,
+  right: number,
+  y: number,
+  font: PDFFont,
+  size: number,
+  color = COLORS.ink,
+) {
+  const text = pdfSafe(value);
+  if (!text) return;
+  page.drawText(text, {
+    x: right - font.widthOfTextAtSize(text, size),
+    y,
+    size,
+    font,
+    color,
+  });
+}
+
+function rule(page: PDFPage, x: number, y: number, width: number, strong = false) {
+  page.drawLine({
+    start: { x, y },
+    end: { x: x + width, y },
+    thickness: strong ? 0.9 : 0.45,
+    color: strong ? COLORS.ruleStrong : COLORS.rule,
+  });
 }
 
 export type PrescriptionPdfInput = {
@@ -122,694 +159,282 @@ export async function generatePrescriptionPdf(input: PrescriptionPdfInput): Prom
   doc.setCreator("SAHA Santé e-Ordonnance");
   doc.setProducer("SAHA Santé");
 
-  const regular = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
+  const serif = await doc.embedFont(StandardFonts.TimesRoman);
+  const serifBold = await doc.embedFont(StandardFonts.TimesRomanBold);
   const serifItalic = await doc.embedFont(StandardFonts.TimesRomanItalic);
+  const sans = await doc.embedFont(StandardFonts.Helvetica);
+  const sansBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const qrImage = await doc.embedPng(qrPng);
+
+  const doctorName = `Dr. ${rx.doctor_name.replace(/^dr\.?\s+/i, "")}`;
+  const issued = dateFr(rx.consultation_date);
 
   let page = doc.addPage([A4.width, A4.height]);
   let y = 0;
 
-  const drawHeader = (p: PDFPage, compact = false) => {
-    const h = compact ? 54 : 112;
-    p.drawRectangle({
-      x: 0,
-      y: A4.height - h,
-      width: A4.width,
-      height: h,
-      color: rgb(0.02, 0.16, 0.13),
-    });
-    p.drawRectangle({
-      x: 0,
-      y: A4.height - h,
-      width: 7,
-      height: h,
-      color: COLORS.emerald,
-    });
-    // Logo : croix médicale.
-    const lx = M;
-    const ly = A4.height - (compact ? 40 : 80);
-    p.drawRectangle({
-      x: lx,
-      y: ly - 10,
-      width: 30,
-      height: 30,
-      color: COLORS.white,
-      borderColor: COLORS.emerald,
-      borderWidth: 1.2,
-    });
-    p.drawRectangle({ x: lx + 12, y: ly - 4, width: 6, height: 18, color: COLORS.emerald });
-    p.drawRectangle({ x: lx + 6, y: ly + 2, width: 18, height: 6, color: COLORS.emerald });
+  const drawBackground = (p: PDFPage) => {
+    p.drawRectangle({ x: 0, y: 0, width: A4.width, height: A4.height, color: COLORS.paper });
+    p.drawRectangle({ x: 0, y: A4.height - 5, width: A4.width, height: 5, color: COLORS.accent });
+  };
 
-    if (compact) {
-      p.drawText("SAHA Santé — e-Ordonnance", {
-        x: lx + 40,
-        y: ly + 1,
-        size: 11,
-        font: bold,
-        color: COLORS.white,
-      });
-      p.drawText(pdfSafe(rx.number), {
-        x: A4.width - M - bold.widthOfTextAtSize(pdfSafe(rx.number), 9),
-        y: ly + 3,
-        size: 9,
-        font: bold,
-        color: COLORS.emerald,
-      });
-      return;
-    }
-
-    p.drawText("SAHA Santé", {
-      x: lx + 40,
-      y: ly + 14,
-      size: 20,
-      font: bold,
-      color: COLORS.white,
-    });
-    p.drawText("e-Ordonnance", {
-      x: lx + 40,
-      y: ly + 1,
-      size: 9.5,
-      font: bold,
-      color: COLORS.emerald,
-    });
-    p.drawText("Votre santé, notre priorité", {
-      x: lx + 40,
-      y: ly - 10,
-      size: 7,
-      font: regular,
-      color: rgb(0.68, 0.82, 0.78),
-    });
-
-    const right = A4.width - M;
-    const title = "ORDONNANCE ÉLECTRONIQUE";
+  const drawHeader = (p: PDFPage, continued: boolean) => {
+    drawBackground(p);
+    // Le titre est centré manuellement (pdf-lib ne gère pas textAlign).
+    const title = continued ? "ORDONNANCE (SUITE)" : "ORDONNANCE";
+    const titleSize = continued ? 12 : 17;
     p.drawText(title, {
-      x: right - bold.widthOfTextAtSize(title, 8.5),
-      y: A4.height - 38,
-      size: 8.5,
-      font: bold,
-      color: rgb(0.72, 0.9, 0.84),
+      x: (A4.width - serifBold.widthOfTextAtSize(title, titleSize)) / 2,
+      y: A4.height - 48,
+      size: titleSize,
+      font: serifBold,
+      color: COLORS.ink,
     });
-    p.drawText(pdfSafe(rx.number), {
-      x: right - bold.widthOfTextAtSize(pdfSafe(rx.number), 12),
-      y: A4.height - 55,
-      size: 12,
-      font: bold,
-      color: COLORS.emerald,
+    const subtitle = `SAHA Santé  ·  Bamako, Mali  ·  ${rx.number}`;
+    p.drawText(pdfSafe(subtitle), {
+      x: (A4.width - sans.widthOfTextAtSize(pdfSafe(subtitle), 7.6)) / 2,
+      y: A4.height - 64,
+      size: 7.6,
+      font: sans,
+      color: COLORS.muted,
     });
-    p.drawText(`Version ${rx.version}`, {
-      x: right - regular.widthOfTextAtSize(`Version ${rx.version}`, 7.5),
-      y: A4.height - 68,
-      size: 7.5,
-      font: regular,
-      color: rgb(0.68, 0.82, 0.78),
-    });
-    p.drawText(`Émise le ${dateFr(rx.consultation_date)}`, {
-      x: right - regular.widthOfTextAtSize(`Émise le ${dateFr(rx.consultation_date)}`, 7.5),
-      y: A4.height - 80,
-      size: 7.5,
-      font: regular,
-      color: rgb(0.68, 0.82, 0.78),
-    });
+    rule(p, M, A4.height - 78, CONTENT, true);
+    return A4.height - 102;
   };
 
   const drawFooter = (p: PDFPage, pageIndex: number, total: number) => {
-    p.drawLine({
-      start: { x: M, y: 46 },
-      end: { x: A4.width - M, y: 46 },
-      thickness: 0.6,
-      color: COLORS.line,
-    });
-    p.drawText("Document généré électroniquement — toute modification invalide la signature.", {
-      x: M,
-      y: 33,
-      size: 6.6,
-      font: regular,
-      color: COLORS.muted,
-    });
-    p.drawText(pdfSafe(verifyUrl), {
-      x: M,
-      y: 24,
-      size: 6.4,
-      font: regular,
-      color: COLORS.emeraldDark,
-    });
-    const right = `Page ${pageIndex + 1}/${total}`;
-    p.drawText(right, {
-      x: A4.width - M - regular.widthOfTextAtSize(right, 6.6),
-      y: 33,
-      size: 6.6,
-      font: regular,
-      color: COLORS.muted,
-    });
+    rule(p, M, 52, CONTENT);
+    put(
+      p,
+      "Document signe electroniquement - toute modification invalide la signature.",
+      M,
+      38,
+      sans,
+      6.4,
+      COLORS.muted,
+    );
+    put(p, verifyUrl, M, 28, sans, 6.2, COLORS.accent);
+    putRight(p, `Page ${pageIndex + 1}/${total}`, A4.width - M, 38, sans, 6.4, COLORS.muted);
   };
 
   const newPage = () => {
     page = doc.addPage([A4.width, A4.height]);
-    drawHeader(page, true);
-    y = A4.height - 82;
-    return page;
+    y = drawHeader(page, true);
   };
 
   const ensure = (height: number) => {
-    if (y - height < 78) newPage();
+    if (y - height < 84) newPage();
   };
 
-  const drawWrapped = (
-    text: string,
-    x: number,
-    top: number,
-    maxWidth: number,
+  /** Écrit un texte sur des lignes ruled, comme sur une feuille manuscrite. */
+  const ruledLines = (
+    label: string,
+    value: string | null | undefined,
     font: PDFFont,
     size: number,
-    color = COLORS.ink,
-    lineHeight = size * 1.35,
+    lineHeight = 15,
+    minLines = 0,
   ) => {
-    const lines = wrap(text, font, size, maxWidth);
-    lines.forEach((line, i) => {
-      page.drawText(line, { x, y: top - i * lineHeight, size, font, color });
-    });
-    return lines.length * lineHeight;
+    const lines = wrap(value ?? "", font, size, CONTENT - 16);
+    const count = Math.max(lines.length, minLines);
+    if (!count) return y;
+    ensure(count * lineHeight + 14);
+    put(page, label, M, y, sansBold, 7, COLORS.accent);
+    y -= 11;
+    for (let i = 0; i < count; i++) {
+      const baseline = y - (i + 1) * lineHeight + 4;
+      rule(page, M, baseline, CONTENT);
+      if (lines[i]) put(page, lines[i], M + 6, baseline + 2, font, size, COLORS.ink);
+    }
+    y -= count * lineHeight + 8;
+    return y;
   };
 
-  drawHeader(page);
-  y = A4.height - 132;
+  y = drawHeader(page, false);
 
-  // --- Identité du médecin / établissement ---------------------------------
-  page.drawText(pdfSafe(`Dr. ${rx.doctor_name.replace(/^dr\.?\s+/i, "")}`), {
-    x: M,
-    y,
-    size: 14,
-    font: bold,
-    color: COLORS.ink,
-  });
+  // --- Identité du praticien -------------------------------------------------
+  put(page, doctorName, M, y, serifBold, 13, COLORS.ink);
   y -= 15;
   if (rx.doctor_specialty) {
-    page.drawText(pdfSafe(rx.doctor_specialty), {
-      x: M,
-      y,
-      size: 8.5,
-      font: regular,
-      color: COLORS.emeraldDark,
-    });
-    y -= 11;
+    put(page, rx.doctor_specialty, M, y, serifItalic, 9, COLORS.accent);
+    y -= 12;
   }
-  const licenseLine = [
+  const proLine = [
     rx.doctor_license ? `N° professionnel : ${rx.doctor_license}` : "",
     rx.establishment_phone ? `Tél. : ${rx.establishment_phone}` : "",
   ]
     .filter(Boolean)
-    .join("   •   ");
-  if (licenseLine) {
-    page.drawText(pdfSafe(licenseLine), {
-      x: M,
-      y,
-      size: 7.5,
-      font: regular,
-      color: COLORS.muted,
-    });
-    y -= 10;
-  }
-  page.drawText(pdfSafe(rx.establishment_name), {
-    x: M,
-    y,
-    size: 9,
-    font: bold,
-    color: COLORS.emeraldDark,
-  });
+    .join("   ·   ");
+  put(page, proLine, M, y, sans, 7.6, COLORS.muted);
   y -= 11;
-  if (rx.establishment_address) {
-    page.drawText(pdfSafe(rx.establishment_address), {
-      x: M,
-      y,
-      size: 7.5,
-      font: regular,
-      color: COLORS.muted,
-    });
-    y -= 10;
+  put(page, rx.establishment_name, M, y, serifBold, 9, COLORS.ink);
+  y -= 11;
+  put(page, rx.establishment_address, M, y, sans, 7.4, COLORS.muted);
+  y -= 9;
+
+  putRight(page, `DATE : ${issued}`, A4.width - M, A4.height - 102, sansBold, 7.6, COLORS.accent);
+  putRight(page, `N° ${rx.number}`, A4.width - M, A4.height - 115, serifBold, 9, COLORS.ink);
+  putRight(page, `Version ${rx.version}`, A4.width - M, A4.height - 127, sans, 7, COLORS.muted);
+
+  y -= 10;
+  rule(page, M, y, CONTENT, true);
+  y -= 20;
+
+  // --- Patient --------------------------------------------------------------
+  ensure(76);
+  put(page, "PATIENT", M, y, sansBold, 7, COLORS.accent);
+  y -= 15;
+  put(page, rx.patient_name, M, y, serifBold, 12, COLORS.ink);
+  const age = ageFromBirth(rx.patient_birth_date);
+  const sex = rx.patient_sex === "F" ? "Féminin" : rx.patient_sex === "M" ? "Masculin" : rx.patient_sex;
+  const meta = [age != null ? `${age} ans` : "", sex, rx.patient_phone ? `Tél. ${rx.patient_phone}` : ""]
+    .filter(Boolean)
+    .join("   ·   ");
+  put(page, meta, M + 210, y + 1, sans, 7.6, COLORS.muted);
+  y -= 10;
+  rule(page, M, y + 7, CONTENT);
+  put(page, `Identifiant SAHA : ${patientCode(rx.patient_id)}`, M, y - 8, sans, 7.4, COLORS.muted);
+  put(
+    page,
+    rx.identity_verified ? "Identité vérifiée" : "Identité à vérifier",
+    A4.width - M - sans.widthOfTextAtSize(
+      rx.identity_verified ? "Identité vérifiée" : "Identité à vérifier",
+      7.4,
+    ),
+    y - 8,
+    sans,
+    7.4,
+    rx.identity_verified ? COLORS.accent : COLORS.muted,
+  );
+  y -= 24;
+
+  // --- Diagnostic / motif ---------------------------------------------------
+  const diagnosis = [rx.diagnosis?.trim(), rx.reason?.trim()].filter(Boolean).join(" — ");
+  if (diagnosis) {
+    ruledLines("DIAGNOSTIC / MOTIF", diagnosis, serif, 9.5, 16, 2);
   }
+
+  // --- Prescription sur lignes ----------------------------------------------
+  ensure(40);
+  put(page, "PRESCRIPTION", M, y, sansBold, 8, COLORS.accent);
+  y -= 10;
+  rule(page, M, y, CONTENT, true);
+  y -= 14;
+
+  if (!items.length) {
+    for (let i = 0; i < 4; i++) {
+      ensure(18);
+      rule(page, M, y - 14, CONTENT);
+      y -= 22;
+    }
+  }
+
+  items.forEach((item, index) => {
+    const first = [item.medicine_name, item.dosage].filter(Boolean).join(" — ");
+    const headLines = wrap(`${index + 1}. ${first}`, serifBold, 9.6, CONTENT - 16);
+    const detail = [
+      item.form,
+      item.instructions,
+      item.posology,
+      item.frequency,
+      item.route,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const detailLines = wrap(detail, serif, 8.4, CONTENT - 32);
+    const tail = [
+      item.duration ? `Durée : ${item.duration}` : "",
+      item.quantity ? `Quantité : ${item.quantity}` : "",
+    ]
+      .filter(Boolean)
+      .join("   ·   ");
+    const tailLines = tail ? wrap(tail, serifItalic, 8, CONTENT - 32) : [];
+    const lines = [...headLines, ...detailLines, ...tailLines];
+    const lineHeight = 16;
+    const height = lines.length * lineHeight + 8;
+    ensure(height + 4);
+
+    for (let i = 0; i < lines.length; i++) {
+      const baseline = y - (i + 1) * lineHeight + 5;
+      rule(page, M, baseline, CONTENT);
+      const isHead = i < headLines.length;
+      put(page, lines[i], M + (isHead ? 6 : 18), baseline + 2, isHead ? serifBold : i >= headLines.length + detailLines.length ? serifItalic : serif, isHead ? 9.6 : 8.4, COLORS.ink);
+    }
+    y -= height;
+  });
 
   y -= 8;
 
-  // --- Patient --------------------------------------------------------------
-  const patientBoxHeight = 76;
-  ensure(patientBoxHeight + 12);
-  page.drawRectangle({
-    x: M,
-    y: y - patientBoxHeight,
-    width: A4.width - M * 2,
-    height: patientBoxHeight,
-    color: COLORS.emeraldLight,
-    borderColor: rgb(0.78, 0.9, 0.86),
-    borderWidth: 0.7,
-  });
-  page.drawRectangle({
-    x: M,
-    y: y - patientBoxHeight,
-    width: 4,
-    height: patientBoxHeight,
-    color: COLORS.emerald,
-  });
-  page.drawText("PATIENT", {
-    x: M + 14,
-    y: y - 17,
-    size: 7.2,
-    font: bold,
-    color: COLORS.emeraldDark,
-  });
-  page.drawText(pdfSafe(rx.patient_name), {
-    x: M + 14,
-    y: y - 32,
-    size: 12,
-    font: bold,
-    color: COLORS.ink,
-  });
-  const age = ageFromBirth(rx.patient_birth_date);
-  const patientMeta = [
-    age != null ? `${age} ans` : "",
-    rx.patient_sex === "F" ? "Féminin" : rx.patient_sex === "M" ? "Masculin" : rx.patient_sex ?? "",
-    rx.patient_phone ? `Tél. ${rx.patient_phone}` : "",
-  ]
-    .filter(Boolean)
-    .join("   •   ");
-  page.drawText(pdfSafe(patientMeta), {
-    x: M + 14,
-    y: y - 46,
-    size: 7.8,
-    font: regular,
-    color: COLORS.muted,
-  });
-  page.drawText(pdfSafe(`Identifiant SAHA : ${patientCode(rx.patient_id)}`), {
-    x: M + 14,
-    y: y - 58,
-    size: 7.2,
-    font: regular,
-    color: COLORS.muted,
-  });
-
-  const rightX = A4.width - M - 14;
-  const dateLabel = "DATE DE CONSULTATION";
-  page.drawText(dateLabel, {
-    x: rightX - bold.widthOfTextAtSize(dateLabel, 6.8),
-    y: y - 17,
-    size: 6.8,
-    font: bold,
-    color: COLORS.emeraldDark,
-  });
-  const dateValue = dateFr(rx.consultation_date);
-  page.drawText(dateValue, {
-    x: rightX - bold.widthOfTextAtSize(dateValue, 10),
-    y: y - 32,
-    size: 10,
-    font: bold,
-    color: COLORS.ink,
-  });
-  const verifiedLabel = rx.identity_verified ? "IDENTITÉ VÉRIFIÉE" : "IDENTITÉ À VÉRIFIER";
-  const vw = bold.widthOfTextAtSize(verifiedLabel, 6.4);
-  page.drawRectangle({
-    x: rightX - vw - 10,
-    y: y - 52,
-    width: vw + 10,
-    height: 13,
-    color: rx.identity_verified ? rgb(0.88, 0.97, 0.93) : rgb(1, 0.95, 0.86),
-    borderColor: rx.identity_verified ? COLORS.emerald : rgb(0.85, 0.6, 0.1),
-    borderWidth: 0.5,
-  });
-  page.drawText(verifiedLabel, {
-    x: rightX - vw - 5,
-    y: y - 48,
-    size: 6.4,
-    font: bold,
-    color: rx.identity_verified ? COLORS.emeraldDark : rgb(0.55, 0.38, 0.03),
-  });
-
-  y -= patientBoxHeight + 18;
-
-  // --- Diagnostic / motif ---------------------------------------------------
-  const diagnosis = rx.diagnosis?.trim();
-  const reason = rx.reason?.trim();
-  if (diagnosis || reason) {
-    ensure(52);
-    let cursor = y;
-    if (diagnosis) {
-      page.drawText("DIAGNOSTIC", {
-        x: M,
-        y: cursor,
-        size: 6.8,
-        font: bold,
-        color: COLORS.emeraldDark,
-      });
-      cursor -= 12;
-      cursor -= drawWrapped(diagnosis, M, cursor, 300, bold, 10, COLORS.ink);
-      cursor -= 4;
-    }
-    if (reason) {
-      page.drawText("MOTIF DE CONSULTATION", {
-        x: M,
-        y: cursor,
-        size: 6.8,
-        font: bold,
-        color: COLORS.emeraldDark,
-      });
-      cursor -= 11;
-      cursor -= drawWrapped(reason, M, cursor, 300, regular, 8, COLORS.muted);
-    }
-    y = cursor - 10;
+  // --- Conseils / observations ----------------------------------------------
+  if (rx.advice?.trim()) ruledLines("CONSEILS", rx.advice, serif, 9, 16, 2);
+  if (rx.observations?.trim()) {
+    ruledLines("OBSERVATIONS", rx.observations, serif, 8.6, 16, 2);
   }
 
-  // --- Tableau des médicaments ---------------------------------------------
-  const col = {
-    name: M,
-    nameW: 240,
-    posology: M + 248,
-    posologyW: 140,
-    duration: M + 394,
-    durationW: 58,
-    quantity: M + 456,
-    quantityW: 51,
-  };
-  const headerH = 22;
-
-  const drawTableHeader = () => {
-    ensure(headerH + 4);
-    page.drawRectangle({
-      x: M,
-      y: y - headerH,
-      width: A4.width - M * 2,
-      height: headerH,
-      color: COLORS.emeraldDark,
-    });
-    const labels: Array<[string, number]> = [
-      ["MÉDICAMENT", col.name + 8],
-      ["POSOLOGIE", col.posology],
-      ["DURÉE", col.duration],
-      ["QTÉ", col.quantity],
-    ];
-    for (const [label, x] of labels) {
-      page.drawText(label, {
-        x,
-        y: y - 14,
-        size: 6.6,
-        font: bold,
-        color: COLORS.white,
-      });
-    }
-    y -= headerH;
-  };
-
-  drawTableHeader();
-
-  items.forEach((item, index) => {
-    const nameLines = wrap(
-      [item.medicine_name, item.dosage].filter(Boolean).join(" — "),
-      bold,
-      8.6,
-      col.nameW - 12,
-    );
-    const formLine = [item.form, item.instructions].filter(Boolean).join(" • ");
-    const formLines = formLine ? wrap(formLine, regular, 6.9, col.nameW - 12) : [];
-    const posologyLines = wrap(
-      [item.posology, item.frequency, item.route].filter(Boolean).join("\n"),
-      regular,
-      7.4,
-      col.posologyW - 4,
-    );
-    const durationLines = wrap(item.duration ?? "—", regular, 7.2, col.durationW - 4);
-    const quantityLines = wrap(item.quantity ?? "—", regular, 7.2, col.quantityW - 2);
-    const rowLines = Math.max(
-      nameLines.length + formLines.length,
-      posologyLines.length,
-      durationLines.length,
-      quantityLines.length,
-      1,
-    );
-    const rowH = Math.max(28, rowLines * 9.2 + 12);
-    ensure(rowH + 2);
-    if (y === A4.height - 82 - headerH) drawTableHeader();
-    page.drawRectangle({
-      x: M,
-      y: y - rowH,
-      width: A4.width - M * 2,
-      height: rowH,
-      color: index % 2 === 0 ? COLORS.white : rgb(0.975, 0.988, 0.984),
-      borderColor: COLORS.line,
-      borderWidth: 0.4,
-    });
-    let ty = y - 12;
-    nameLines.forEach((line, i) => {
-      page.drawText(line, {
-        x: col.name + 8,
-        y: ty - i * 9.4,
-        size: 8.6,
-        font: bold,
-        color: COLORS.ink,
-      });
-    });
-    ty -= nameLines.length * 9.4;
-    formLines.forEach((line, i) => {
-      page.drawText(line, {
-        x: col.name + 8,
-        y: ty - i * 8.2,
-        size: 6.9,
-        font: regular,
-        color: COLORS.muted,
-      });
-    });
-    posologyLines.forEach((line, i) => {
-      page.drawText(line, {
-        x: col.posology,
-        y: y - 12 - i * 9,
-        size: 7.4,
-        font: regular,
-        color: COLORS.ink,
-      });
-    });
-    durationLines.forEach((line, i) => {
-      page.drawText(line, {
-        x: col.duration,
-        y: y - 12 - i * 9,
-        size: 7.2,
-        font: regular,
-        color: COLORS.muted,
-      });
-    });
-    quantityLines.forEach((line, i) => {
-      page.drawText(line, {
-        x: col.quantity,
-        y: y - 12 - i * 9,
-        size: 7.2,
-        font: regular,
-        color: COLORS.muted,
-      });
-    });
-    y -= rowH;
-  });
-
-  y -= 16;
-
-  // --- Conseils / observations ---------------------------------------------
-  if (rx.advice?.trim() || rx.observations?.trim()) {
-    const blocks = [
-      { title: "CONSEILS ET OBSERVATIONS", value: rx.advice?.trim() },
-      { title: "OBSERVATIONS MÉDICALES", value: rx.observations?.trim() },
-    ].filter((b) => b.value);
-    for (const block of blocks) {
-      const lines = wrap(block.value!, regular, 8, A4.width - M * 2 - 24);
-      const h = 24 + lines.length * 10.5;
-      ensure(h + 10);
-      page.drawRectangle({
-        x: M,
-        y: y - h,
-        width: A4.width - M * 2,
-        height: h,
-        color: COLORS.paper,
-        borderColor: COLORS.line,
-        borderWidth: 0.5,
-      });
-      page.drawText(block.title, {
-        x: M + 10,
-        y: y - 13,
-        size: 6.6,
-        font: bold,
-        color: COLORS.emeraldDark,
-      });
-      lines.forEach((line, i) => {
-        page.drawText(line, {
-          x: M + 10,
-          y: y - 25 - i * 10.5,
-          size: 8,
-          font: regular,
-          color: COLORS.ink,
-        });
-      });
-      y -= h + 10;
-    }
-  }
-
-  // --- Signature / cachet / QR ---------------------------------------------
-  const signatureH = 150;
+  // --- Cachet, signature et QR ----------------------------------------------
+  const signatureH = 132;
   ensure(signatureH + 10);
   const blockTop = y;
-  page.drawRectangle({
-    x: M,
-    y: blockTop - signatureH,
-    width: A4.width - M * 2,
-    height: signatureH,
-    color: rgb(0.97, 0.995, 0.985),
-    borderColor: rgb(0.76, 0.9, 0.84),
-    borderWidth: 0.8,
-  });
+  rule(page, M, blockTop, CONTENT, true);
 
-  // Cachet numérique (cercle double).
-  const stampX = M + 80;
-  const stampY = blockTop - 76;
-  page.drawCircle({ x: stampX, y: stampY, size: 39, borderColor: COLORS.emerald, borderWidth: 1.2 });
-  page.drawCircle({ x: stampX, y: stampY, size: 35, borderColor: COLORS.emerald, borderWidth: 0.5 });
-  centered(
-    { drawText: (t: string, o: { x: number; y: number; size: number; font: PDFFont; color: typeof COLORS.ink }) => page.drawText(t, o) } as unknown as PDFPage,
-    "CACHET",
-    stampY + 10,
-    bold,
-    6.4,
-    COLORS.emeraldDark,
-  );
-  // Le centrage ci-dessus est volontairement simple : le cachet est un élément
-  // graphique, les textes sont positionnés à la main pour rester dans le cercle.
-  page.drawText("NUMÉRIQUE", {
-    x: stampX - bold.widthOfTextAtSize("NUMÉRIQUE", 5.6) / 2,
-    y: stampY + 2,
-    size: 5.6,
-    font: bold,
-    color: COLORS.emeraldDark,
-  });
-  page.drawText(pdfSafe(rx.establishment_name).slice(0, 26), {
-    x: stampX - regular.widthOfTextAtSize(pdfSafe(rx.establishment_name).slice(0, 26), 4.8) / 2,
-    y: stampY - 9,
-    size: 4.8,
-    font: regular,
-    color: COLORS.muted,
-  });
-  page.drawText("Bamako • Mali", {
-    x: stampX - regular.widthOfTextAtSize("Bamako • Mali", 4.8) / 2,
-    y: stampY - 17,
-    size: 4.8,
-    font: regular,
-    color: COLORS.muted,
-  });
+  // Cachet discrêt.
+  const stampX = M + 40;
+  const stampY = blockTop - 62;
+  page.drawCircle({ x: stampX, y: stampY, size: 31, borderColor: COLORS.accent, borderWidth: 1 });
+  page.drawCircle({ x: stampX, y: stampY, size: 27, borderColor: COLORS.accent, borderWidth: 0.4 });
+  put(page, "SAHA SANTE", stampX - sansBold.widthOfTextAtSize("SAHA SANTE", 6) / 2, stampY + 8, sansBold, 6, COLORS.accent);
+  put(page, "CACHET", stampX - sansBold.widthOfTextAtSize("CACHET", 5.4) / 2, stampY - 1, sansBold, 5.4, COLORS.accent);
+  put(page, pdfSafe(rx.doctor_name).slice(0, 18), stampX - sans.widthOfTextAtSize(pdfSafe(rx.doctor_name).slice(0, 18), 5) / 2, stampY - 10, sans, 5, COLORS.muted);
 
-  // Signature manuscrite stylisée.
-  const sigX = M + 150;
-  page.drawText("SIGNATURE ÉLECTRONIQUE", {
-    x: sigX,
-    y: blockTop - 22,
-    size: 6.6,
-    font: bold,
-    color: COLORS.emeraldDark,
-  });
-  const signer = `Dr. ${rx.doctor_name.replace(/^dr\.?\s+/i, "")}`;
-  page.drawText(pdfSafe(signer), {
-    x: sigX,
-    y: blockTop - 50,
-    size: 17,
-    font: serifItalic,
-    color: rgb(0.02, 0.28, 0.22),
-  });
-  page.drawLine({
-    start: { x: sigX, y: blockTop - 58 },
-    end: { x: sigX + 170, y: blockTop - 58 },
-    thickness: 0.6,
-    color: COLORS.emerald,
-  });
-  page.drawText(pdfSafe(`Signé le ${dateFr(rx.signed_at)}`), {
-    x: sigX,
-    y: blockTop - 70,
-    size: 7,
-    font: regular,
-    color: COLORS.muted,
-  });
-  const hashShort = rx.signature_hash ? `${rx.signature_hash.slice(0, 24)}…` : "non signée";
-  page.drawText(pdfSafe(`Empreinte : ${hashShort}`), {
-    x: sigX,
-    y: blockTop - 81,
-    size: 6.3,
-    font: regular,
-    color: COLORS.muted,
-  });
-  page.drawText("Vérifiable en ligne — authentification SAHA Santé", {
-    x: sigX,
-    y: blockTop - 93,
-    size: 6.3,
-    font: italic,
-    color: COLORS.emeraldDark,
-  });
+  // Signature manuscrite.
+  const signRight = A4.width - M;
+  const signWidth = 230;
+  const signX = signRight - signWidth;
+  putRight(page, `Bamako, le ${issued}`, signRight, blockTop - 18, serifItalic, 8, COLORS.muted);
+  put(page, doctorName, signX, blockTop - 50, serifItalic, 16, COLORS.ink);
+  rule(page, signX, blockTop - 57, signWidth, true);
+  put(page, "Signature du praticien", signX, blockTop - 70, sans, 7, COLORS.muted);
+  put(page, `Signe le ${dateFr(rx.signed_at)}`, signX, blockTop - 84, sans, 6.8, COLORS.muted);
 
-  // QR de vérification.
-  const qrSize = 78;
-  const qrX = A4.width - M - qrSize - 14;
-  const qrY = blockTop - 18 - qrSize;
+  // QR de vérification, petit et en bas à gauche.
+  const qrSize = 58;
+  const qrX = M + 96;
+  const qrY = blockTop - 92 - qrSize;
   page.drawImage(qrImage, { x: qrX, y: qrY, width: qrSize, height: qrSize });
-  const qrLabel = "Scanner pour vérifier";
-  page.drawText(qrLabel, {
-    x: qrX + qrSize / 2 - regular.widthOfTextAtSize(qrLabel, 5.8) / 2,
-    y: qrY - 9,
-    size: 5.8,
-    font: regular,
-    color: COLORS.muted,
-  });
-
-  // Mention de version / avenant.
+  put(page, "Scanner pour verifier", qrX - 8, qrY - 11, sans, 6.4, COLORS.muted);
+  const hashShort = rx.signature_hash ? `${rx.signature_hash.slice(0, 20)}...` : "non signee";
+  put(page, `Empreinte : ${hashShort}`, M + 168, qrY + 26, sans, 6.2, COLORS.muted);
+  put(page, "Authentification SAHA Santé", M + 168, qrY + 15, serifItalic, 7, COLORS.accent);
   if (rx.version > 1) {
-    page.drawText(`Avenant — version ${rx.version}`, {
-      x: sigX,
-      y: blockTop - 108,
-      size: 6.2,
-      font: bold,
-      color: COLORS.emeraldDark,
-    });
+    put(page, `Avenant - version ${rx.version}`, M + 168, qrY + 4, sansBold, 6.2, COLORS.accent);
   }
 
-  y = blockTop - signatureH - 12;
+  y = blockTop - signatureH - 6;
 
-  // --- Filigrane selon le statut -------------------------------------------
+  // --- Filigrane selon le statut --------------------------------------------
   const watermark =
     rx.status === "draft"
       ? "BROUILLON"
       : rx.status === "cancelled"
-        ? "ANNULÉE"
+        ? "ANNULEE"
         : rx.status === "amended"
           ? "AVENANT"
           : null;
   if (watermark) {
     for (const p of doc.getPages()) {
       p.drawText(watermark, {
-        x: 105,
-        y: 320,
-        size: 78,
-        font: bold,
-        color: rgb(0.75, 0.82, 0.8),
-        opacity: 0.14,
-        rotate: degrees(38),
+        x: 110,
+        y: 330,
+        size: 76,
+        font: serifBold,
+        color: COLORS.rule,
+        opacity: 0.18,
+        rotate: -35,
       });
     }
   }
 
   const pages = doc.getPages();
   pages.forEach((p, i) => drawFooter(p, i, pages.length));
-
-  // Petit rappel de la date d'émission en bas de la dernière page.
-  page.drawText(
-    pdfSafe(
-      `Ordonnance ${rx.number} — ${rx.patient_name} — ${dateFr(rx.consultation_date)} — ${rx.establishment_name}`,
-    ),
-    {
-      x: M,
-      y: 10,
-      size: 5.8,
-      font: regular,
-      color: COLORS.muted,
-    },
-  );
 
   return doc.save();
 }
