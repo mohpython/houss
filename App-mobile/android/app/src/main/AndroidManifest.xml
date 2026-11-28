@@ -2,8 +2,9 @@
     <!-- Accès au serveur SAHA Santé -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <!-- Photo de l'ordonnance -->
+    <!-- Photo de l'ordonnance / QR d'e-ordonnance (pharmacie) -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <!-- Pharmacie la plus proche et livraison -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>

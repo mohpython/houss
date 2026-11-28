@@ -140,6 +140,8 @@ export const assignDoctorRoleAdmin = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertCallerIsAdmin(context.userId);
     const { prisma } = await import("@/server/db.server");
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { writeAudit } = await import("@/server/audit.server");
 
     const user = await prisma.users.findUnique({
       where: { id: data.userId },
@@ -219,14 +221,13 @@ export const assignDoctorRoleAdmin = createServerFn({ method: "POST" })
         data: { practitioner_id: practitioner.id } as never,
       },
     });
-    await prisma.audit_logs.create({
-      data: {
-        actor_user_id: context.userId,
-        action: "doctor.role.grant",
-        entity: "user_roles",
-        entity_id: user.id,
-        meta: { email: user.email, practitioner_id: practitioner.id } as never,
-      },
+    await writeAudit({
+      actorUserId: context.userId,
+      action: "doctor.role.grant",
+      entity: "user_roles",
+      entityId: user.id,
+      meta: { email: user.email, practitioner_id: practitioner.id },
+      request: getRequest(),
     });
 
     return { ok: true, user_id: user.id, practitioner_id: practitioner.id };
@@ -239,6 +240,8 @@ export const revokeDoctorRoleAdmin = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertCallerIsAdmin(context.userId);
     const { prisma } = await import("@/server/db.server");
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { writeAudit } = await import("@/server/audit.server");
     const user = await prisma.users.findUnique({
       where: { id: data.userId },
       select: { email: true },
@@ -258,14 +261,13 @@ export const revokeDoctorRoleAdmin = createServerFn({ method: "POST" })
         body: "Votre accès à l'espace e-Ordonnance a été retiré par l'administrateur.",
       },
     });
-    await prisma.audit_logs.create({
-      data: {
-        actor_user_id: context.userId,
-        action: "doctor.role.revoke",
-        entity: "user_roles",
-        entity_id: data.userId,
-        meta: { email: user?.email ?? null } as never,
-      },
+    await writeAudit({
+      actorUserId: context.userId,
+      action: "doctor.role.revoke",
+      entity: "user_roles",
+      entityId: data.userId,
+      meta: { email: user?.email ?? null },
+      request: getRequest(),
     });
     return { ok: true };
   });
@@ -364,6 +366,12 @@ export const setPractitionerStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertCallerIsAdmin(context.userId);
     const { prisma } = await import("@/server/db.server");
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { writeAudit } = await import("@/server/audit.server");
+    const before = await prisma.practitioners.findUnique({
+      where: { id: data.id },
+      select: { status: true, user: { select: { email: true } } },
+    });
     await prisma.practitioners.updateMany({
       where: { id: data.id },
       data: {
@@ -371,6 +379,19 @@ export const setPractitionerStatus = createServerFn({ method: "POST" })
         approved_at: data.status === "approved" ? new Date() : null,
         approved_by: data.status === "approved" ? context.userId : null,
       },
+    });
+    await writeAudit({
+      actorUserId: context.userId,
+      action: "admin.doctor_status_changed",
+      entity: "practitioners",
+      entityId: data.id,
+      meta: {
+        practitioner_id: data.id,
+        previous_status: before?.status ?? null,
+        next_status: data.status,
+        email: before?.user?.email ?? null,
+      },
+      request: getRequest(),
     });
     return { ok: true };
   });

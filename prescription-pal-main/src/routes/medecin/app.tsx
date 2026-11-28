@@ -17,7 +17,9 @@ export const Route = createFileRoute("/medecin/app")({
     // Verrou métier : même si un compte est connecté ailleurs dans l'app,
     // seul un praticien `doctor` approuvé par l'admin ouvre ce portail.
     if (session.access !== "ok") {
-      throw redirect({ to: "/medecin/connexion", search: { reason: "not_approved" } });
+      // Motif précis : la page de connexion affiche le message adapté, sans
+      // jamais créer de raccourci d'entrée dans le portail.
+      throw redirect({ to: "/medecin/connexion", search: { reason: session.access } });
     }
     return { session };
   },

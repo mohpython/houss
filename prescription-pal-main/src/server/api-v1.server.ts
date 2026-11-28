@@ -221,8 +221,9 @@ async function requestPhoneOtp(ctx: Ctx) {
       app_hash: z.string().trim().max(16).optional(),
     }),
   );
-  const { sendOtp, otpChannelAvailable } = await import("./messaging.server");
-  if (!otpChannelAvailable()) {
+  const { deliveryChannelsAvailable, deliverOtp } = await import("./messaging.server");
+  const available = deliveryChannelsAvailable();
+  if (!Object.values(available).some(Boolean)) {
     throw new ApiError(503, "La connexion par téléphone n'est pas activée.");
   }
   rateLimit(`api-otp:${clientIp(ctx)}`, 10, 3600_000);
@@ -234,7 +235,11 @@ async function requestPhoneOtp(ctx: Ctx) {
     where: { kind: "phone_otp", target: data.phone, consumed_at: null },
     data: { consumed_at: new Date() },
   });
-  await basePrisma.auth_tokens.create({
+  const user = await basePrisma.users.findUnique({
+    where: { phone: data.phone },
+    select: { email: true },
+  });
+  const token = await basePrisma.auth_tokens.create({
     data: {
       kind: "phone_otp",
       target: data.phone,
@@ -243,8 +248,22 @@ async function requestPhoneOtp(ctx: Ctx) {
       expires_at: new Date(Date.now() + 10 * 60_000),
     },
   });
-  await sendOtp(data.phone, code, data.app_hash);
-  return json({ ok: true });
+  try {
+    const { channels } = await deliverOtp(data.phone, code, data.app_hash, user?.email ?? null);
+    await basePrisma.auth_tokens.update({
+      where: { id: token.id },
+      data: { meta: { full_name: data.full_name ?? "", channels } as never },
+    });
+    // `channels` est additive : les clients existants lisent uniquement `ok`.
+    return json({ ok: true, channels });
+  } catch (err) {
+    await basePrisma.auth_tokens.delete({ where: { id: token.id } }).catch(() => undefined);
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(
+      503,
+      err instanceof Error ? err.message : "Aucun canal de vérification disponible.",
+    );
+  }
 }
 
 /**

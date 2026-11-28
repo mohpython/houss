@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { auth } from "@/integrations/auth/client";
+import { auth, type OtpChannel } from "@/integrations/auth/client";
 import { getAuthConfig } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,12 @@ const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
   error: z.string().optional(),
 });
+
+const CHANNEL_LABEL_KEYS: Record<OtpChannel, string> = {
+  sms: "auth.channelSms",
+  whatsapp: "auth.channelWhatsapp",
+  email: "auth.channelEmail",
+};
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
@@ -127,14 +133,20 @@ function AuthPage() {
     }
     setLoading(true);
     try {
-      const { error } = await auth.signInWithOtp({
+      const { data, error } = await auth.signInWithOtp({
         phone: normalizedPhone,
         fullName: mode === "signup" ? fullName : undefined,
       });
       if (error) throw error;
       setOtpSent(true);
       setResendCooldown(60);
-      toast.success(t("auth.codeSent"));
+      const channels = data?.channels ?? [];
+      if (channels.length) {
+        const labels = channels.map((channel) => t(CHANNEL_LABEL_KEYS[channel])).join(", ");
+        toast.success(t("auth.codeSentChannels", { channels: labels }));
+      } else {
+        toast.success(t("auth.codeSent"));
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("auth.phoneError"));
     } finally {

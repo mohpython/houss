@@ -11,15 +11,23 @@ export const Route = createFileRoute("/api/auth/google/callback")({
       GET: async ({ request }) => {
         const { env } = await import("@/server/env.server");
         const oauth = await import("@/server/oauth.server");
+        const { writeAudit } = await import("@/server/audit.server");
         const clearCookie = oauth.cookieHeader(oauth.OAUTH_COOKIE, "", 0);
-        const fail = (reason: string) =>
+        const redirectTo = (location: string) =>
           new Response(null, {
             status: 302,
-            headers: {
-              Location: `${env.appUrl}/auth?error=${encodeURIComponent(reason)}`,
-              "Set-Cookie": clearCookie,
-            },
+            headers: { Location: location, "Set-Cookie": clearCookie },
           });
+        const fail = async (reason: string, isDoctor: boolean, email: string | null = null) => {
+          await writeAudit({
+            actorUserId: null,
+            action: isDoctor ? "auth.doctor.login_refused" : "auth.login_refused",
+            entity: "user",
+            meta: { email, method: "google", reason },
+            request,
+          });
+          return redirectTo(`${env.appUrl}/auth?error=${encodeURIComponent(reason)}`);
+        };
 
         const url = new URL(request.url);
         const code = url.searchParams.get("code");
@@ -27,7 +35,10 @@ export const Route = createFileRoute("/api/auth/google/callback")({
           url.searchParams.get("state"),
           oauth.readCookie(request, oauth.OAUTH_COOKIE),
         );
-        if (!code || !state) return fail("google_state");
+        if (!code || !state) return await fail("google_state", false);
+
+        const isDoctorRedirect = state.redirect.startsWith("/medecin");
+        let attemptedEmail: string | null = null;
 
         // Chrome peut declencher deux fois la meme navigation : la seconde
         // arrive apres consommation du `code` (400). On reutilise alors la
@@ -43,8 +54,28 @@ export const Route = createFileRoute("/api/auth/google/callback")({
             expiresAt = cached.expiresAt;
           } else {
             const profile = await oauth.exchangeGoogleCode(code);
+            attemptedEmail = profile.email ? oauth.normalizeEmail(profile.email) : null;
+
+            // Le portail medecin exige le compte Google attache au profil
+            // praticien : on refuse avant toute creation de compte ou de session.
+            if (state.expectedEmail && attemptedEmail !== state.expectedEmail) {
+              await writeAudit({
+                actorUserId: null,
+                action: "auth.doctor.login_refused",
+                entity: "user",
+                meta: {
+                  email: attemptedEmail,
+                  claimed_email: state.expectedEmail,
+                  method: "google",
+                  reason: "google_email_mismatch",
+                },
+                request,
+              });
+              return redirectTo(`${env.appUrl}/medecin/connexion?reason=google_email_mismatch`);
+            }
+
             const { basePrisma } = await import("@/server/prisma-base.server");
-            const { createAccount, createSession, requestMeta, normalizeEmail } =
+            const { createAccount, createSession, requestMeta } =
               await import("@/server/auth.server");
 
             let user = await basePrisma.users.findUnique({
@@ -54,7 +85,7 @@ export const Route = createFileRoute("/api/auth/google/callback")({
             if (!user && profile.email && profile.emailVerified) {
               // Rattache le compte Google a un compte email existant.
               const existing = await basePrisma.users.findUnique({
-                where: { email: normalizeEmail(profile.email) },
+                where: { email: oauth.normalizeEmail(profile.email) },
                 select: { id: true },
               });
               if (existing) {
@@ -79,6 +110,14 @@ export const Route = createFileRoute("/api/auth/google/callback")({
             accessToken = session.access_token;
             expiresAt = session.expires_at;
             oauth.rememberSession(state.nonce, { accessToken, expiresAt });
+            await writeAudit({
+              actorUserId: user.id,
+              action: isDoctorRedirect ? "auth.doctor.login_success" : "auth.login_success",
+              entity: "user",
+              entityId: user.id,
+              meta: { email: attemptedEmail, method: "google" },
+              request,
+            });
           }
 
           if (state.mobile) {
@@ -91,13 +130,7 @@ export const Route = createFileRoute("/api/auth/google/callback")({
               access_token: accessToken,
               expires_at: String(expiresAt),
             });
-            return new Response(null, {
-              status: 302,
-              headers: {
-                Location: `${env.appUrl}/auth-callback?mobile=1#${fragment}`,
-                "Set-Cookie": clearCookie,
-              },
-            });
+            return redirectTo(`${env.appUrl}/auth-callback?mobile=1#${fragment}`);
           }
 
           const fragment = new URLSearchParams({
@@ -105,16 +138,10 @@ export const Route = createFileRoute("/api/auth/google/callback")({
             expires_at: String(expiresAt),
             redirect: state.redirect,
           });
-          return new Response(null, {
-            status: 302,
-            headers: {
-              Location: `${env.appUrl}/auth-callback#${fragment}`,
-              "Set-Cookie": clearCookie,
-            },
-          });
+          return redirectTo(`${env.appUrl}/auth-callback#${fragment}`);
         } catch (err) {
           console.error("[google-oauth]", err);
-          return fail("google_error");
+          return await fail("google_error", isDoctorRedirect, attemptedEmail);
         }
       },
     },

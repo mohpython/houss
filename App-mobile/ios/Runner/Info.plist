@@ -13,7 +13,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>NSCameraUsageDescription</key>
-		<string>SAHA Santé utilise l'appareil photo pour scanner votre ordonnance.</string>
+		<string>SAHA Santé utilise l'appareil photo pour scanner votre ordonnance et les QR codes d'ordonnance électronique.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>SAHA Santé accède à vos photos pour envoyer une ordonnance déjà enregistrée.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>

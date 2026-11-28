@@ -8,7 +8,21 @@ import 'package:saha_sante/features/spaces/space_widgets.dart';
 
 /// Vérification locale d'une ordonnance à partir du code lisible dans le QR.
 class DoctorRxVerifyScreen extends StatefulWidget {
-  const DoctorRxVerifyScreen({super.key});
+  const DoctorRxVerifyScreen({
+    super.key,
+    this.initialToken,
+    this.autoVerify = false,
+    this.initialResult,
+  });
+
+  /// Code issues du QR, affiché dans le champ (toujours modifiable).
+  final String? initialToken;
+
+  /// Lance la vérification une fois au premier rendu.
+  final bool autoVerify;
+
+  /// Résultat déjà obtenu par le scanner pharmacie : évite un second appel.
+  final Map<String, dynamic>? initialResult;
 
   @override
   State<DoctorRxVerifyScreen> createState() => _DoctorRxVerifyScreenState();
@@ -21,12 +35,31 @@ class _DoctorRxVerifyScreenState extends State<DoctorRxVerifyScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    final token = widget.initialToken?.trim();
+    if (token != null && token.isNotEmpty) {
+      _controller.text = token;
+    }
+    if (widget.initialResult != null) {
+      _result = Map<String, dynamic>.from(widget.initialResult!);
+    }
+    // Le scan pharmacie a déjà vérifié le jeton : on affiche seulement sa carte.
+    if (widget.autoVerify && _result == null && _controller.text.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _verify();
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
   Future<void> _verify() async {
+    if (_busy) return;
     final token = _controller.text.trim();
     if (token.isEmpty) return;
     setState(() {

@@ -21,15 +21,22 @@ export function googleRedirectUri() {
   return `${env.appUrl}/api/auth/google/callback`;
 }
 
-export function buildGoogleAuthUrl(redirectPath: string, mobile = false) {
+/** Normalisation locale : on ne fait pas confiance à la casse fournie par le client. */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export function buildGoogleAuthUrl(redirectPath: string, mobile = false, expectedEmail?: string) {
   const nonce = randomBytes(16).toString("base64url");
   const exp = Math.floor(Date.now() / 1000) + 600;
+  const claimedEmail = expectedEmail ? normalizeEmail(expectedEmail) : "";
   const payload = Buffer.from(
     JSON.stringify({
       r: safeRedirectPath(redirectPath),
       n: nonce,
       e: exp,
       ...(mobile ? { m: 1 } : {}),
+      ...(claimedEmail ? { x: claimedEmail } : {}),
     }),
   ).toString("base64url");
   const state = `${payload}.${hmac(payload)}`;
@@ -57,10 +64,16 @@ export function parseState(state: string | null, cookieNonce: string | null) {
       n: string;
       e: number;
       m?: number;
+      x?: string;
     };
     if (data.e < Math.floor(Date.now() / 1000)) return null;
     if (!cookieNonce || cookieNonce !== data.n) return null;
-    return { nonce: data.n, redirect: safeRedirectPath(data.r), mobile: data.m === 1 };
+    return {
+      nonce: data.n,
+      redirect: safeRedirectPath(data.r),
+      mobile: data.m === 1,
+      expectedEmail: data.x ? normalizeEmail(data.x) : null,
+    };
   } catch {
     return null;
   }

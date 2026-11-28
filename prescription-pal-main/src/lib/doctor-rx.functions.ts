@@ -253,6 +253,45 @@ export const getDoctorSession = createServerFn({ method: "GET" })
     return { ...base, practitioner, access: "pending" };
   });
 
+/**
+ * Trace un refus d'accès au portail médecin après une connexion réussie.
+ * Appelé par la page de connexion : les mots de passe et jetons ne sont jamais
+ * transmis ici, uniquement le motif métier (`access`).
+ */
+export const recordDoctorAccessDenied = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        access: z.enum(["missing", "pending", "rejected", "not_doctor"]),
+        method: z.enum(["password", "google"]).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { prisma } = await import("@/server/db.server");
+    const { writeAudit } = await import("@/server/audit.server");
+    const user = await prisma.users.findUnique({
+      where: { id: context.userId },
+      select: { email: true },
+    });
+    await writeAudit({
+      actorUserId: context.userId,
+      action: "auth.doctor.login_refused",
+      entity: "user",
+      entityId: context.userId,
+      meta: {
+        email: user?.email ?? null,
+        method: data.method ?? "password",
+        access: data.access,
+        reason: `access_${data.access}`,
+      },
+      request: getRequest(),
+    });
+    return { ok: true };
+  });
+
 export const getDoctorDashboard = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {

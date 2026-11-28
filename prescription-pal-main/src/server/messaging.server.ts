@@ -3,6 +3,7 @@
  */
 import nodemailer from "nodemailer";
 import { env } from "./env.server";
+import { whatsappConfigured } from "@/lib/whatsapp.server";
 
 // ============================================================================
 // Codes OTP par téléphone
@@ -109,4 +110,79 @@ export async function sendMail(to: string, subject: string, text: string, html?:
     return;
   }
   await t.sendMail({ from: env.smtpFrom, to, subject, text, html });
+}
+
+// ============================================================================
+// Livraison OTP multi-canaux
+// ============================================================================
+
+export type OtpChannel = "sms" | "whatsapp" | "email";
+
+/**
+ * Canaux réellement configurés. `OTP_CHANNEL=whatsapp` est compté comme
+ * WhatsApp uniquement (afin de n'envoyer qu'une seule fois le même code).
+ */
+export function deliveryChannelsAvailable(): Record<OtpChannel, boolean> {
+  const sms = otpChannelAvailable() && env.otpChannel !== "whatsapp";
+  return {
+    sms,
+    whatsapp: whatsappConfigured() || (otpChannelAvailable() && env.otpChannel === "whatsapp"),
+    email: env.smtpConfigured,
+  };
+}
+
+/**
+ * Envoie le MÊME code sur tous les canaux disponibles : Orange peut répondre
+ * 201 sans distribuer le SMS, on ne peut donc pas attendre un échec pour
+ * essayer les autres canaux. Les erreurs isolées sont collectées mais seules
+ * les erreurs de tous les canaux font échouer la demande.
+ */
+export async function deliverOtp(
+  phone: string,
+  code: string,
+  appHash?: string,
+  email?: string | null,
+): Promise<{ channels: OtpChannel[] }> {
+  const channels: OtpChannel[] = [];
+  const available = deliveryChannelsAvailable();
+
+  if (available.sms) {
+    try {
+      await sendOtp(phone, code, appHash);
+      channels.push("sms");
+    } catch (err) {
+      console.error("[otp] échec SMS", err);
+    }
+  }
+
+  if (available.whatsapp) {
+    try {
+      const { sendAuthTemplate } = await import("@/lib/whatsapp.server");
+      await sendAuthTemplate(
+        phone.replace(/^\+/, ""),
+        process.env.WHATSAPP_OTP_TEMPLATE || "saha_otp",
+        process.env.WHATSAPP_OTP_TEMPLATE_LANG || "fr",
+        code,
+      );
+      channels.push("whatsapp");
+    } catch (err) {
+      console.error("[otp] échec WhatsApp", err);
+    }
+  }
+
+  const toEmail = email?.trim();
+  if (available.email && toEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
+    try {
+      const text = `Votre code de connexion SAHA Santé est ${code}. Valable 10 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.`;
+      await sendMail(toEmail, "Votre code SAHA Santé", text);
+      channels.push("email");
+    } catch (err) {
+      console.error("[otp] échec e-mail", err);
+    }
+  }
+
+  if (!channels.length) {
+    throw new Error("Aucun canal de vérification disponible. Contactez le support.");
+  }
+  return { channels };
 }

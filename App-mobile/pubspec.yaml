@@ -53,6 +53,8 @@ dependencies:
   # Ordonnance électronique native : partage du PDF généré par le serveur.
   path_provider: ^2.1.0
   share_plus: ^10.0.0
+  # Scan du QR d'e-ordonnance (pharmacie) : caméra native + ML Kit / Vision.
+  mobile_scanner: ^7.5.0
 
   # Notifications push en arrière-plan, façon WhatsApp (Firebase Cloud Messaging)
   firebase_core: ^4.0.0

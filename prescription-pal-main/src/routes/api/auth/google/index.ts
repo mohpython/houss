@@ -11,9 +11,11 @@ export const Route = createFileRoute("/api/auth/google/")({
         if (!env.googleClientId || !env.googleClientSecret) {
           return Response.redirect(`${env.appUrl}/auth?error=google_disabled`, 302);
         }
-        const redirect = new URL(request.url).searchParams.get("redirect") ?? "/app";
-        const mobile = new URL(request.url).searchParams.get("mobile") === "1";
-        const { url, nonce } = buildGoogleAuthUrl(redirect, mobile);
+        const params = new URL(request.url).searchParams;
+        const redirect = params.get("redirect") ?? "/app";
+        const mobile = params.get("mobile") === "1";
+        const claimedEmail = params.get("claimed_email") ?? undefined;
+        const { url, nonce } = buildGoogleAuthUrl(redirect, mobile, claimedEmail);
         return new Response(null, {
           status: 302,
           headers: { Location: url, "Set-Cookie": cookieHeader(OAUTH_COOKIE, nonce, 600) },

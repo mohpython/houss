@@ -15,6 +15,7 @@ import 'package:saha_sante/features/home/patient_main_screen.dart';
 import 'package:saha_sante/features/location/delivery_location_screen.dart';
 import 'package:saha_sante/features/notifications/notifications_screen.dart';
 import 'package:saha_sante/features/pharmacy/pharmacy_main_screen.dart';
+import 'package:saha_sante/features/pharmacy/pharmacy_qr_verify_screen.dart';
 import 'package:saha_sante/features/pharmacy_choice/pharmacy_quotes_screen.dart';
 import 'package:saha_sante/features/pharmacy_directory/pharmacies_screen.dart';
 import 'package:saha_sante/features/otc/otc_screen.dart';
@@ -48,6 +49,7 @@ class AppRouter {
     '/otc',
     '/health',
     '/doctor-rx',
+    '/pharmacy/verify-qr',
   ];
 
   /// Ouvre le fil des notifications sans casser la pile de
@@ -213,7 +215,25 @@ class AppRouter {
           ),
           GoRoute(
             path: '/doctor-rx/verify',
-            builder: (context, state) => const DoctorRxVerifyScreen(),
+            builder: (context, state) {
+              final extra = state.extra;
+              final token = extra is Map ? extra['token'] : null;
+              final result = extra is Map ? extra['result'] : null;
+              return DoctorRxVerifyScreen(
+                initialToken: token is String ? token : null,
+                autoVerify: extra is Map && extra['auto'] == true,
+                initialResult: result is Map
+                    ? Map<String, dynamic>.from(result)
+                    : null,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/pharmacy/verify-qr',
+            // Le patient n'a pas de scan : il retombe sur la saisie manuelle.
+            builder: (context, state) => AppConfig.isPharmacy
+                ? const PharmacyQrVerifyScreen()
+                : const DoctorRxVerifyScreen(),
           ),
         ],
       );

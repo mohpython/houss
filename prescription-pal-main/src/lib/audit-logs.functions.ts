@@ -64,6 +64,7 @@ function categoryWhere(category: (typeof CATEGORIES)[number]): Prisma.audit_logs
       return {
         OR: [
           { action: { startsWith: "admin" } },
+          { action: { startsWith: "doctor." } },
           { action: { startsWith: "practitioner" } },
           { action: { startsWith: "neighborhood" } },
           { action: { startsWith: "inventory" } },

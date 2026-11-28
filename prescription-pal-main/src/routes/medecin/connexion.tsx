@@ -15,13 +15,70 @@ import {
 import { toast } from "sonner";
 import { auth } from "@/integrations/auth/client";
 import { getAuthConfig } from "@/lib/auth.functions";
-import { getDoctorSession } from "@/lib/doctor-rx.functions";
+import { getDoctorSession, recordDoctorAccessDenied } from "@/lib/doctor-rx.functions";
 import { DoctorBrand } from "@/components/doctor-rx/DoctorShell";
 import sahaLogo from "@/assets/saha-logo.jpeg.asset.json";
 
 const searchSchema = z.object({
-  reason: z.enum(["not_approved"]).optional(),
+  reason: z
+    .enum([
+      "not_approved",
+      "pending",
+      "rejected",
+      "not_doctor",
+      "missing",
+      "approved",
+      "google_email_mismatch",
+      "google_status_check",
+    ])
+    .optional(),
 });
+
+type LoginReason = NonNullable<z.infer<typeof searchSchema>["reason"]>;
+type ReasonTone = "amber" | "rose" | "sky" | "emerald";
+
+/** Messages précis par motif d'accès : aucun raccourci vers l'espace médecin. */
+const REASON_MESSAGES: Record<LoginReason, { text: string; tone: ReasonTone }> = {
+  not_approved: {
+    text: "Cet espace est réservé aux médecins approuvés par l'administrateur SAHA Santé. Connectez-vous avec un compte autorisé.",
+    tone: "amber",
+  },
+  pending: {
+    text: "Votre compte médecin est en attente de validation par l’administrateur SAHA Santé.",
+    tone: "amber",
+  },
+  rejected: {
+    text: "Votre compte médecin a été refusé. Contactez le support SAHA Santé.",
+    tone: "rose",
+  },
+  not_doctor: {
+    text: "Ce compte n’est pas rattaché à un profil médecin. Utilisez un compte praticien médecin.",
+    tone: "sky",
+  },
+  missing: {
+    text: "Aucun profil médecin n’est rattaché à ce compte. Contactez l’administrateur SAHA Santé.",
+    tone: "amber",
+  },
+  approved: {
+    text: "Compte médecin approuvé. Vous pouvez ouvrir votre espace.",
+    tone: "emerald",
+  },
+  google_email_mismatch: {
+    text: "L’adresse Google utilisée ne correspond pas à l’e-mail du profil praticien. Utilisez le compte Google associé à cette adresse ou contactez l’administrateur.",
+    tone: "rose",
+  },
+  google_status_check: {
+    text: "Vérification du profil médecin impossible. Réessayez.",
+    tone: "amber",
+  },
+};
+
+const TONE_CLASSES: Record<ReasonTone, string> = {
+  amber: "border-amber-300/25 bg-amber-400/10 text-amber-100",
+  rose: "border-rose-300/25 bg-rose-400/10 text-rose-200",
+  sky: "border-sky-300/25 bg-sky-400/10 text-sky-100",
+  emerald: "border-emerald-300/25 bg-emerald-400/10 text-emerald-100",
+};
 
 export const Route = createFileRoute("/medecin/connexion")({
   ssr: false,
@@ -39,8 +96,14 @@ function DoctorLogin() {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Erreur de saisie / identifiants : texte brut. Refus d'accès : motif précis.
   const [error, setError] = useState<string | null>(null);
+  const [accessReason, setAccessReason] = useState<LoginReason | null>(null);
   const [googleAvailable, setGoogleAvailable] = useState(false);
+  // `Route.useSearch()` est typé `any` par la génération de routes en place :
+  // on borne explicitement la valeur au motif connu avant de l'afficher.
+  const displayedReason: LoginReason | null =
+    accessReason ?? (REASON_MESSAGES[reason as LoginReason] ? (reason as LoginReason) : null);
 
   // Aucun raccourci « déjà connecté » : on n'affiche jamais le compte en cours
   // et on n'offre aucun lien direct vers l'espace médecin sur cette page.
@@ -50,6 +113,13 @@ function DoctorLogin() {
       .catch(() => setGoogleAvailable(false));
   }, []);
 
+  const changeAccount = async () => {
+    await auth.signOut();
+    setAccessReason(null);
+    setError(null);
+    await router.navigate({ to: "/medecin/connexion", search: {} });
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) {
@@ -58,9 +128,11 @@ function DoctorLogin() {
     }
     setLoading(true);
     setError(null);
+    setAccessReason(null);
     const { error: authError } = await auth.signInWithPassword({
       email: email.trim(),
       password,
+      surface: "medecin",
     });
     if (authError) {
       setError(
@@ -77,14 +149,15 @@ function DoctorLogin() {
     try {
       const session = await getDoctorSession();
       if (session.access !== "ok") {
-        setError(
-          "Ce compte n'est pas autorisé à ouvrir l'espace médecin. Seuls les médecins approuvés par l'administrateur peuvent y accéder.",
-        );
+        void recordDoctorAccessDenied({
+          data: { access: session.access, method: "password" },
+        }).catch(() => undefined);
+        setAccessReason(session.access);
         setLoading(false);
         return;
       }
     } catch {
-      setError("Vérification du profil médecin impossible. Réessayez.");
+      setAccessReason("google_status_check");
       setLoading(false);
       return;
     }
@@ -94,10 +167,12 @@ function DoctorLogin() {
 
   const handleGoogle = () => {
     setError(null);
+    setAccessReason(null);
     setLoading(true);
-    // Retour après consentement : /medecin/app applique le filtre « médecin
-    // approuvé » (getDoctorSession), exactement comme la connexion par mot de passe.
-    auth.signInWithGoogle("/medecin/app");
+    // Le state OAuth porte l'e-mail saisi : Google doit utiliser le compte
+    // associé au profil praticien. /medecin/app applique ensuite le filtre
+    // « médecin approuvé » (getDoctorSession).
+    auth.signInWithGoogle("/medecin/app", email.trim());
   };
 
   return (
@@ -167,10 +242,19 @@ function DoctorLogin() {
               Utilisez l'adresse e-mail rattachée à votre profil praticien approuvé.
             </p>
 
-            {reason === "not_approved" && (
-              <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3 text-[11px] leading-relaxed text-amber-100">
-                Cet espace est réservé aux médecins approuvés par l'administrateur SAHA Santé.
-                Connectez-vous avec un compte autorisé.
+            {displayedReason && (
+              <div
+                className={`mt-4 rounded-2xl border p-3 text-[11px] leading-relaxed ${TONE_CLASSES[REASON_MESSAGES[displayedReason].tone]}`}
+                role="status"
+              >
+                {REASON_MESSAGES[displayedReason].text}
+                <button
+                  type="button"
+                  onClick={() => void changeAccount()}
+                  className="mt-2 block text-[11px] font-semibold text-white/80 underline-offset-2 transition hover:text-white hover:underline"
+                >
+                  Changer de compte
+                </button>
               </div>
             )}
 
@@ -202,6 +286,9 @@ function DoctorLogin() {
                   </svg>
                   Continuer avec Google
                 </button>
+                <p className="mt-2 text-[10px] leading-relaxed text-[#8fb8ac]">
+                  Utilisez le compte Google associé à l’adresse e-mail de votre profil praticien.
+                </p>
                 <div className="my-5 flex items-center gap-3">
                   <div className="h-px flex-1 bg-white/10" />
                   <span className="text-[10px] uppercase tracking-widest text-[#7da69b]">ou</span>

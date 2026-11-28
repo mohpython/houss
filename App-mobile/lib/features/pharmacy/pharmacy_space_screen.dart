@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:saha_sante/core/api/api_client.dart';
+import 'package:saha_sante/core/config/app_config.dart';
 import 'package:saha_sante/core/services/api_service.dart';
 import 'package:saha_sante/core/theme/app_colors.dart';
 import 'package:saha_sante/core/theme/app_theme.dart';
@@ -710,6 +712,18 @@ class _PharmacySpaceScreenState extends State<PharmacySpaceScreen> {
                     ),
                   ],
                 ),
+                if (AppConfig.isPharmacy) ...[
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: actionButton(
+                      L10n.c('ph.verifyQr'),
+                      () => context.push('/pharmacy/verify-qr'),
+                      color: AppColors.accent,
+                      icon: Icons.qr_code_scanner,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 segmentedTabs(
                   labels: [L10n.c('ph.orders'), L10n.c('ph.stockTab')],

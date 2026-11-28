@@ -29,6 +29,8 @@ export { getAccessToken } from "./session-store";
 
 type Result<T> = { data: T; error: Error | null };
 
+export type OtpChannel = "sms" | "whatsapp" | "email";
+
 function asError(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err));
 }
@@ -102,6 +104,7 @@ export const auth = {
   async signInWithPassword(params: {
     email: string;
     password: string;
+    surface?: "medecin" | "web";
   }): Promise<Result<{ session: Session | null }>> {
     try {
       const session = await signInWithPassword({ data: params });
@@ -112,11 +115,13 @@ export const auth = {
     }
   },
 
-  /** Envoie un code à 6 chiffres par SMS / WhatsApp. */
-  async signInWithOtp(params: { phone: string; fullName?: string }): Promise<Result<null>> {
+  /** Envoie un code à 6 chiffres par SMS / WhatsApp / e-mail. */
+  async signInWithOtp(
+    params: { phone: string; fullName?: string },
+  ): Promise<Result<{ channels: OtpChannel[] } | null>> {
     try {
-      await requestPhoneOtp({ data: params });
-      return { data: null, error: null };
+      const result = await requestPhoneOtp({ data: params });
+      return { data: { channels: result.channels }, error: null };
     } catch (err) {
       return { data: null, error: asError(err) };
     }
@@ -136,9 +141,10 @@ export const auth = {
   },
 
   /** Redirige vers Google ; le retour se fait sur /auth-callback. */
-  signInWithGoogle(redirectPath = "/app") {
-    const url = `/api/auth/google?redirect=${encodeURIComponent(redirectPath)}`;
-    window.location.assign(url);
+  signInWithGoogle(redirectPath = "/app", expectedEmail?: string) {
+    const params = new URLSearchParams({ redirect: redirectPath });
+    if (expectedEmail?.trim()) params.set("claimed_email", expectedEmail.trim());
+    window.location.assign(`/api/auth/google?${params.toString()}`);
   },
 
   /** Enregistre une session reçue par redirection (connexion Google). */

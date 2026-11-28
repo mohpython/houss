@@ -29,10 +29,10 @@ function clientIp(request: Request | undefined) {
 /** Méthodes de connexion disponibles (pour afficher/masquer les boutons). */
 export const getAuthConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { env } = await import("@/server/env.server");
-  const { otpChannelAvailable } = await import("@/server/messaging.server");
+  const { deliveryChannelsAvailable } = await import("@/server/messaging.server");
   return {
     google: Boolean(env.googleClientId && env.googleClientSecret),
-    phone: otpChannelAvailable(),
+    phone: Object.values(deliveryChannelsAvailable()).some(Boolean),
     passwordReset: true,
   };
 });
@@ -78,12 +78,19 @@ export const signUpWithEmail = createServerFn({ method: "POST" })
 
 export const signInWithPassword = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z.object({ email: emailSchema, password: z.string().min(1).max(200) }).parse(input),
+    z
+      .object({
+        email: emailSchema,
+        password: z.string().min(1).max(200),
+        surface: z.enum(["medecin", "web"]).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     const { basePrisma } = await import("@/server/prisma-base.server");
     const { verifyPassword, hashPassword, createSession, requestMeta } =
       await import("@/server/auth.server");
+    const { writeAudit } = await import("@/server/audit.server");
     const { rateLimit } = await import("@/server/rate-limit.server");
     const request = getRequest();
     rateLimit(`signin:${clientIp(request)}`, 20, 15 * 60_000);
@@ -94,13 +101,36 @@ export const signInWithPassword = createServerFn({ method: "POST" })
       select: { id: true, password_hash: true },
     });
     const { ok, needsRehash } = await verifyPassword(data.password, user?.password_hash);
-    if (!user || !ok) throw new Error("Email ou mot de passe incorrect");
+    const prefix = data.surface === "medecin" ? "auth.doctor" : "auth";
+    if (!user || !ok) {
+      await writeAudit({
+        actorUserId: null,
+        action: `${prefix}.login_refused`,
+        entity: "user",
+        meta: {
+          email: data.email,
+          method: "password",
+          surface: data.surface ?? "web",
+          reason: "invalid_credentials",
+        },
+        request,
+      });
+      throw new Error("Email ou mot de passe incorrect");
+    }
     if (needsRehash) {
       await basePrisma.users.update({
         where: { id: user.id },
         data: { password_hash: await hashPassword(data.password) },
       });
     }
+    await writeAudit({
+      actorUserId: user.id,
+      action: `${prefix}.login_success`,
+      entity: "user",
+      entityId: user.id,
+      meta: { email: data.email, method: "password", surface: data.surface ?? "web" },
+      request,
+    });
     return createSession(user.id, requestMeta(request));
   });
 
@@ -111,10 +141,13 @@ export const requestPhoneOtp = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { basePrisma } = await import("@/server/prisma-base.server");
     const { sha256 } = await import("@/server/auth.server");
-    const { sendOtp, otpChannelAvailable } = await import("@/server/messaging.server");
+    const { deliveryChannelsAvailable, deliverOtp } = await import("@/server/messaging.server");
     const { rateLimit } = await import("@/server/rate-limit.server");
     const { randomInt } = await import("node:crypto");
-    if (!otpChannelAvailable()) throw new Error("La connexion par téléphone n'est pas activée.");
+    const available = deliveryChannelsAvailable();
+    if (!Object.values(available).some(Boolean)) {
+      throw new Error("La connexion par téléphone n'est pas activée.");
+    }
 
     const request = getRequest();
     rateLimit(`otp:${clientIp(request)}`, 10, 3600_000);
@@ -125,7 +158,12 @@ export const requestPhoneOtp = createServerFn({ method: "POST" })
       where: { kind: "phone_otp", target: data.phone, consumed_at: null },
       data: { consumed_at: new Date() },
     });
-    await basePrisma.auth_tokens.create({
+    // E-mail de contact éventuel : le code part aussi par e-mail si SMTP est configuré.
+    const user = await basePrisma.users.findUnique({
+      where: { phone: data.phone },
+      select: { email: true },
+    });
+    const token = await basePrisma.auth_tokens.create({
       data: {
         kind: "phone_otp",
         target: data.phone,
@@ -134,8 +172,18 @@ export const requestPhoneOtp = createServerFn({ method: "POST" })
         expires_at: new Date(Date.now() + 10 * 60_000),
       },
     });
-    await sendOtp(data.phone, code);
-    return { ok: true };
+    try {
+      const { channels } = await deliverOtp(data.phone, code, undefined, user?.email ?? null);
+      await basePrisma.auth_tokens.update({
+        where: { id: token.id },
+        data: { meta: { full_name: data.fullName ?? "", channels } as never },
+      });
+      return { ok: true, channels };
+    } catch (err) {
+      // Aucun canal n'a réussi : on ne laisse pas de code inutilisé actif.
+      await basePrisma.auth_tokens.delete({ where: { id: token.id } }).catch(() => undefined);
+      throw err;
+    }
   });
 
 export const verifyPhoneOtp = createServerFn({ method: "POST" })
